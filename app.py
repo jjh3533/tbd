@@ -1,7 +1,8 @@
+import math
 import re
-import requests
 import pandas as pd
 from pyairtable import Api
+import requests
 import streamlit as st
 import yfinance as yf
 
@@ -110,9 +111,14 @@ def fetch_amazon_info_via_rainforest(asin):
                     elif unit == "g":
                         raw_weight = val / 1000.0
 
-                    weight_kg = round(raw_weight + 0.5, 1)
+                    # 📦 포장 무게 0.5kg 추가
+                    calc_weight = raw_weight + 0.5
+
+                    # 📐 0.5kg 단위 올림 공식 적용 (예: 1.2kg -> 1.5kg / 1.7kg -> 2.0kg)
+                    weight_kg = math.ceil(calc_weight * 2.0) / 2.0
                     break
 
+        # 무게 미감지 시 최소 기본 1.0kg 세팅
         if weight_kg is None or weight_kg <= 0:
             weight_kg = 1.0
 
@@ -167,11 +173,14 @@ def run_tbd_tracker(log_container):
                 else prev_usd
             )
             curr_stock = amazon_data["in_stock"]
-            curr_weight = (
+
+            # 크롤링된 무게가 있을 경우에도 0.5kg 단위 올림 적용 검증
+            raw_w = (
                 amazon_data["weight_kg"]
                 if amazon_data["weight_kg"] is not None
                 else (prev_weight or 1.0)
             )
+            curr_weight = math.ceil(raw_w * 2.0) / 2.0
 
             if prev_usd != curr_usd:
                 update_data["Amazon_USD"] = curr_usd
@@ -196,7 +205,7 @@ def run_tbd_tracker(log_container):
                     msg_lines.append(f"✨ **[신규 상품 자동 등록 완료]** *{sku}*")
                     msg_lines.append(f"• 아마존 원가: `${curr_usd}`")
                     msg_lines.append(
-                        f"• 수집 무게/내배송비: `{curr_weight}kg` ({shipping_krw:,}원)"
+                        f"• 적용 무게/내배송비: `{curr_weight}kg` ({shipping_krw:,}원)"
                     )
                     msg_lines.append(
                         f"• 추천 판매가: **`{new_calc_price:,}원`**"
@@ -224,7 +233,7 @@ def run_tbd_tracker(log_container):
                         f"• 아마존 원가: `${prev_usd}` ➡️ **`${curr_usd}`**"
                     )
                     msg_lines.append(
-                        f"• 무게/내배송비: `{curr_weight}kg` ({shipping_krw:,}원)"
+                        f"• 적용 무게/내배송비: `{curr_weight}kg` ({shipping_krw:,}원)"
                     )
                     msg_lines.append(
                         f"• 추천 판매가: **`{new_calc_price:,}원`**"
@@ -259,15 +268,13 @@ def run_tbd_tracker(log_container):
 st.title("🚀 TBD SEOUL 커머스 관리 대시보드")
 st.caption("에어테이블 상품 관리, 신규 ASIN 등록 및 동기화")
 
-# 상단 환율 상태 표시
 current_rate = get_current_exchange_rate()
 st.metric(label="현재 적용 환율 (KRW/USD)", value=f"{current_rate} 원")
 
 st.divider()
 
-# 탭 구성: [1] 상품 목록 및 동기화, [2] 신규 상품 추가
 tab1, tab2 = st.tabs(
-    ["📦 registered Products & Sync", "➕ Add New Item (신규 등록)"]
+    ["📦 Registered Products & Sync", "➕ Add New Item (신규 등록)"]
 )
 
 with tab1:
@@ -288,7 +295,6 @@ with tab1:
             st.success("에어테이블 및 텔레그램 알림 처리가 완료되었습니다.")
             st.rerun()
 
-    # 에어테이블 데이터 불러와서 테이블 형태로 표시
     records = table.all()
     if records:
         data_list = []
@@ -335,7 +341,6 @@ with tab2:
             if not new_sku or not new_asin:
                 st.error("SKU와 ASIN은 필수 입력 항목입니다!")
             else:
-                # 에어테이블에 레코드 생성
                 new_record_data = {
                     "SKU": new_sku.strip(),
                     "ASIN": new_asin.strip().upper(),
