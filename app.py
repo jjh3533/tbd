@@ -59,7 +59,6 @@ def fetch_amazon_info_via_scraperapi(asin):
     """ScraperAPI 프록시를 통해 아마존 차단을 우회하고 가격, 재고, 무게 데이터를 정밀 파싱합니다."""
     target_url = f"https://www.amazon.com/dp/{asin}"
 
-    # ScraperAPI 프록시 파라미터 (country_code=us로 미국 달러가 고정)
     payload = {
         "api_key": SCRAPERAPI_KEY,
         "url": target_url,
@@ -118,12 +117,9 @@ def fetch_amazon_info_via_scraperapi(asin):
         weight_kg = None
         page_text = soup.get_text()
 
-        weight_match = re.search(
-            r"(?:Item|Package|Product)?\s*Weight\s*[:
-	]*\s*([\d\.]+)\s*(pounds|lbs|ounces|oz|kg|g)",
-            page_text,
-            re.IGNORECASE,
-        )
+        # 정규표현식 구문 오류 수정 완료 (한 줄 정리)
+        weight_pattern = r"(?:Item|Package|Product)?\s*Weight\s*[:\n\t]*\s*([\d\.]+)\s*(pounds|lbs|ounces|oz|kg|g)"
+        weight_match = re.search(weight_pattern, page_text, re.IGNORECASE)
 
         if weight_match:
             val = abs(float(weight_match.group(1)))
@@ -266,8 +262,7 @@ def run_tbd_tracker(log_container):
                     )
 
                 if msg_lines:
-                    send_telegram_msg("
-".join(msg_lines))
+                    send_telegram_msg("\n".join(msg_lines))
                     log_container.write(
                         f"✅ 업데이트 및 텔레그램 발송 완료: {sku}"
                     )
