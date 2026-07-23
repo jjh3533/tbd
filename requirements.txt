@@ -1,0 +1,5 @@
+streamlit
+pyairtable
+requests
+yfinance
+pandas
