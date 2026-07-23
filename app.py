@@ -265,7 +265,7 @@ def run_tbd_tracker(log_container):
 # ==========================================
 # 3. Streamlit UI 구성
 # ==========================================
-st.title("🚀 TBD SEOUL 커머스 관리 대시보드")
+st.title("🚀 TBD Dashboard")
 st.caption("에어테이블 상품 관리, 신규 ASIN 등록 및 동기화")
 
 current_rate = get_current_exchange_rate()
