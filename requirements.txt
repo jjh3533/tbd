@@ -3,3 +3,4 @@ pyairtable
 requests
 yfinance
 pandas
+beautifulsoup4

@@ -1,5 +1,6 @@
 import math
 import re
+from bs4 import BeautifulSoup
 import pandas as pd
 from pyairtable import Api
 import requests
@@ -17,7 +18,8 @@ AIRTABLE_API_TOKEN = "patGCAx3PVLC76hji.998b00597d0a3751e2151d0f1d1e6ef3f2c9790b
 AIRTABLE_BASE_ID = "apphI9EUz746dP0Ye"
 AIRTABLE_TABLE_NAME = "Products"
 
-RAINFOREST_API_KEY = "C1C3692776934234BED7460FEF5982D7"
+# 🔑 ScraperAPI Key 적용 완료
+SCRAPERAPI_KEY = "643a1d003d0287a250d8cff2f6016159"
 
 TELEGRAM_TOKEN = "8997002649:AAFku9xJ3fKAEq8yaqE8vQAlu8R34vqIwjw"
 TELEGRAM_CHAT_ID = "7729393976"
@@ -53,72 +55,94 @@ def send_telegram_msg(text: str):
         st.error(f"텔레그램 발송 실패: {e}")
 
 
-def fetch_amazon_info_via_rainforest(asin):
-    url = "https://api.rainforestapi.com/request"
-    params = {
-        "api_key": RAINFOREST_API_KEY,
-        "type": "product",
-        "amazon_domain": "amazon.com",
-        "asin": asin,
-        "currency": "USD",
+def fetch_amazon_info_via_scraperapi(asin):
+    """ScraperAPI 프록시를 통해 아마존 차단을 우회하고 가격, 재고, 무게 데이터를 정밀 파싱합니다."""
+    target_url = f"https://www.amazon.com/dp/{asin}"
+
+    # ScraperAPI 프록시 파라미터 (country_code=us로 미국 달러가 고정)
+    payload = {
+        "api_key": SCRAPERAPI_KEY,
+        "url": target_url,
+        "country_code": "us",
+        "keep_headers": "true",
     }
 
     try:
-        res = requests.get(url, params=params, timeout=15)
+        res = requests.get(
+            "http://api.scraperapi.com", params=payload, timeout=30
+        )
         if res.status_code != 200:
             return None
 
-        data = res.json()
-        product = data.get("product", {})
+        soup = BeautifulSoup(res.text, "html.parser")
 
+        # 1. 메인 달러 가격 파싱
         amazon_usd = 0.0
-        buybox = product.get("buybox_winner", {})
-        if buybox and "price" in buybox:
-            amazon_usd = float(buybox["price"].get("value", 0.0))
+        price_selectors = [
+            "#corePriceDisplay_desktop_feature_div .a-offscreen",
+            "#corePrice_feature_div .a-offscreen",
+            "#apex_desktop .a-offscreen",
+            "#priceblock_ourprice",
+            "#priceblock_dealprice",
+            ".a-price .a-offscreen",
+        ]
 
-        if amazon_usd == 0.0 and "price" in product:
-            amazon_usd = float(product["price"].get("value", 0.0))
+        for selector in price_selectors:
+            elems = soup.select(selector)
+            for elem in elems:
+                price_text = elem.get_text().strip()
+                clean_p = re.sub(r"[^\d.]", "", price_text)
+                if clean_p:
+                    try:
+                        val = float(clean_p)
+                        if 5.0 <= val <= 10000.0:
+                            amazon_usd = val
+                            break
+                    except ValueError:
+                        pass
+            if amazon_usd > 0:
+                break
 
+        # 2. 재고 상태 체크
         in_stock = True
-        if buybox and "availability" in buybox:
-            avail_type = buybox["availability"].get("type", "").lower()
-            if "out_of_stock" in avail_type or "unavailable" in avail_type:
+        avail_elem = soup.select_one("#availability")
+        if avail_elem:
+            avail_text = avail_elem.get_text().lower()
+            if (
+                "currently unavailable" in avail_text
+                or "out of stock" in avail_text
+            ):
                 in_stock = False
 
+        # 3. 무게(Weight) 추출 및 0.5kg 단위 올림 보정
         weight_kg = None
-        specifications = product.get("specifications", [])
+        page_text = soup.get_text()
 
-        for spec in specifications:
-            name = spec.get("name", "").lower()
-            if "weight" in name:
-                val_str = spec.get("value", "")
-                match = re.search(
-                    r"([\d\.]+)\s*(pounds|lbs|ounces|oz|kg|g)",
-                    val_str,
-                    re.IGNORECASE,
-                )
-                if match:
-                    val = abs(float(match.group(1)))
-                    unit = match.group(2).lower()
+        weight_match = re.search(
+            r"(?:Item|Package|Product)?\s*Weight\s*[:
+	]*\s*([\d\.]+)\s*(pounds|lbs|ounces|oz|kg|g)",
+            page_text,
+            re.IGNORECASE,
+        )
 
-                    raw_weight = 0.0
-                    if unit in ["pounds", "lbs"]:
-                        raw_weight = val * 0.453592
-                    elif unit in ["ounces", "oz"]:
-                        raw_weight = val * 0.0283495
-                    elif unit == "kg":
-                        raw_weight = val
-                    elif unit == "g":
-                        raw_weight = val / 1000.0
+        if weight_match:
+            val = abs(float(weight_match.group(1)))
+            unit = weight_match.group(2).lower()
 
-                    # 📦 포장 무게 0.5kg 추가
-                    calc_weight = raw_weight + 0.5
+            raw_weight = 0.0
+            if unit in ["pounds", "lbs"]:
+                raw_weight = val * 0.453592
+            elif unit in ["ounces", "oz"]:
+                raw_weight = val * 0.0283495
+            elif unit == "kg":
+                raw_weight = val
+            elif unit == "g":
+                raw_weight = val / 1000.0
 
-                    # 📐 0.5kg 단위 올림 공식 적용 (예: 1.2kg -> 1.5kg / 1.7kg -> 2.0kg)
-                    weight_kg = math.ceil(calc_weight * 2.0) / 2.0
-                    break
+            # 📦 포장 무게 0.5kg 추가 후 0.5kg 단위 올림 적용
+            calc_weight = raw_weight + 0.5
+            weight_kg = math.ceil(calc_weight * 2.0) / 2.0
 
-        # 무게 미감지 시 최소 기본 1.0kg 세팅
         if weight_kg is None or weight_kg <= 0:
             weight_kg = 1.0
 
@@ -133,7 +157,7 @@ def fetch_amazon_info_via_rainforest(asin):
 
 
 def run_tbd_tracker(log_container):
-    log_container.write("🚀 동기화 프로세스를 시작합니다...")
+    log_container.write("🚀 ScraperAPI 동기화 프로세스를 시작합니다...")
     current_rate = get_current_exchange_rate()
     log_container.write(f"💱 적용 환율: {current_rate}원")
 
@@ -159,7 +183,7 @@ def run_tbd_tracker(log_container):
         naver_id = fields.get("Naver_Product_No", "-")
 
         log_container.write(f"🔍 [{sku}] (ASIN: {asin}) 정보 수집 중...")
-        amazon_data = fetch_amazon_info_via_rainforest(asin)
+        amazon_data = fetch_amazon_info_via_scraperapi(asin)
 
         update_data = {}
 
@@ -174,7 +198,6 @@ def run_tbd_tracker(log_container):
             )
             curr_stock = amazon_data["in_stock"]
 
-            # 크롤링된 무게가 있을 경우에도 0.5kg 단위 올림 적용 검증
             raw_w = (
                 amazon_data["weight_kg"]
                 if amazon_data["weight_kg"] is not None
@@ -243,7 +266,8 @@ def run_tbd_tracker(log_container):
                     )
 
                 if msg_lines:
-                    send_telegram_msg("\n".join(msg_lines))
+                    send_telegram_msg("
+".join(msg_lines))
                     log_container.write(
                         f"✅ 업데이트 및 텔레그램 발송 완료: {sku}"
                     )
@@ -265,8 +289,8 @@ def run_tbd_tracker(log_container):
 # ==========================================
 # 3. Streamlit UI 구성
 # ==========================================
-st.title("🚀 TBD Dashboard")
-st.caption("에어테이블 상품 관리, 신규 ASIN 등록 및 동기화")
+st.title("🚀 TBD SEOUL 커머스 관리 대시보드")
+st.caption("에어테이블 상품 관리, 신규 ASIN 등록 및 동기화 (ScraperAPI 엔진)")
 
 current_rate = get_current_exchange_rate()
 st.metric(label="현재 적용 환율 (KRW/USD)", value=f"{current_rate} 원")
