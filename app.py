@@ -18,13 +18,11 @@ AIRTABLE_API_TOKEN = "patGCAx3PVLC76hji.998b00597d0a3751e2151d0f1d1e6ef3f2c9790b
 AIRTABLE_BASE_ID = "apphI9EUz746dP0Ye"
 AIRTABLE_TABLE_NAME = "Products"
 
-# 🔑 ScraperAPI Key 적용 완료
 SCRAPERAPI_KEY = "643a1d003d0287a250d8cff2f6016159"
 
 TELEGRAM_TOKEN = "8997002649:AAFku9xJ3fKAEq8yaqE8vQAlu8R34vqIwjw"
 TELEGRAM_CHAT_ID = "7729393976"
 
-# 에어테이블 API 초기화
 api = Api(AIRTABLE_API_TOKEN)
 table = api.table(AIRTABLE_BASE_ID, AIRTABLE_TABLE_NAME)
 
@@ -48,6 +46,7 @@ def send_telegram_msg(text: str):
         "chat_id": TELEGRAM_CHAT_ID,
         "text": text,
         "parse_mode": "Markdown",
+        "disable_web_page_preview": True,
     }
     try:
         requests.post(url, json=payload, timeout=5)
@@ -56,9 +55,7 @@ def send_telegram_msg(text: str):
 
 
 def fetch_amazon_info_via_scraperapi(asin):
-    """ScraperAPI 프록시를 통해 아마존 차단을 우회하고 가격, 재고, 무게 데이터를 정밀 파싱합니다."""
     target_url = f"https://www.amazon.com/dp/{asin}"
-
     payload = {
         "api_key": SCRAPERAPI_KEY,
         "url": target_url,
@@ -75,7 +72,6 @@ def fetch_amazon_info_via_scraperapi(asin):
 
         soup = BeautifulSoup(res.text, "html.parser")
 
-        # 1. 메인 달러 가격 파싱
         amazon_usd = 0.0
         price_selectors = [
             "#corePriceDisplay_desktop_feature_div .a-offscreen",
@@ -102,7 +98,6 @@ def fetch_amazon_info_via_scraperapi(asin):
             if amazon_usd > 0:
                 break
 
-        # 2. 재고 상태 체크
         in_stock = True
         avail_elem = soup.select_one("#availability")
         if avail_elem:
@@ -113,11 +108,8 @@ def fetch_amazon_info_via_scraperapi(asin):
             ):
                 in_stock = False
 
-        # 3. 무게(Weight) 추출 및 0.5kg 단위 올림 보정
         weight_kg = None
         page_text = soup.get_text()
-
-        # 정규표현식 구문 오류 수정 완료 (한 줄 정리)
         weight_pattern = r"(?:Item|Package|Product)?\s*Weight\s*[:\n\t]*\s*([\d\.]+)\s*(pounds|lbs|ounces|oz|kg|g)"
         weight_match = re.search(weight_pattern, page_text, re.IGNORECASE)
 
@@ -135,7 +127,6 @@ def fetch_amazon_info_via_scraperapi(asin):
             elif unit == "g":
                 raw_weight = val / 1000.0
 
-            # 📦 포장 무게 0.5kg 추가 후 0.5kg 단위 올림 적용
             calc_weight = raw_weight + 0.5
             weight_kg = math.ceil(calc_weight * 2.0) / 2.0
 
@@ -158,8 +149,15 @@ def run_tbd_tracker(log_container):
     log_container.write(f"💱 적용 환율: {current_rate}원")
 
     records = table.all()
-    log_container.write(f"📦 에어테이블 레코드 {len(records)}개 조회 완료")
+    total_count = len(records)
+    log_container.write(f"📦 에어테이블 레코드 {total_count}개 조회 완료")
 
+    increased_count = 0
+    decreased_count = 0
+    out_of_stock_count = 0
+    back_in_stock_count = 0
+
+    detail_messages = []
     updated_count = 0
 
     for r in records:
@@ -216,68 +214,75 @@ def run_tbd_tracker(log_container):
                 new_calc_price = updated_record["fields"].get(
                     "Calculated_Price", 0
                 )
-                shipping_krw = updated_record["fields"].get("Shipping_KRW", 0)
-
-                msg_lines = []
 
                 if prev_usd == 0.0 and curr_usd > 0:
-                    msg_lines.append(f"✨ **[신규 상품 자동 등록 완료]** *{sku}*")
-                    msg_lines.append(f"• 아마존 원가: `${curr_usd}`")
-                    msg_lines.append(
-                        f"• 적용 무게/내배송비: `{curr_weight}kg` ({shipping_krw:,}원)"
-                    )
-                    msg_lines.append(
-                        f"• 추천 판매가: **`{new_calc_price:,}원`**"
+                    detail_messages.append(
+                        f"✨ **[신규 상품 등록]** *{sku}*\n• 아마존 원가: `${curr_usd}`\n• 추천"
+                        f" 판매가: **`{new_calc_price:,}원`**"
                     )
 
                 elif prev_stock != curr_stock:
-                    status_str = (
-                        "🔴 **[품절 발생]**"
-                        if not curr_stock
-                        else "🟢 **[재입고 완료]**"
-                    )
-                    msg_lines.append(f"{status_str} *{sku}*")
                     if not curr_stock:
-                        msg_lines.append(
-                            f"👉 스마트스토어({naver_id}) **품절 처리** 필요"
+                        out_of_stock_count += 1
+                        detail_messages.append(
+                            f"🔴 **[품절 발생]** *{sku}*\n• 스마트스토어({naver_id})"
+                            " **품절 처리** 필요"
+                        )
+                    else:
+                        back_in_stock_count += 1
+                        detail_messages.append(
+                            f"🟢 **[재입고 완료]** *{sku}*\n• 추천 판매가:"
+                            f" **`{new_calc_price:,}원`**"
                         )
 
                 elif prev_usd != curr_usd and curr_stock:
-                    diff = curr_usd - prev_usd
-                    direction = "📈 상승" if diff > 0 else "📉 하락"
-                    msg_lines.append(
-                        f"🔔 **[가격 변동 감지 - {direction}]** *{sku}*"
-                    )
-                    msg_lines.append(
-                        f"• 아마존 원가: `${prev_usd}` ➡️ **`${curr_usd}`**"
-                    )
-                    msg_lines.append(
-                        f"• 적용 무게/내배송비: `{curr_weight}kg` ({shipping_krw:,}원)"
-                    )
-                    msg_lines.append(
+                    if curr_usd > prev_usd:
+                        increased_count += 1
+                        direction = "📈 상승"
+                    else:
+                        decreased_count += 1
+                        direction = "📉 하락"
+
+                    detail_messages.append(
+                        f"🔔 **[가격 변동 - {direction}]** *{sku}*\n"
+                        f"• 아마존 원가: `${prev_usd}` ➡️ **`${curr_usd}`**\n"
                         f"• 추천 판매가: **`{new_calc_price:,}원`**"
                     )
-                    msg_lines.append(
-                        f"👉 [스마트스토어 수정 바로가기](https://sell.smartstore.naver.com/)"
-                    )
 
-                if msg_lines:
-                    send_telegram_msg("\n".join(msg_lines))
-                    log_container.write(
-                        f"✅ 업데이트 및 텔레그램 발송 완료: {sku}"
-                    )
-                else:
-                    log_container.write(
-                        f"ℹ️ 에어테이블 동기화 완료 (가격 변동 없어 알림"
-                        f" 스킵): {sku}"
-                    )
+                log_container.write(f"✅ 업데이트 완료: {sku}")
             else:
                 log_container.write(f"ℹ️ 변동 사항 없음: {sku}")
-        else:
-            if update_data:
-                table.update(record_id, update_data)
 
-    log_container.write("🎉 모든 작업 완료!")
+    changed_total = (
+        increased_count
+        + decreased_count
+        + out_of_stock_count
+        + back_in_stock_count
+    )
+
+    summary_header = [
+        "📊 **[TBD SEOUL] 웹 수동 동기화 리포트**",
+        f"• **총 관리 상품**: {total_count}개",
+        f"• **변동 상품**: {changed_total}개 (📈 상승 {increased_count} / 📉 하락"
+        f" {decreased_count} / 🔴 품절 {out_of_stock_count} / 🟢 재입고"
+        f" {back_in_stock_count})",
+        "\n---",
+    ]
+
+    if detail_messages:
+        final_msg = "\n\n".join(["\n".join(summary_header)] + detail_messages)
+        final_msg += (
+            "\n\n👉 [스마트스토어 수정"
+            " 바로가기](https://sell.smartstore.naver.com/)"
+        )
+    else:
+        final_msg = (
+            "\n".join(summary_header)
+            + "\n\n✨ 가격 및 재고 변동 사항이 없습니다."
+        )
+
+    send_telegram_msg(final_msg)
+    log_container.write("🎉 동기화 리포트 발송 완료!")
     return updated_count
 
 
