@@ -1,3 +1,4 @@
+import json
 import math
 import re
 from bs4 import BeautifulSoup
@@ -181,39 +182,50 @@ def fetch_bh_info(bh_id):
       return None
 
     soup = BeautifulSoup(res.text, "html.parser")
-
-    price_selectors = [
-        '[data-selenium="pricingPrice"]',
-        '[data-selenium="price"]',
-        ".pricing_12-4-0",
-        ".price_12-4-0",
-        'span[class*="price"]',
-    ]
-
     bh_usd = 0.0
-    for sel in price_selectors:
-      elems = soup.select(sel)
-      for elem in elems:
-        clean_p = re.sub(r"[^\d.]", "", elem.get_text().strip())
-        if clean_p:
-          try:
-            val = float(clean_p)
-            if 5.0 <= val <= 10000.0:
-              bh_usd = val
-              break
-          except ValueError:
-            pass
-      if bh_usd > 0:
-        break
-
     in_stock = True
-    stock_elem = soup.select_one('[data-selenium="stockStatus"]') or soup.select_one(
-        '[class*="stock"]'
-    )
-    if stock_elem:
-      st_text = stock_elem.get_text().lower()
-      if "out of stock" in st_text or "backorder" in st_text:
-        in_stock = False
+
+    scripts = soup.find_all("script", type="application/ld+json")
+    for script in scripts:
+      try:
+        data = json.loads(script.string)
+        if isinstance(data, list):
+          data = data[0]
+        offers = data.get("offers", {})
+        if isinstance(offers, list):
+          offers = offers[0]
+
+        price = offers.get("price") or offers.get("lowPrice")
+        if price:
+          bh_usd = float(price)
+          availability = str(offers.get("availability", "")).lower()
+          if "outofstock" in availability or "discontinued" in availability:
+            in_stock = False
+          break
+      except Exception:
+        pass
+
+    if bh_usd == 0.0:
+      price_selectors = [
+          '[data-selenium="pricingPrice"]',
+          '[data-selenium="price"]',
+          'span[class*="price"]',
+          ".price_12-4-0",
+      ]
+      for sel in price_selectors:
+        elems = soup.select(sel)
+        for elem in elems:
+          clean_p = re.sub(r"[^\d.]", "", elem.get_text().strip())
+          if clean_p:
+            try:
+              val = float(clean_p)
+              if 5.0 <= val <= 10000.0:
+                bh_usd = val
+                break
+            except ValueError:
+              pass
+        if bh_usd > 0:
+          break
 
     return {"price": bh_usd, "in_stock": in_stock}
   except Exception:
@@ -225,62 +237,80 @@ def fetch_adorama_info(adorama_id):
     return None
 
   clean_id = str(adorama_id).strip().lower()
-  target_url = f"https://www.adorama.com/{clean_id}.html"
+  target_urls = [
+      f"https://www.adorama.com/p/{clean_id}",
+      f"https://www.adorama.com/{clean_id}.html",
+      f"https://www.adorama.com/l/?searchinfo={clean_id}",
+  ]
 
-  try:
-    res = requests.get(
-        "http://api.scraperapi.com",
-        params={
-            "api_key": SCRAPERAPI_KEY,
-            "url": target_url,
-            "country_code": "us",
-            "keep_headers": "true",
-        },
-        timeout=30,
-    )
-    if res.status_code != 200:
-      return None
+  for target_url in target_urls:
+    try:
+      res = requests.get(
+          "http://api.scraperapi.com",
+          params={
+              "api_key": SCRAPERAPI_KEY,
+              "url": target_url,
+              "country_code": "us",
+              "keep_headers": "true",
+          },
+          timeout=30,
+      )
+      if res.status_code != 200:
+        continue
 
-    soup = BeautifulSoup(res.text, "html.parser")
+      soup = BeautifulSoup(res.text, "html.parser")
+      adorama_usd = 0.0
+      in_stock = True
 
-    price_selectors = [
-        ".your-price",
-        '[itemprop="price"]',
-        ".price",
-        'strong[class*="price"]',
-        "span.value",
-    ]
+      scripts = soup.find_all("script", type="application/ld+json")
+      for script in scripts:
+        try:
+          data = json.loads(script.string)
+          if isinstance(data, list):
+            data = data[0]
+          offers = data.get("offers", {})
+          if isinstance(offers, list):
+            offers = offers[0]
 
-    adorama_usd = 0.0
-    for sel in price_selectors:
-      elems = soup.select(sel)
-      for elem in elems:
-        clean_p = re.sub(r"[^\d.]", "", elem.get_text().strip())
-        if clean_p:
-          try:
-            val = float(clean_p)
-            if 5.0 <= val <= 10000.0:
-              adorama_usd = val
-              break
-          except ValueError:
-            pass
+          price = offers.get("price") or offers.get("lowPrice")
+          if price:
+            adorama_usd = float(price)
+            availability = str(offers.get("availability", "")).lower()
+            if "outofstock" in availability:
+              in_stock = False
+            break
+        except Exception:
+          pass
+
+      if adorama_usd == 0.0:
+        price_selectors = [
+            ".your-price",
+            '[itemprop="price"]',
+            ".price",
+            "span.value",
+        ]
+        for sel in price_selectors:
+          elems = soup.select(sel)
+          for elem in elems:
+            clean_p = re.sub(r"[^\d.]", "", elem.get_text().strip())
+            if clean_p:
+              try:
+                val = float(clean_p)
+                if 5.0 <= val <= 10000.0:
+                  adorama_usd = val
+                  break
+              except ValueError:
+                pass
+          if adorama_usd > 0:
+            break
+
       if adorama_usd > 0:
-        break
+        return {"price": adorama_usd, "in_stock": in_stock}
 
-    in_stock = True
-    stock_elem = (
-        soup.select_one(".stock-status")
-        or soup.select_one(".availability")
-        or soup.select_one('[class*="stock"]')
-    )
-    if stock_elem:
-      st_text = stock_elem.get_text().lower()
-      if "out of stock" in st_text or "backorder" in st_text:
-        in_stock = False
+    except Exception:
+      continue
 
-    return {"price": adorama_usd, "in_stock": in_stock}
-  except Exception:
-    return None
+  return {"price": 0.0, "in_stock": False}
 
 
 def fetch_amazon_info(asin):
@@ -338,7 +368,7 @@ def fetch_amazon_info(asin):
 
 def run_tbd_tracker(log_container):
   log_container.write(
-      "⚡ [UI.com Engine] Multi-retailer sync (B&H ➔ Adorama ➔ Amazon)..."
+      "⚡ [UI.com Engine] JSON-LD Multi-retailer sync running..."
   )
   current_rate = get_current_exchange_rate()
   log_container.write(f"💱 Applied Exchange Rate: ₩{current_rate}")
@@ -366,7 +396,7 @@ def run_tbd_tracker(log_container):
     prev_rate = fields.get("Exchange_Rate")
     naver_id = fields.get("Naver_Product_No", "-")
 
-    log_container.write(f"🔍 Fetching [{sku}] across retailers...")
+    log_container.write(f"🔍 Deep Parsing [{sku}]...")
 
     bh_data = fetch_bh_info(bh_id)
     adorama_data = fetch_adorama_info(adorama_id)
@@ -417,7 +447,7 @@ def run_tbd_tracker(log_container):
     try:
       table.update(record_id, update_data)
     except Exception as e:
-      log_container.write(f"⚠️ Table Update Warning ({sku}): {e}")
+      log_container.write(f"⚠️ AirTable Sync Warning ({sku}): {e}")
 
     updated_count += 1
 
@@ -438,7 +468,8 @@ def run_tbd_tracker(log_container):
         )
 
     log_container.write(
-        f"✅ [{sku}] Sync Complete (Best: ${best_price} / {best_source})"
+        f"✅ [{sku}] Complete | B&H:${bh_price} / Ado:${adorama_price} /"
+        f" Amz:${amazon_price} ➔ Best:${best_price}"
     )
 
   changed_total = out_of_stock_count + back_in_stock_count
@@ -463,7 +494,7 @@ def run_tbd_tracker(log_container):
     )
 
   send_telegram_msg(final_msg)
-  log_container.write("🎉 UI.com Sync Complete!")
+  log_container.write("🎉 UI.com Deep Sync Complete!")
   return updated_count
 
 
@@ -502,9 +533,7 @@ with tab1:
     if st.button(
         "⚡ Sync Retailers Now", type="primary", use_container_width=True
     ):
-      with st.status(
-          "Connecting to Retailer Network...", expanded=True
-      ) as status:
+      with st.status("Deep Extracting JSON-LD Data...", expanded=True) as status:
         count = run_tbd_tracker(status)
         status.update(
             label=f"Sync Finished ({count} items updated)",
