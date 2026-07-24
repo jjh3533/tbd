@@ -724,12 +724,46 @@ with tab1:
       r, g, b = (int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
       return f"rgba({r}, {g}, {b}, {alpha})"
 
+    # 가격 셀 클릭 시 해당 쇼핑몰 상품 페이지로 이동시키기 위한 URL 빌더.
+    # fetch_*_info()에서 크롤링할 때 쓰는 URL 규칙과 동일하게 맞춥니다.
+    def _adorama_url(adorama_id):
+      if not adorama_id:
+        return None
+      return f"https://www.adorama.com/{str(adorama_id).strip().lower()}.html"
+
+    def _amazon_url(asin):
+      if not asin:
+        return None
+      return f"https://www.amazon.com/dp/{str(asin).strip().upper()}"
+
+    def _bh_url(bh_id):
+      if not bh_id:
+        return None
+      return f"https://www.bhphotovideo.com/c/product/{str(bh_id).strip().upper()}/"
+
     rows_html = []
     for r in records:
       f = r["fields"]
       is_active = bool(f.get("In_Stock"))
       msrp = f.get("MSRP_USD", 0.0) or 0.0
       best_usd = f.get("Best_USD", 0.0) or 0.0
+      bh_usd = f.get("BH_USD", 0.0) or 0.0
+      adorama_usd = f.get("Adorama_USD", 0.0) or 0.0
+      amazon_usd = f.get("Amazon_USD", 0.0) or 0.0
+
+      bh_url = _bh_url(f.get("BH_ID"))
+      adorama_url = _adorama_url(f.get("ADORAMA_ID"))
+      amazon_url = _amazon_url(f.get("ASIN"))
+
+      # Best Price는 세 곳 중 최저가라, 실제로 그 값을 낸 쇼핑몰의 링크로
+      # 연결합니다. 반올림 오차 대비 0.01달러 오차는 같은 값으로 취급.
+      best_price_url = None
+      for price, url in (
+          (bh_usd, bh_url), (adorama_usd, adorama_url), (amazon_usd, amazon_url)
+      ):
+        if url and price > 0 and abs(price - best_usd) < 0.01:
+          best_price_url = url
+          break
 
       if best_usd <= 0:
         best_color = COLOR_BAD
@@ -744,9 +778,9 @@ with tab1:
           "SKU / Model": f.get("SKU", "-"),
           "Naver ID": f.get("Naver_Product_No", "-"),
           "UniFi Store ($)": f"${msrp:,.2f}",
-          "B&H ($)": f"${f.get('BH_USD', 0.0):,.2f}",
-          "Adorama ($)": f"${f.get('Adorama_USD', 0.0):,.2f}",
-          "Amazon ($)": f"${f.get('Amazon_USD', 0.0):,.2f}",
+          "B&H ($)": f"${bh_usd:,.2f}",
+          "Adorama ($)": f"${adorama_usd:,.2f}",
+          "Amazon ($)": f"${amazon_usd:,.2f}",
           "Best Price ($)": f"${best_usd:,.2f}",
           "Status": "🟢 Active" if is_active else "🔴 Out of Stock",
           "판매가격": f"₩ {f.get('판매금액', 0):,}",
@@ -754,9 +788,24 @@ with tab1:
           "수익": f"₩ {f.get('수익', 0):,}",
       }
 
+      # 금액 컬럼 → 해당 쇼핑몰 상품 페이지 링크. URL이 없으면(ID 미등록 등)
+      # 그냥 텍스트로만 표시합니다.
+      cell_links = {
+          "B&H ($)": bh_url,
+          "Adorama ($)": adorama_url,
+          "Amazon ($)": amazon_url,
+          "Best Price ($)": best_price_url,
+      }
+
       tds = []
       for col in columns:
         value = html_escape(str(cells[col]))
+        link_url = cell_links.get(col)
+        if link_url:
+          value = (
+              f'<a href="{html_escape(link_url)}" target="_blank"'
+              f' rel="noopener noreferrer">{value}</a>'
+          )
         if col == "Best Price ($)":
           # MSRP 대비 좋음/동일/나쁨(또는 데이터 없음)에 따라 텍스트+배경색 적용.
           # 배경은 텍스트색의 15% 알파로 은은하게.
@@ -801,6 +850,13 @@ with tab1:
         }}
         .uic-price-table tbody tr:hover {{
             background-color: #f8fafc;
+        }}
+        .uic-price-table td a {{
+            color: inherit;
+            text-decoration: none;
+        }}
+        .uic-price-table td a:hover {{
+            text-decoration: underline;
         }}
         .uic-price-table th:nth-child({divider_nth}),
         .uic-price-table td:nth-child({divider_nth}) {{
