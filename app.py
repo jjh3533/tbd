@@ -163,6 +163,27 @@ def send_telegram_msg(text: str):
     st.error(f"텔레그램 발송 실패: {e}")
 
 
+@st.cache_data(ttl=60)
+def get_scrapedo_usage():
+  """Scrape.do 계정의 남은 크레딧/동시요청 현황을 조회합니다.
+
+  이 엔드포인트는 분당 최대 10회 호출 제한이 있는데, Streamlit은 상호작용마다
+  스크립트를 처음부터 재실행하므로 매번 호출하면 금방 한도를 넘길 수 있습니다.
+  st.cache_data(ttl=60)로 60초에 한 번만 실제로 호출하도록 캐싱합니다.
+  """
+  try:
+    res = requests.get(
+        "https://api.scrape.do/info",
+        params={"token": SCRAPEDO_TOKEN},
+        timeout=10,
+    )
+    if res.status_code == 200:
+      return res.json()
+  except Exception:
+    pass
+  return None
+
+
 # Amazon PDP 플러그인 엔드포인트는 토큰당 동시 요청 1개 제한이 있어,
 # ThreadPoolExecutor의 여러 워커가 동시에 Amazon을 호출하지 못하도록
 # 세마포어로 직렬화합니다. (Adorama/B&H는 일반 프록시 엔드포인트라 해당 없음)
@@ -631,10 +652,25 @@ st.markdown(
 )
 
 current_rate = get_current_exchange_rate()
+scrapedo_usage = get_scrapedo_usage()
 
-col_m1, col_m2 = st.columns([1, 4])
+col_m1, col_m2, col_m3 = st.columns([1, 1, 3])
 with col_m1:
   st.metric(label="USD / KRW Exchange Rate", value=f"₩ {current_rate:,}")
+with col_m2:
+  if scrapedo_usage:
+    remaining = scrapedo_usage.get("RemainingMonthlyRequest", 0)
+    max_credits = scrapedo_usage.get("MaxMonthlyRequest", 0)
+    pct_left = f"{remaining / max_credits:.0%} 남음" if max_credits else None
+    st.metric(
+        label="Scrape.do 잔여 크레딧",
+        value=f"{remaining:,}",
+        delta=pct_left,
+        delta_color="off",
+        help=f"월 한도 {max_credits:,} 크레딧 기준",
+    )
+  else:
+    st.metric(label="Scrape.do 잔여 크레딧", value="조회 실패")
 
 st.divider()
 
