@@ -11,7 +11,10 @@ import yfinance as yf
 # 1. 페이지 및 환경 설정
 # ==========================================
 st.set_page_config(
-    page_title="TBD SEOUL 대시보드", page_icon="🚀", layout="wide"
+    page_title="UniFi Supply Center",
+    page_icon="⚡",
+    layout="wide",
+    initial_sidebar_state="collapsed",
 )
 
 AIRTABLE_API_TOKEN = "patGCAx3PVLC76hji.998b00597d0a3751e2151d0f1d1e6ef3f2c9790b0ff9686929d4b353cb24c418"
@@ -25,6 +28,110 @@ TELEGRAM_CHAT_ID = "7729393976"
 
 api = Api(AIRTABLE_API_TOKEN)
 table = api.table(AIRTABLE_BASE_ID, AIRTABLE_TABLE_NAME)
+
+# ==========================================
+# 🎨 UI.com Custom CSS Injector
+# ==========================================
+st.markdown(
+    """
+    <style>
+    /* UI.com Minimal Global Styling */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    html, body, [class*="css"] {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background-color: #f8fafc;
+        color: #0f172a;
+    }
+    
+    /* Header Area */
+    .uic-header {
+        background: linear-gradient(135deg, #0b132b 0%, #1c2541 100%);
+        padding: 24px 32px;
+        border-radius: 12px;
+        color: #ffffff;
+        margin-bottom: 24px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .uic-title {
+        font-size: 26px;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+        color: #ffffff;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .uic-subtitle {
+        font-size: 13px;
+        color: #94a3b8;
+        margin-top: 4px;
+        font-weight: 400;
+    }
+    
+    .uic-badge {
+        background-color: #0066ff;
+        color: #ffffff;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 4px 10px;
+        border-radius: 20px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    /* Metric Cards */
+    [data-testid="stMetricValue"] {
+        font-size: 24px !important;
+        font-weight: 700 !important;
+        color: #0066ff !important;
+    }
+    
+    /* UI.com Styled Buttons */
+    .stButton > button {
+        background-color: #0066ff !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        padding: 8px 16px !important;
+        transition: all 0.2s ease-in-out !important;
+        box-shadow: 0 2px 8px rgba(0, 102, 255, 0.2) !important;
+    }
+    
+    .stButton > button:hover {
+        background-color: #0052cc !important;
+        box-shadow: 0 4px 12px rgba(0, 102, 255, 0.35) !important;
+        transform: translateY(-1px);
+    }
+
+    /* Tabs Styling */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 24px;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .stTabs [data-baseweb="tab"] {
+        font-weight: 600;
+        font-size: 14px;
+        color: #64748b;
+        padding: 12px 4px;
+    }
+
+    .stTabs [aria-selected="true"] {
+        color: #0066ff !important;
+        border-bottom-color: #0066ff !important;
+    }
+    </style>
+""",
+    unsafe_allow_html=True,
+)
 
 
 # ==========================================
@@ -187,14 +294,14 @@ def fetch_amazon_info(asin):
 
 def run_tbd_tracker(log_container):
   log_container.write(
-      "🚀 멀티 쇼핑몰(B&H ➔ Adorama ➔ Amazon) 크롤링 시작..."
+      "⚡ [UI.com Engine] Multi-retailer sync (B&H ➔ Adorama ➔ Amazon)..."
   )
   current_rate = get_current_exchange_rate()
-  log_container.write(f"💱 적용 환율: {current_rate}원")
+  log_container.write(f"💱 Applied Exchange Rate: ₩{current_rate}")
 
   records = table.all()
   total_count = len(records)
-  log_container.write(f"📦 에어테이블 레코드 {total_count}개 조회 완료")
+  log_container.write(f"📦 Active Inventory Records: {total_count}")
 
   out_of_stock_count = 0
   back_in_stock_count = 0
@@ -215,7 +322,7 @@ def run_tbd_tracker(log_container):
     prev_rate = fields.get("Exchange_Rate")
     naver_id = fields.get("Naver_Product_No", "-")
 
-    log_container.write(f"🔍 [{sku}] B&H ➔ Adorama ➔ Amazon 순서로 크롤링 중...")
+    log_container.write(f"🔍 Fetching [{sku}] across retailers...")
 
     bh_data = fetch_bh_info(bh_id)
     adorama_data = fetch_adorama_info(adorama_id)
@@ -263,89 +370,105 @@ def run_tbd_tracker(log_container):
     if prev_rate != current_rate:
       update_data["Exchange_Rate"] = current_rate
 
-    table.update(record_id, update_data)
+    try:
+      table.update(record_id, update_data)
+    except Exception as e:
+      log_container.write(f"⚠️ Table Update Warning ({sku}): {e}")
+
     updated_count += 1
 
     if prev_stock != curr_stock:
       if not curr_stock:
         out_of_stock_count += 1
         detail_messages.append(
-            f"🔴 **[품절 발생 - 정가 재고 없음]** *{sku}*\n•"
-            f" 스마트스토어({naver_id}) **품절 처리** 필요"
+            f"🔴 **[OUT OF STOCK]** *{sku}*\n• SmartStore ID({naver_id})"
+            " Action Required"
         )
       else:
         back_in_stock_count += 1
         updated_record = table.get(record_id)
         new_calc_price = updated_record["fields"].get("Calculated_Price", 0)
         detail_messages.append(
-            f"🟢 **[재입고 감지]** *{sku}*\n• 최저가 출처: **{best_source}**"
-            f" (${best_price})\n• 추천 판매가: **`{new_calc_price:,}원`**"
+            f"🟢 **[BACK IN STOCK]** *{sku}*\n• Best Source: **{best_source}**"
+            f" (${best_price})\n• Target Price: **`{new_calc_price:,}원`**"
         )
 
     log_container.write(
-        f"✅ 완료: {sku} (최저가: ${best_price} / 출처: {best_source})"
+        f"✅ [{sku}] Sync Complete (Best: ${best_price} / {best_source})"
     )
 
   changed_total = out_of_stock_count + back_in_stock_count
 
   summary_header = [
-      "📊 **[TBD SEOUL] 웹 수동 동기화 리포트**",
-      f"• **총 관리 상품**: {total_count}개",
-      f"• **상태 변동 상품**: {changed_total}개 (🔴 품절 {out_of_stock_count} / 🟢"
-      f" 정상판매 {back_in_stock_count})",
+      "📊 **[UI.com Supply Monitor] Sync Report**",
+      f"• **Monitored Items**: {total_count} units",
+      f"• **Status Shift**: {changed_total} (🔴 Out of Stock {out_of_stock_count}"
+      f" / 🟢 Normal {back_in_stock_count})",
       "\n---",
   ]
 
   if detail_messages:
     final_msg = "\n\n".join(["\n".join(summary_header)] + detail_messages)
     final_msg += (
-        "\n\n👉 [스마트스토어 수정"
-        " 바로가기](https://sell.smartstore.naver.com/)"
+        "\n\n👉 [Naver Commerce Admin](https://sell.smartstore.naver.com/)"
     )
   else:
     final_msg = (
         "\n".join(summary_header)
-        + "\n\n✨ 품절 전환 또는 재입고 변동 사항이 없습니다."
+        + "\n\n✨ All inventory & price levels optimal."
     )
 
   send_telegram_msg(final_msg)
-  log_container.write("🎉 동기화 리포트 발송 완료!")
+  log_container.write("🎉 UI.com Sync Complete!")
   return updated_count
 
 
 # ==========================================
-# 3. Streamlit UI 구성
+# 3. Streamlit UI 구성 (UI.com Style)
 # ==========================================
-st.title("🚀 TBD SEOUL 커머스 관리 대시보드")
-st.caption(
-    "B&H ➔ Adorama ➔ Amazon 실시간 가격 비교 및 최저가 자동 산출 시스템"
+
+# UI.com Header Banner
+st.markdown(
+    """
+    <div class="uic-header">
+        <div>
+            <div class="uic-title">⚡ UniFi Supply Monitor</div>
+            <div class="uic-subtitle">Real-time Retailer Arbitrage & MSRP Price Defense Engine</div>
+        </div>
+        <div class="uic-badge">SYSTEM ACTIVE</div>
+    </div>
+""",
+    unsafe_allow_html=True,
 )
 
 current_rate = get_current_exchange_rate()
-st.metric(label="현재 적용 환율 (KRW/USD)", value=f"{current_rate} 원")
+
+col_m1, col_m2 = st.columns([1, 4])
+with col_m1:
+  st.metric(label="USD / KRW Exchange Rate", value=f"₩ {current_rate:,}")
 
 st.divider()
 
-tab1, tab2 = st.tabs(
-    ["📦 Registered Products & Sync", "➕ Add New Item (신규 등록)"]
-)
+tab1, tab2 = st.tabs(["📦 Inventory & Price Grid", "➕ Register New Product"])
 
 with tab1:
-  col1, col2 = st.columns([3, 1])
-  with col1:
-    st.subheader("등록된 상품 현황")
-  with col2:
+  col_t1, col_t2 = st.columns([3, 1])
+  with col_t1:
+    st.markdown("### Managed Products")
+  with col_t2:
     if st.button(
-        "🔄 지금 데이터 동기화 실행", type="primary", use_container_width=True
+        "⚡ Sync Retailers Now", type="primary", use_container_width=True
     ):
-      with st.status("동기화 진행 중...", expanded=True) as status:
+      with st.status(
+          "Connecting to Retailer Network...", expanded=True
+      ) as status:
         count = run_tbd_tracker(status)
         status.update(
-            label=f"동기화 완료! ({count}개 변경됨)",
+            label=f"Sync Finished ({count} items updated)",
             state="complete",
             expanded=False,
         )
-      st.success("에어테이블 및 텔레그램 알림 처리가 완료되었습니다.")
+      st.success("AirTable and Telegram alerts updated.")
       st.rerun()
 
   records = table.all()
@@ -354,55 +477,61 @@ with tab1:
     for r in records:
       f = r["fields"]
       data_list.append({
-          "SKU": f.get("SKU", "-"),
-          "MSRP ($)": f.get("MSRP_USD", 0.0),
-          "B&H ($)": f.get("BH_USD", 0.0),
-          "Adorama ($)": f.get("Adorama_USD", 0.0),
-          "Amazon ($)": f.get("Amazon_USD", 0.0),
-          "Best ($)": f.get("Best_USD", 0.0),
-          "In Stock": "🟢 정상판매" if f.get("In_Stock") else "🔴 품절(웃돈/재고없음)",
-          "Calculated Price (KRW)": f.get("Calculated_Price", 0),
-          "Naver Product No": f.get("Naver_Product_No", "-"),
+          "SKU / Model": f.get("SKU", "-"),
+          "MSRP ($)": f"${f.get('MSRP_USD', 0.0):,.2f}",
+          "B&H ($)": f"${f.get('BH_USD', 0.0):,.2f}",
+          "Adorama ($)": f"${f.get('Adorama_USD', 0.0):,.2f}",
+          "Amazon ($)": f"${f.get('Amazon_USD', 0.0):,.2f}",
+          "Best USD ($)": f"${f.get('Best_USD', 0.0):,.2f}",
+          "Status": "🟢 Active" if f.get("In_Stock") else "🔴 Out of Stock",
+          "Calculated KRW": f"₩ {f.get('Calculated_Price', 0):,}",
+          "Naver ID": f.get("Naver_Product_No", "-"),
       })
 
     df = pd.DataFrame(data_list)
     st.dataframe(df, use_container_width=True, hide_index=True)
   else:
-    st.info("현재 등록된 상품이 없습니다.")
+    st.info("No tracked products found in AirTable.")
 
 with tab2:
-  st.subheader("신규 트래킹 상품 추가")
-  st.write(
-      "상품 정보 및 각 쇼핑몰 ID, Surcharge가 포함된 공홈 정가(MSRP)를"
-      " 입력하세요."
+  st.markdown("### Add Product to Monitor")
+  st.caption(
+      "Enter model identifiers and MSRP (including RAM surcharge) for"
+      " automated tracking."
   )
 
   with st.form("add_product_form", clear_on_submit=True):
-    new_sku = st.text_input(
-        "상품명 / SKU", placeholder="예: Ubiquiti UniFi Express 7"
-    )
-    new_msrp = st.number_input(
-        "Surcharge 포함 공홈 정가 (MSRP USD $)",
-        min_value=0.0,
-        value=199.0,
-        step=1.0,
-    )
-    new_bh = st.text_input("B&H Product Code (선택)", placeholder="예: UBU7PRO")
-    new_adorama = st.text_input(
-        "Adorama SKU (선택)", placeholder="예: UBQU7PRO"
-    )
-    new_asin = st.text_input(
-        "Amazon ASIN (선택)", placeholder="예: B0CWLKD9RP"
-    )
-    new_naver_id = st.text_input(
-        "네이버 스마트스토어 상품번호 (선택)", placeholder="예: 10293848"
-    )
+    f_col1, f_col2 = st.columns(2)
+    with f_col1:
+      new_sku = st.text_input(
+          "Product Name / SKU *", placeholder="e.g. Ubiquiti Cloud Gateway Ultra"
+      )
+      new_msrp = st.number_input(
+          "MSRP USD (Surcharge Included) *",
+          min_value=0.0,
+          value=199.0,
+          step=1.0,
+      )
+      new_naver_id = st.text_input(
+          "Naver SmartStore No.", placeholder="e.g. 10293848"
+      )
 
-    submitted = st.form_submit_button("➕ 에어테이블에 신규 상품 등록")
+    with f_col2:
+      new_bh = st.text_input(
+          "B&H Code (Optional)", placeholder="e.g. 1815010-REG"
+      )
+      new_adorama = st.text_input(
+          "Adorama SKU (Optional)", placeholder="e.g. ubcgultr"
+      )
+      new_asin = st.text_input(
+          "Amazon ASIN (Optional)", placeholder="e.g. B0CWLKD9RP"
+      )
+
+    submitted = st.form_submit_button("⚡ Add to Inventory System")
 
     if submitted:
       if not new_sku or new_msrp <= 0:
-        st.error("SKU와 MSRP 정가는 필수 입력 항목입니다!")
+        st.error("SKU and valid MSRP are required!")
       else:
         new_record_data = {
             "SKU": new_sku.strip(),
@@ -420,6 +549,6 @@ with tab2:
 
         try:
           table.create(new_record_data)
-          st.success(f"🎉 [{new_sku}] 상품이 추가되었습니다!")
+          st.success(f"⚡ [{new_sku}] successfully added to monitoring matrix!")
         except Exception as e:
-          st.error(f"에어테이블 추가 중 오류 발생: {e}")
+          st.error(f"AirTable Registration Error: {e}")
