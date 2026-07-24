@@ -147,8 +147,6 @@ def run_tbd_tracker(log_container):
   total_count = len(records)
   log_container.write(f"📦 에어테이블 레코드 {total_count}개 조회 완료")
 
-  increased_count = 0
-  decreased_count = 0
   out_of_stock_count = 0
   back_in_stock_count = 0
 
@@ -165,7 +163,8 @@ def run_tbd_tracker(log_container):
     if not asin:
       continue
 
-    prev_usd = fields.get("Amazon_USD", 0.0)
+    msrp_usd = fields.get("MSRP_USD", 0.0)  # 공홈 정가
+    prev_amazon_usd = fields.get("Amazon_USD", 0.0)
     prev_stock = fields.get("In_Stock", False)
     prev_weight = fields.get("Weight_KG")
     prev_rate = fields.get("Exchange_Rate")
@@ -180,12 +179,18 @@ def run_tbd_tracker(log_container):
       update_data["Exchange_Rate"] = current_rate
 
     if amazon_data:
-      curr_usd = (
+      curr_amazon_usd = (
           amazon_data["amazon_usd"]
           if amazon_data["amazon_usd"] > 0
-          else prev_usd
+          else prev_amazon_usd
       )
-      curr_stock = amazon_data["in_stock"]
+
+      # 🎯 공홈가 초과 시 또는 아마존 재고 없을 시 강제 품절 처리
+      is_premium = msrp_usd > 0 and curr_amazon_usd > msrp_usd
+      if not amazon_data["in_stock"] or is_premium:
+        curr_stock = False
+      else:
+        curr_stock = True
 
       raw_w = (
           amazon_data["weight_kg"]
@@ -194,8 +199,8 @@ def run_tbd_tracker(log_container):
       )
       curr_weight = math.ceil(raw_w * 2.0) / 2.0
 
-      if prev_usd != curr_usd:
-        update_data["Amazon_USD"] = curr_usd
+      if prev_amazon_usd != curr_amazon_usd:
+        update_data["Amazon_USD"] = curr_amazon_usd
       if prev_stock != curr_stock:
         update_data["In_Stock"] = curr_stock
       if prev_weight != curr_weight:
@@ -208,61 +213,39 @@ def run_tbd_tracker(log_container):
         updated_record = table.get(record_id)
         new_calc_price = updated_record["fields"].get("Calculated_Price", 0)
 
-        if prev_usd == 0.0 and curr_usd > 0:
-          detail_messages.append(
-              f"✨ **[신규 상품 등록]** *{sku}*\n• 아마존 원가: `${curr_usd}`\n• 추천"
-              f" 판매가: **`{new_calc_price:,}원`**"
-          )
-
-        elif prev_stock != curr_stock:
+        if prev_stock != curr_stock:
           if not curr_stock:
             out_of_stock_count += 1
+            reason = (
+                f"아마존가(${curr_amazon_usd}) > 공홈가(${msrp_usd})"
+                if is_premium
+                else "아마존 재고 없음"
+            )
             detail_messages.append(
-                f"🔴 **[품절 발생]** *{sku}*\n• 스마트스토어({naver_id})"
-                " **품절 처리** 필요"
+                f"🔴 **[품절 발생 - {reason}]** *{sku}*\n•"
+                f" 스마트스토어({naver_id}) **품절 처리** 필요"
             )
           else:
             back_in_stock_count += 1
             detail_messages.append(
-                f"🟢 **[재입고 완료]** *{sku}*\n• 추천 판매가:"
-                f" **`{new_calc_price:,}원`**"
+                f"🟢 **[재입고/정가 범위 진입]** *{sku}*\n• 추천"
+                f" 판매가: **`{new_calc_price:,}원`**"
             )
-
-        elif prev_usd != curr_usd and curr_stock:
-          if curr_usd > prev_usd:
-            increased_count += 1
-            direction = "📈 상승"
-          else:
-            decreased_count += 1
-            direction = "📉 하락"
-
-          detail_messages.append(
-              f"🔔 **[가격 변동 - {direction}]** *{sku}*\n"
-              f"• 아마존 원가: `${prev_usd}` ➡️ **`${curr_usd}`**\n"
-              f"• 추천 판매가: **`{new_calc_price:,}원`**"
-          )
 
         log_container.write(f"✅ 업데이트 완료: {sku}")
       else:
         log_container.write(f"ℹ️ 변동 사항 없음: {sku}")
 
-  changed_total = (
-      increased_count
-      + decreased_count
-      + out_of_stock_count
-      + back_in_stock_count
-  )
+  changed_total = out_of_stock_count + back_in_stock_count
 
   summary_header = [
       "📊 **[TBD SEOUL] 웹 수동 동기화 리포트**",
       f"• **총 관리 상품**: {total_count}개",
-      f"• **변동 상품**: {changed_total}개 (📈 상승 {increased_count} / 📉 하락"
-      f" {decreased_count} / 🔴 품절 {out_of_stock_count} / 🟢 재입고"
-      f" {back_in_stock_count})",
+      f"• **상태 변동 상품**: {changed_total}개 (🔴 품절 전환 {out_of_stock_count} /"
+      f" 🟢 정상 판매 전환 {back_in_stock_count})",
       "\n---",
   ]
 
-  # ⭐️ 핵심: 반복문이 완전히 다 종료된 이 지점에서만 딱 1번 메시지 구성 및 전송
   if detail_messages:
     final_msg = "\n\n".join(["\n".join(summary_header)] + detail_messages)
     final_msg += (
@@ -271,7 +254,8 @@ def run_tbd_tracker(log_container):
     )
   else:
     final_msg = (
-        "\n".join(summary_header) + "\n\n✨ 가격 및 재고 변동 사항이 없습니다."
+        "\n".join(summary_header)
+        + "\n\n✨ 품절 전환 또는 재입고 변동 사항이 없습니다."
     )
 
   send_telegram_msg(final_msg)
@@ -283,7 +267,7 @@ def run_tbd_tracker(log_container):
 # 3. Streamlit UI 구성
 # ==========================================
 st.title("🚀 TBD SEOUL 커머스 관리 대시보드")
-st.caption("에어테이블 상품 관리, 신규 ASIN 등록 및 동기화 (ScraperAPI 엔진)")
+st.caption("에어테이블 상품 관리, 신규 ASIN 등록 및 동기화 (UniFi 공홈 정가 연동)")
 
 current_rate = get_current_exchange_rate()
 st.metric(label="현재 적용 환율 (KRW/USD)", value=f"{current_rate} 원")
@@ -320,8 +304,9 @@ with tab1:
       data_list.append({
           "SKU": f.get("SKU", "-"),
           "ASIN": f.get("ASIN", "-"),
-          "Amazon USD ($)": f.get("Amazon_USD", 0.0),
-          "In Stock": "🟢 재고있음" if f.get("In_Stock") else "🔴 품절",
+          "MSRP USD ($)": f.get("MSRP_USD", 0.0),
+          "Amazon Real Price ($)": f.get("Amazon_USD", 0.0),
+          "In Stock": "🟢 정상판매" if f.get("In_Stock") else "🔴 품절(웃돈/재고없음)",
           "Weight (kg)": f.get("Weight_KG", 0.0),
           "Shipping (KRW)": f.get("Shipping_KRW", 0),
           "Calculated Price (KRW)": f.get("Calculated_Price", 0),
@@ -336,8 +321,8 @@ with tab1:
 with tab2:
   st.subheader("신규 트래킹 상품 추가")
   st.write(
-      "SKU와 ASIN을 입력하시면, 동기화 실행 시 아마존에서 가격, 재고, 무게를"
-      " 자동으로 가져옵니다."
+      "SKU, ASIN, UniFi 공홈 정가(MSRP)를 입력하시면 아마존 가격 및 재고를"
+      " 자동으로 검증합니다."
   )
 
   with st.form("add_product_form", clear_on_submit=True):
@@ -347,6 +332,12 @@ with tab2:
     new_asin = st.text_input(
         "아마존 ASIN", placeholder="예: B0CWLKD9RP (10자리 문자/숫자)"
     )
+    new_msrp = st.number_input(
+        "UniFi 공홈 정가 (USD $)",
+        min_value=0.0,
+        value=199.0,
+        step=1.0,
+    )
     new_naver_id = st.text_input(
         "네이버 스마트스토어 상품번호 (선택사항)",
         placeholder="예: 10293848",
@@ -355,12 +346,13 @@ with tab2:
     submitted = st.form_submit_button("➕ 에어테이블에 신규 상품 등록")
 
     if submitted:
-      if not new_sku or not new_asin:
-        st.error("SKU와 ASIN은 필수 입력 항목입니다!")
+      if not new_sku or not new_asin or new_msrp <= 0:
+        st.error("SKU, ASIN, MSRP 정가는 필수 입력 항목입니다!")
       else:
         new_record_data = {
             "SKU": new_sku.strip(),
             "ASIN": new_asin.strip().upper(),
+            "MSRP_USD": float(new_msrp),
             "Exchange_Rate": current_rate,
         }
         if new_naver_id:
@@ -374,7 +366,7 @@ with tab2:
           )
           st.info(
               "상단의 '🔄 지금 데이터 동기화 실행' 버튼을 누르면"
-              " 아마존에서 가격과 무게를 알아서 긁어옵니다."
+              " 아마존 실시간 가격을 체크합니다."
           )
         except Exception as e:
           st.error(f"에어테이블 추가 중 오류 발생: {e}")
