@@ -1,3 +1,4 @@
+import json
 import math
 import os
 import re
@@ -53,11 +54,17 @@ def send_telegram_msg(text: str):
     print(f"텔레그램 발송 실패: {e}")
 
 
-# --- 1) B&H 크롤링 ---
+# --- 1) B&H 고성능 파서 (JSON-LD + HTML 듀얼) ---
 def fetch_bh_info(bh_id):
   if not bh_id:
     return None
-  target_url = f"https://www.bhphotovideo.com/c/product/{bh_id}.html"
+
+  clean_id = str(bh_id).strip()
+  if not clean_id.endswith("-REG") and clean_id.isdigit():
+    clean_id = f"{clean_id}-REG"
+
+  target_url = f"https://www.bhphotovideo.com/c/product/{clean_id}.html"
+
   try:
     res = requests.get(
         "http://api.scraperapi.com",
@@ -71,66 +78,144 @@ def fetch_bh_info(bh_id):
     )
     if res.status_code != 200:
       return None
+
     soup = BeautifulSoup(res.text, "html.parser")
-
-    price_elem = soup.select_one('[data-selenium="pricingPrice"]')
-    stock_elem = soup.select_one('[data-selenium="stockStatus"]')
-
+    bh_usd = 0.0
     in_stock = True
-    if stock_elem and "out of stock" in stock_elem.get_text().lower():
-      in_stock = False
 
-    price = 0.0
-    if price_elem:
-      clean_p = re.sub(r"[^\d.]", "", price_elem.get_text())
-      if clean_p:
-        price = float(clean_p)
+    # 1순위: JSON-LD 구조화 데이터 추출
+    scripts = soup.find_all("script", type="application/ld+json")
+    for script in scripts:
+      try:
+        data = json.loads(script.string)
+        if isinstance(data, list):
+          data = data[0]
+        offers = data.get("offers", {})
+        if isinstance(offers, list):
+          offers = offers[0]
 
-    return {"price": price, "in_stock": in_stock}
+        price = offers.get("price") or offers.get("lowPrice")
+        if price:
+          bh_usd = float(price)
+          availability = str(offers.get("availability", "")).lower()
+          if "outofstock" in availability or "discontinued" in availability:
+            in_stock = False
+          break
+      except Exception:
+        pass
+
+    # 2순위: HTML 셀렉터 백업
+    if bh_usd == 0.0:
+      price_selectors = [
+          '[data-selenium="pricingPrice"]',
+          '[data-selenium="price"]',
+          'span[class*="price"]',
+          ".price_12-4-0",
+      ]
+      for sel in price_selectors:
+        elems = soup.select(sel)
+        for elem in elems:
+          clean_p = re.sub(r"[^\d.]", "", elem.get_text().strip())
+          if clean_p:
+            try:
+              val = float(clean_p)
+              if 5.0 <= val <= 10000.0:
+                bh_usd = val
+                break
+            except ValueError:
+              pass
+        if bh_usd > 0:
+          break
+
+    return {"price": bh_usd, "in_stock": in_stock}
   except Exception:
     return None
 
 
-# --- 2) Adorama 크롤링 ---
+# --- 2) Adorama 고성능 파서 (멀티 URL + JSON-LD) ---
 def fetch_adorama_info(adorama_id):
   if not adorama_id:
     return None
-  target_url = f"https://www.adorama.com/{adorama_id}.html"
-  try:
-    res = requests.get(
-        "http://api.scraperapi.com",
-        params={
-            "api_key": SCRAPERAPI_KEY,
-            "url": target_url,
-            "country_code": "us",
-            "keep_headers": "true",
-        },
-        timeout=30,
-    )
-    if res.status_code != 200:
-      return None
-    soup = BeautifulSoup(res.text, "html.parser")
 
-    price_elem = soup.select_one(".your-price") or soup.select_one(
-        '[itemprop="price"]'
-    )
-    stock_elem = soup.select_one(".stock-status") or soup.select_one(
-        ".availability"
-    )
+  clean_id = str(adorama_id).strip().lower()
 
-    in_stock = True
-    if stock_elem and "out of stock" in stock_elem.get_text().lower():
-      in_stock = False
+  # Adorama 주소 패턴 대응 (3가지 URL)
+  target_urls = [
+      f"https://www.adorama.com/p/{clean_id}",
+      f"https://www.adorama.com/{clean_id}.html",
+      f"https://www.adorama.com/l/?searchinfo={clean_id}",
+  ]
 
-    price = 0.0
-    if price_elem:
-      clean_p = re.sub(r"[^\d.]", "", price_elem.get_text())
-      if clean_p:
-        price = float(clean_p)
+  for target_url in target_urls:
+    try:
+      res = requests.get(
+          "http://api.scraperapi.com",
+          params={
+              "api_key": SCRAPERAPI_KEY,
+              "url": target_url,
+              "country_code": "us",
+              "keep_headers": "true",
+          },
+          timeout=30,
+      )
+      if res.status_code != 200:
+        continue
 
-    return {"price": price, "in_stock": in_stock}
-  except Exception:
-    return None
+      soup = BeautifulSoup(res.text, "html.parser")
+      adorama_usd = 0.0
+      in_stock = True
+
+      # 1순위: JSON-LD 구조화 데이터
+      scripts = soup.find_all("script", type="application/ld+json")
+      for script in scripts:
+        try:
+          data = json.loads(script.string)
+          if isinstance(data, list):
+            data = data[0]
+          offers = data.get("offers", {})
+          if isinstance(offers, list):
+            offers = offers[0]
+
+          price = offers.get("price") or offers.get("lowPrice")
+          if price:
+            adorama_usd = float(price)
+            availability = str(offers.get("availability", "")).lower()
+            if "outofstock" in availability:
+              in_stock = False
+            break
+        except Exception:
+          pass
+
+      # 2순위: HTML 백업
+      if adorama_usd == 0.0:
+        price_selectors = [
+            ".your-price",
+            '[itemprop="price"]',
+            ".price",
+            "span.value",
+        ]
+        for sel in price_selectors:
+          elems = soup.select(sel)
+          for elem in elems:
+            clean_p = re.sub(r"[^\d.]", "", elem.get_text().strip())
+            if clean_p:
+              try:
+                val = float(clean_p)
+                if 5.0 <= val <= 10000.0:
+                  adorama_usd = val
+                  break
+              except ValueError:
+                pass
+          if adorama_usd > 0:
+            break
+
+      if adorama_usd > 0:
+        return {"price": adorama_usd, "in_stock": in_stock}
+
+    except Exception:
+      continue
+
+  return {"price": 0.0, "in_stock": False}
 
 
 # --- 3) Amazon 크롤링 ---
@@ -188,7 +273,7 @@ def fetch_amazon_info(asin):
 
 
 def run_tracker():
-  print("🚀 멀티 쇼핑몰(B&H ➔ Adorama ➔ Amazon) 동기화 시작...")
+  print("🚀 고성능 멀티 파서 동기화 시작...")
   current_rate = get_current_exchange_rate()
   records = table.all()
 
@@ -211,7 +296,6 @@ def run_tracker():
     prev_rate = fields.get("Exchange_Rate")
     naver_id = fields.get("Naver_Product_No", "-")
 
-    # 순서대로 크롤링 실행
     bh_data = fetch_bh_info(bh_id)
     adorama_data = fetch_adorama_info(adorama_id)
     amazon_data = fetch_amazon_info(asin)
@@ -220,7 +304,6 @@ def run_tracker():
     adorama_price = adorama_data["price"] if adorama_data else 0.0
     amazon_price = amazon_data["price"] if amazon_data else 0.0
 
-    # 유효한 정가 이하 가격 수집
     valid_candidates = []
     if (
         bh_data
@@ -241,7 +324,6 @@ def run_tracker():
     ):
       valid_candidates.append(("Amazon", amazon_price))
 
-    # 최저가 산출 및 재고 상태 결정
     if valid_candidates:
       valid_candidates.sort(key=lambda x: x[1])
       best_source, best_price = valid_candidates[0]
@@ -250,7 +332,6 @@ def run_tracker():
       best_source, best_price = "None", msrp_usd
       curr_stock = False
 
-    # 에어테이블 업데이트 준비
     update_data = {
         "BH_USD": bh_price,
         "Adorama_USD": adorama_price,
@@ -261,9 +342,11 @@ def run_tracker():
     if prev_rate != current_rate:
       update_data["Exchange_Rate"] = current_rate
 
-    table.update(record_id, update_data)
+    try:
+      table.update(record_id, update_data)
+    except Exception as e:
+      print(f"업데이트 오류 ({sku}): {e}")
 
-    # 알림 메시지 생성
     if prev_stock != curr_stock:
       if not curr_stock:
         out_of_stock_count += 1
