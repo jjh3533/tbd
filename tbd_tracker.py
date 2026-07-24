@@ -53,20 +53,104 @@ def send_telegram_msg(text: str):
     print(f"텔레그램 발송 실패: {e}")
 
 
-def fetch_amazon_info_via_scraperapi(asin):
-  target_url = f"https://www.amazon.com/dp/{asin}"
-  payload = {
-      "api_key": SCRAPERAPI_KEY,
-      "url": target_url,
-      "country_code": "us",
-      "keep_headers": "true",
-  }
-
+# --- 1) B&H 크롤링 ---
+def fetch_bh_info(bh_id):
+  if not bh_id:
+    return None
+  target_url = f"https://www.bhphotovideo.com/c/product/{bh_id}.html"
   try:
-    res = requests.get("http://api.scraperapi.com", params=payload, timeout=30)
+    res = requests.get(
+        "http://api.scraperapi.com",
+        params={
+            "api_key": SCRAPERAPI_KEY,
+            "url": target_url,
+            "country_code": "us",
+            "keep_headers": "true",
+        },
+        timeout=30,
+    )
     if res.status_code != 200:
       return None
+    soup = BeautifulSoup(res.text, "html.parser")
 
+    price_elem = soup.select_one('[data-selenium="pricingPrice"]')
+    stock_elem = soup.select_one('[data-selenium="stockStatus"]')
+
+    in_stock = True
+    if stock_elem and "out of stock" in stock_elem.get_text().lower():
+      in_stock = False
+
+    price = 0.0
+    if price_elem:
+      clean_p = re.sub(r"[^\d.]", "", price_elem.get_text())
+      if clean_p:
+        price = float(clean_p)
+
+    return {"price": price, "in_stock": in_stock}
+  except Exception:
+    return None
+
+
+# --- 2) Adorama 크롤링 ---
+def fetch_adorama_info(adorama_id):
+  if not adorama_id:
+    return None
+  target_url = f"https://www.adorama.com/{adorama_id}.html"
+  try:
+    res = requests.get(
+        "http://api.scraperapi.com",
+        params={
+            "api_key": SCRAPERAPI_KEY,
+            "url": target_url,
+            "country_code": "us",
+            "keep_headers": "true",
+        },
+        timeout=30,
+    )
+    if res.status_code != 200:
+      return None
+    soup = BeautifulSoup(res.text, "html.parser")
+
+    price_elem = soup.select_one(".your-price") or soup.select_one(
+        '[itemprop="price"]'
+    )
+    stock_elem = soup.select_one(".stock-status") or soup.select_one(
+        ".availability"
+    )
+
+    in_stock = True
+    if stock_elem and "out of stock" in stock_elem.get_text().lower():
+      in_stock = False
+
+    price = 0.0
+    if price_elem:
+      clean_p = re.sub(r"[^\d.]", "", price_elem.get_text())
+      if clean_p:
+        price = float(clean_p)
+
+    return {"price": price, "in_stock": in_stock}
+  except Exception:
+    return None
+
+
+# --- 3) Amazon 크롤링 ---
+def fetch_amazon_info(asin):
+  if not asin:
+    return None
+  target_url = f"https://www.amazon.com/dp/{asin}"
+  try:
+    res = requests.get(
+        "http://api.scraperapi.com",
+        params={
+            "api_key": SCRAPERAPI_KEY,
+            "url": target_url,
+            "country_code": "us",
+            "keep_headers": "true",
+        },
+        timeout=30,
+    )
+    if res.status_code != 200:
+      return None
     soup = BeautifulSoup(res.text, "html.parser")
 
     amazon_usd = 0.0
@@ -74,16 +158,12 @@ def fetch_amazon_info_via_scraperapi(asin):
         "#corePriceDisplay_desktop_feature_div .a-offscreen",
         "#corePrice_feature_div .a-offscreen",
         "#apex_desktop .a-offscreen",
-        "#priceblock_ourprice",
-        "#priceblock_dealprice",
         ".a-price .a-offscreen",
     ]
-
     for selector in price_selectors:
       elems = soup.select(selector)
       for elem in elems:
-        price_text = elem.get_text().strip()
-        clean_p = re.sub(r"[^\d.]", "", price_text)
+        clean_p = re.sub(r"[^\d.]", "", elem.get_text().strip())
         if clean_p:
           try:
             val = float(clean_p)
@@ -102,134 +182,111 @@ def fetch_amazon_info_via_scraperapi(asin):
       if "currently unavailable" in avail_text or "out of stock" in avail_text:
         in_stock = False
 
-    weight_kg = None
-    page_text = soup.get_text()
-    weight_pattern = r"(?:Item|Package|Product)?\s*Weight\s*[:\n\t]*\s*([\d\.]+)\s*(pounds|lbs|ounces|oz|kg|g)"
-    weight_match = re.search(weight_pattern, page_text, re.IGNORECASE)
-
-    if weight_match:
-      val = abs(float(weight_match.group(1)))
-      unit = weight_match.group(2).lower()
-
-      raw_weight = 0.0
-      if unit in ["pounds", "lbs"]:
-        raw_weight = val * 0.453592
-      elif unit in ["ounces", "oz"]:
-        raw_weight = val * 0.0283495
-      elif unit == "kg":
-        raw_weight = val
-      elif unit == "g":
-        raw_weight = val / 1000.0
-
-      calc_weight = raw_weight + 0.5
-      weight_kg = math.ceil(calc_weight * 2.0) / 2.0
-
-    if weight_kg is None or weight_kg <= 0:
-      weight_kg = 1.0
-
-    return {
-        "amazon_usd": amazon_usd,
-        "in_stock": in_stock,
-        "weight_kg": weight_kg,
-    }
-
+    return {"price": amazon_usd, "in_stock": in_stock}
   except Exception:
     return None
 
 
 def run_tracker():
-  print("🚀 스케줄 동기화 시작 (UniFi 공홈 정가 기준)...")
+  print("🚀 멀티 쇼핑몰(B&H ➔ Adorama ➔ Amazon) 동기화 시작...")
   current_rate = get_current_exchange_rate()
   records = table.all()
 
   total_count = len(records)
   out_of_stock_count = 0
   back_in_stock_count = 0
-
   detail_messages = []
 
   for r in records:
     record_id = r["id"]
     fields = r["fields"]
     sku = fields.get("SKU", "무명 상품")
+
+    bh_id = fields.get("BH_ID")
+    adorama_id = fields.get("ADORAMA_ID")
     asin = fields.get("ASIN")
 
-    if not asin:
-      continue
-
-    msrp_usd = fields.get("MSRP_USD", 0.0)  # 공홈 정가 기준
-    prev_amazon_usd = fields.get("Amazon_USD", 0.0)
+    msrp_usd = fields.get("MSRP_USD", 0.0)
     prev_stock = fields.get("In_Stock", False)
-    prev_weight = fields.get("Weight_KG")
     prev_rate = fields.get("Exchange_Rate")
     naver_id = fields.get("Naver_Product_No", "-")
 
-    amazon_data = fetch_amazon_info_via_scraperapi(asin)
-    update_data = {}
+    # 순서대로 크롤링 실행
+    bh_data = fetch_bh_info(bh_id)
+    adorama_data = fetch_adorama_info(adorama_id)
+    amazon_data = fetch_amazon_info(asin)
 
+    bh_price = bh_data["price"] if bh_data else 0.0
+    adorama_price = adorama_data["price"] if adorama_data else 0.0
+    amazon_price = amazon_data["price"] if amazon_data else 0.0
+
+    # 유효한 정가 이하 가격 수집
+    valid_candidates = []
+    if (
+        bh_data
+        and bh_data["in_stock"]
+        and 0 < bh_price <= (msrp_usd if msrp_usd > 0 else 99999)
+    ):
+      valid_candidates.append(("B&H", bh_price))
+    if (
+        adorama_data
+        and adorama_data["in_stock"]
+        and 0 < adorama_price <= (msrp_usd if msrp_usd > 0 else 99999)
+    ):
+      valid_candidates.append(("Adorama", adorama_price))
+    if (
+        amazon_data
+        and amazon_data["in_stock"]
+        and 0 < amazon_price <= (msrp_usd if msrp_usd > 0 else 99999)
+    ):
+      valid_candidates.append(("Amazon", amazon_price))
+
+    # 최저가 산출 및 재고 상태 결정
+    if valid_candidates:
+      valid_candidates.sort(key=lambda x: x[1])
+      best_source, best_price = valid_candidates[0]
+      curr_stock = True
+    else:
+      best_source, best_price = "None", msrp_usd
+      curr_stock = False
+
+    # 에어테이블 업데이트 준비
+    update_data = {
+        "BH_USD": bh_price,
+        "Adorama_USD": adorama_price,
+        "Amazon_USD": amazon_price,
+        "Best_USD": best_price,
+        "In_Stock": curr_stock,
+    }
     if prev_rate != current_rate:
       update_data["Exchange_Rate"] = current_rate
 
-    if amazon_data:
-      curr_amazon_usd = (
-          amazon_data["amazon_usd"]
-          if amazon_data["amazon_usd"] > 0
-          else prev_amazon_usd
-      )
+    table.update(record_id, update_data)
 
-      # 🎯 공홈가 초과 시 또는 아마존 재고 없을 시 강제 품절 로직
-      is_premium = msrp_usd > 0 and curr_amazon_usd > msrp_usd
-      if not amazon_data["in_stock"] or is_premium:
-        curr_stock = False
+    # 알림 메시지 생성
+    if prev_stock != curr_stock:
+      if not curr_stock:
+        out_of_stock_count += 1
+        detail_messages.append(
+            f"🔴 **[품절 발생 - 정가 재고 없음]** *{sku}*\n•"
+            f" 스마트스토어({naver_id}) **품절 처리** 필요"
+        )
       else:
-        curr_stock = True
-
-      raw_w = (
-          amazon_data["weight_kg"]
-          if amazon_data["weight_kg"] is not None
-          else (prev_weight or 1.0)
-      )
-      curr_weight = math.ceil(raw_w * 2.0) / 2.0
-
-      if prev_amazon_usd != curr_amazon_usd:
-        update_data["Amazon_USD"] = curr_amazon_usd
-      if prev_stock != curr_stock:
-        update_data["In_Stock"] = curr_stock
-      if prev_weight != curr_weight:
-        update_data["Weight_KG"] = curr_weight
-
-      if update_data:
-        table.update(record_id, update_data)
+        back_in_stock_count += 1
         updated_record = table.get(record_id)
         new_calc_price = updated_record["fields"].get("Calculated_Price", 0)
-
-        # 재고 상태 변경에 따른 메시지
-        if prev_stock != curr_stock:
-          if not curr_stock:
-            out_of_stock_count += 1
-            reason = (
-                f"아마존가(${curr_amazon_usd}) > 공홈가(${msrp_usd})"
-                if is_premium
-                else "아마존 재고 없음"
-            )
-            detail_messages.append(
-                f"🔴 **[품절 발생 - {reason}]** *{sku}*\n•"
-                f" 스마트스토어({naver_id}) **품절 처리** 필요"
-            )
-          else:
-            back_in_stock_count += 1
-            detail_messages.append(
-                f"🟢 **[재입고/정가 범위 진입]** *{sku}*\n• 추천"
-                f" 판매가: **`{new_calc_price:,}원`**"
-            )
+        detail_messages.append(
+            f"🟢 **[재입고 감지]** *{sku}*\n• 최저가 출처: **{best_source}**"
+            f" (${best_price})\n• 추천 판매가: **`{new_calc_price:,}원`**"
+        )
 
   changed_total = out_of_stock_count + back_in_stock_count
 
   summary_header = [
-      "📊 **[TBD SEOUL] 일일 아마존 동기화 리포트**",
+      "📊 **[TBD SEOUL] 일일 크롤링 종합 리포트**",
       f"• **총 관리 상품**: {total_count}개",
-      f"• **상태 변동 상품**: {changed_total}개 (🔴 품절 전환 {out_of_stock_count} /"
-      f" 🟢 정상 판매 전환 {back_in_stock_count})",
+      f"• **상태 변동 상품**: {changed_total}개 (🔴 품절 {out_of_stock_count} / 🟢"
+      f" 정상판매 {back_in_stock_count})",
       "\n---",
   ]
 
