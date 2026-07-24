@@ -1,10 +1,9 @@
 name: Daily Amazon Price Sync
 
+# 자동 매일 동기화(cron)는 크레딧 소모 때문에 제거했습니다. 필요할 때 GitHub 웹의
+# Actions 탭에서 수동(workflow_dispatch)으로만 실행하세요.
 on:
-  schedule:
-    # UTC 기준 00:00 = 한국 시간(KST) 매일 아침 09:00
-    - cron: '0 0 * * *'
-  workflow_dispatch: # 필요할 때 GitHub 웹에서 수동으로도 즉시 실행 가능
+  workflow_dispatch:
 
 jobs:
   sync:
@@ -21,7 +20,13 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install streamlit pyairtable requests yfinance pandas beautifulsoup4
+          pip install -r requirements.txt
 
       - name: Run Tracker Script
+        env:
+          AIRTABLE_API_TOKEN: ${{ secrets.AIRTABLE_API_TOKEN }}
+          AIRTABLE_BASE_ID: ${{ secrets.AIRTABLE_BASE_ID }}
+          SCRAPEDO_TOKEN: ${{ secrets.SCRAPEDO_TOKEN }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python tbd_tracker.py

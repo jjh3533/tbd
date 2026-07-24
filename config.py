@@ -55,7 +55,7 @@ AIRTABLE_TABLE_NAME = _get_secret(
     "AIRTABLE_TABLE_NAME", required=False, default="Products"
 )
 
-SCRAPERAPI_KEY = _get_secret("SCRAPERAPI_KEY")
+SCRAPEDO_TOKEN = _get_secret("SCRAPEDO_TOKEN")
 
 TELEGRAM_TOKEN = _get_secret("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = _get_secret("TELEGRAM_CHAT_ID")
