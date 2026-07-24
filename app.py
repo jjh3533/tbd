@@ -162,74 +162,78 @@ def fetch_bh_info(bh_id):
     return None
 
   clean_id = str(bh_id).strip()
-  if not clean_id.endswith("-REG") and clean_id.isdigit():
-    clean_id = f"{clean_id}-REG"
+  ids_to_try = [clean_id]
+  if not clean_id.endswith("-REG"):
+    ids_to_try.append(f"{clean_id}-REG")
 
-  target_url = f"https://www.bhphotovideo.com/c/product/{clean_id}.html"
+  for item_id in ids_to_try:
+    target_url = f"https://www.bhphotovideo.com/c/product/{item_id}.html"
+    try:
+      res = requests.get(
+          "http://api.scraperapi.com",
+          params={
+              "api_key": SCRAPERAPI_KEY,
+              "url": target_url,
+              "country_code": "us",
+              "render": "true",
+          },
+          timeout=45,
+      )
+      if res.status_code != 200:
+        continue
 
-  try:
-    res = requests.get(
-        "http://api.scraperapi.com",
-        params={
-            "api_key": SCRAPERAPI_KEY,
-            "url": target_url,
-            "country_code": "us",
-            "keep_headers": "true",
-        },
-        timeout=30,
-    )
-    if res.status_code != 200:
-      return None
+      soup = BeautifulSoup(res.text, "html.parser")
+      bh_usd = 0.0
+      in_stock = True
 
-    soup = BeautifulSoup(res.text, "html.parser")
-    bh_usd = 0.0
-    in_stock = True
+      scripts = soup.find_all("script", type="application/ld+json")
+      for script in scripts:
+        try:
+          data = json.loads(script.string)
+          if isinstance(data, list):
+            data = data[0]
+          offers = data.get("offers", {})
+          if isinstance(offers, list):
+            offers = offers[0]
 
-    scripts = soup.find_all("script", type="application/ld+json")
-    for script in scripts:
-      try:
-        data = json.loads(script.string)
-        if isinstance(data, list):
-          data = data[0]
-        offers = data.get("offers", {})
-        if isinstance(offers, list):
-          offers = offers[0]
+          price = offers.get("price") or offers.get("lowPrice")
+          if price:
+            bh_usd = float(price)
+            availability = str(offers.get("availability", "")).lower()
+            if "outofstock" in availability or "discontinued" in availability:
+              in_stock = False
+            break
+        except Exception:
+          pass
 
-        price = offers.get("price") or offers.get("lowPrice")
-        if price:
-          bh_usd = float(price)
-          availability = str(offers.get("availability", "")).lower()
-          if "outofstock" in availability or "discontinued" in availability:
-            in_stock = False
-          break
-      except Exception:
-        pass
+      if bh_usd == 0.0:
+        price_selectors = [
+            '[data-selenium="pricingPrice"]',
+            '[data-selenium="price"]',
+            'span[class*="price"]',
+            ".price_12-4-0",
+        ]
+        for sel in price_selectors:
+          elems = soup.select(sel)
+          for elem in elems:
+            clean_p = re.sub(r"[^\d.]", "", elem.get_text().strip())
+            if clean_p:
+              try:
+                val = float(clean_p)
+                if 5.0 <= val <= 10000.0:
+                  bh_usd = val
+                  break
+              except ValueError:
+                pass
+          if bh_usd > 0:
+            break
 
-    if bh_usd == 0.0:
-      price_selectors = [
-          '[data-selenium="pricingPrice"]',
-          '[data-selenium="price"]',
-          'span[class*="price"]',
-          ".price_12-4-0",
-      ]
-      for sel in price_selectors:
-        elems = soup.select(sel)
-        for elem in elems:
-          clean_p = re.sub(r"[^\d.]", "", elem.get_text().strip())
-          if clean_p:
-            try:
-              val = float(clean_p)
-              if 5.0 <= val <= 10000.0:
-                bh_usd = val
-                break
-            except ValueError:
-              pass
-        if bh_usd > 0:
-          break
+      if bh_usd > 0:
+        return {"price": bh_usd, "in_stock": in_stock}
+    except Exception:
+      continue
 
-    return {"price": bh_usd, "in_stock": in_stock}
-  except Exception:
-    return None
+  return {"price": 0.0, "in_stock": False}
 
 
 def fetch_adorama_info(adorama_id):
@@ -238,9 +242,8 @@ def fetch_adorama_info(adorama_id):
 
   clean_id = str(adorama_id).strip().lower()
   target_urls = [
-      f"https://www.adorama.com/p/{clean_id}",
       f"https://www.adorama.com/{clean_id}.html",
-      f"https://www.adorama.com/l/?searchinfo={clean_id}",
+      f"https://www.adorama.com/p/{clean_id}",
   ]
 
   for target_url in target_urls:
@@ -251,9 +254,9 @@ def fetch_adorama_info(adorama_id):
               "api_key": SCRAPERAPI_KEY,
               "url": target_url,
               "country_code": "us",
-              "keep_headers": "true",
+              "render": "true",
           },
-          timeout=30,
+          timeout=45,
       )
       if res.status_code != 200:
         continue
@@ -368,7 +371,7 @@ def fetch_amazon_info(asin):
 
 def run_tbd_tracker(log_container):
   log_container.write(
-      "⚡ [UI.com Engine] JSON-LD Multi-retailer sync running..."
+      "⚡ [UI.com Engine] MSRP Guard Multi-retailer Syncing..."
   )
   current_rate = get_current_exchange_rate()
   log_container.write(f"💱 Applied Exchange Rate: ₩{current_rate}")
@@ -396,7 +399,7 @@ def run_tbd_tracker(log_container):
     prev_rate = fields.get("Exchange_Rate")
     naver_id = fields.get("Naver_Product_No", "-")
 
-    log_container.write(f"🔍 Deep Parsing [{sku}]...")
+    log_container.write(f"🔍 Fetching Retailer Prices for [{sku}]...")
 
     bh_data = fetch_bh_info(bh_id)
     adorama_data = fetch_adorama_info(adorama_id)
@@ -406,39 +409,30 @@ def run_tbd_tracker(log_container):
     adorama_price = adorama_data["price"] if adorama_data else 0.0
     amazon_price = amazon_data["price"] if amazon_data else 0.0
 
-    valid_candidates = []
-    if (
-        bh_data
-        and bh_data["in_stock"]
-        and 0 < bh_price <= (msrp_usd if msrp_usd > 0 else 99999)
-    ):
-      valid_candidates.append(("B&H", bh_price))
+    valid_retailers = []
+    max_threshold = msrp_usd if msrp_usd > 0 else 99999.0
+
+    if bh_data and bh_data["in_stock"] and 0 < bh_price <= max_threshold:
+      valid_retailers.append("B&H")
     if (
         adorama_data
         and adorama_data["in_stock"]
-        and 0 < adorama_price <= (msrp_usd if msrp_usd > 0 else 99999)
+        and 0 < adorama_price <= max_threshold
     ):
-      valid_candidates.append(("Adorama", adorama_price))
+      valid_retailers.append("Adorama")
     if (
         amazon_data
         and amazon_data["in_stock"]
-        and 0 < amazon_price <= (msrp_usd if msrp_usd > 0 else 99999)
+        and 0 < amazon_price <= max_threshold
     ):
-      valid_candidates.append(("Amazon", amazon_price))
+      valid_retailers.append("Amazon")
 
-    if valid_candidates:
-      valid_candidates.sort(key=lambda x: x[1])
-      best_source, best_price = valid_candidates[0]
-      curr_stock = True
-    else:
-      best_source, best_price = "None", msrp_usd
-      curr_stock = False
+    curr_stock = True if valid_retailers else False
 
     update_data = {
         "BH_USD": bh_price,
         "Adorama_USD": adorama_price,
         "Amazon_USD": amazon_price,
-        "Best_USD": best_price,
         "In_Stock": curr_stock,
     }
     if prev_rate != current_rate:
@@ -455,21 +449,23 @@ def run_tbd_tracker(log_container):
       if not curr_stock:
         out_of_stock_count += 1
         detail_messages.append(
-            f"🔴 **[OUT OF STOCK]** *{sku}*\n• SmartStore ID({naver_id})"
-            " Action Required"
+            f"🔴 **[OUT OF STOCK - Above MSRP]** *{sku}*\n• SmartStore"
+            f" ID({naver_id}) Action Required"
         )
       else:
         back_in_stock_count += 1
         updated_record = table.get(record_id)
         new_calc_price = updated_record["fields"].get("Calculated_Price", 0)
+        available_sources = ", ".join(valid_retailers)
         detail_messages.append(
-            f"🟢 **[BACK IN STOCK]** *{sku}*\n• Best Source: **{best_source}**"
-            f" (${best_price})\n• Target Price: **`{new_calc_price:,}원`**"
+            f"🟢 **[BACK IN STOCK]** *{sku}*\n• Valid Retailers:"
+            f" **{available_sources}**\n• Target Price (MSRP Based):"
+            f" **`{new_calc_price:,}원`**"
         )
 
     log_container.write(
         f"✅ [{sku}] Complete | B&H:${bh_price} / Ado:${adorama_price} /"
-        f" Amz:${amazon_price} ➔ Best:${best_price}"
+        f" Amz:${amazon_price}"
     )
 
   changed_total = out_of_stock_count + back_in_stock_count
@@ -494,7 +490,7 @@ def run_tbd_tracker(log_container):
     )
 
   send_telegram_msg(final_msg)
-  log_container.write("🎉 UI.com Deep Sync Complete!")
+  log_container.write("🎉 MSRP Guard Sync Complete!")
   return updated_count
 
 
@@ -507,7 +503,7 @@ st.markdown(
     <div class="uic-header">
         <div>
             <div class="uic-title">⚡ UniFi Supply Monitor</div>
-            <div class="uic-subtitle">Real-time Retailer Arbitrage & MSRP Price Defense Engine</div>
+            <div class="uic-subtitle">MSRP-Based Price Engine & Multi-Retailer Inventory Guard</div>
         </div>
         <div class="uic-badge">SYSTEM ACTIVE</div>
     </div>
@@ -533,7 +529,9 @@ with tab1:
     if st.button(
         "⚡ Sync Retailers Now", type="primary", use_container_width=True
     ):
-      with st.status("Deep Extracting JSON-LD Data...", expanded=True) as status:
+      with st.status(
+          "Checking Retailer Inventories (JS Rendered)...", expanded=True
+      ) as status:
         count = run_tbd_tracker(status)
         status.update(
             label=f"Sync Finished ({count} items updated)",
@@ -550,12 +548,15 @@ with tab1:
       f = r["fields"]
       data_list.append({
           "SKU / Model": f.get("SKU", "-"),
-          "MSRP ($)": f"${f.get('MSRP_USD', 0.0):,.2f}",
+          "MSRP Base ($)": f"${f.get('MSRP_USD', 0.0):,.2f}",
           "B&H ($)": f"${f.get('BH_USD', 0.0):,.2f}",
           "Adorama ($)": f"${f.get('Adorama_USD', 0.0):,.2f}",
           "Amazon ($)": f"${f.get('Amazon_USD', 0.0):,.2f}",
-          "Best USD ($)": f"${f.get('Best_USD', 0.0):,.2f}",
-          "Status": "🟢 Active" if f.get("In_Stock") else "🔴 Out of Stock",
+          "Status": (
+              "🟢 Active (MSRP Valid)"
+              if f.get("In_Stock")
+              else "🔴 Out of Stock (Above MSRP)"
+          ),
           "Calculated KRW": f"₩ {f.get('Calculated_Price', 0):,}",
           "Naver ID": f.get("Naver_Product_No", "-"),
       })
