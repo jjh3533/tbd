@@ -35,7 +35,6 @@ table = api.table(AIRTABLE_BASE_ID, AIRTABLE_TABLE_NAME)
 st.markdown(
     """
     <style>
-    /* UI.com Minimal Global Styling */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
     
     html, body, [class*="css"] {
@@ -44,7 +43,6 @@ st.markdown(
         color: #0f172a;
     }
     
-    /* Header Area */
     .uic-header {
         background: linear-gradient(135deg, #0b132b 0%, #1c2541 100%);
         padding: 24px 32px;
@@ -86,14 +84,12 @@ st.markdown(
         letter-spacing: 0.5px;
     }
 
-    /* Metric Cards */
     [data-testid="stMetricValue"] {
         font-size: 24px !important;
         font-weight: 700 !important;
         color: #0066ff !important;
     }
     
-    /* UI.com Styled Buttons */
     .stButton > button {
         background-color: #0066ff !important;
         color: white !important;
@@ -111,7 +107,6 @@ st.markdown(
         transform: translateY(-1px);
     }
 
-    /* Tabs Styling */
     .stTabs [data-baseweb="tab-list"] {
         gap: 24px;
         border-bottom: 1px solid #e2e8f0;
@@ -164,7 +159,13 @@ def send_telegram_msg(text: str):
 def fetch_bh_info(bh_id):
   if not bh_id:
     return None
-  target_url = f"https://www.bhphotovideo.com/c/product/{bh_id}.html"
+
+  clean_id = str(bh_id).strip()
+  if not clean_id.endswith("-REG") and clean_id.isdigit():
+    clean_id = f"{clean_id}-REG"
+
+  target_url = f"https://www.bhphotovideo.com/c/product/{clean_id}.html"
+
   try:
     res = requests.get(
         "http://api.scraperapi.com",
@@ -178,22 +179,43 @@ def fetch_bh_info(bh_id):
     )
     if res.status_code != 200:
       return None
+
     soup = BeautifulSoup(res.text, "html.parser")
 
-    price_elem = soup.select_one('[data-selenium="pricingPrice"]')
-    stock_elem = soup.select_one('[data-selenium="stockStatus"]')
+    price_selectors = [
+        '[data-selenium="pricingPrice"]',
+        '[data-selenium="price"]',
+        ".pricing_12-4-0",
+        ".price_12-4-0",
+        'span[class*="price"]',
+    ]
+
+    bh_usd = 0.0
+    for sel in price_selectors:
+      elems = soup.select(sel)
+      for elem in elems:
+        clean_p = re.sub(r"[^\d.]", "", elem.get_text().strip())
+        if clean_p:
+          try:
+            val = float(clean_p)
+            if 5.0 <= val <= 10000.0:
+              bh_usd = val
+              break
+          except ValueError:
+            pass
+      if bh_usd > 0:
+        break
 
     in_stock = True
-    if stock_elem and "out of stock" in stock_elem.get_text().lower():
-      in_stock = False
+    stock_elem = soup.select_one('[data-selenium="stockStatus"]') or soup.select_one(
+        '[class*="stock"]'
+    )
+    if stock_elem:
+      st_text = stock_elem.get_text().lower()
+      if "out of stock" in st_text or "backorder" in st_text:
+        in_stock = False
 
-    price = 0.0
-    if price_elem:
-      clean_p = re.sub(r"[^\d.]", "", price_elem.get_text())
-      if clean_p:
-        price = float(clean_p)
-
-    return {"price": price, "in_stock": in_stock}
+    return {"price": bh_usd, "in_stock": in_stock}
   except Exception:
     return None
 
@@ -201,7 +223,10 @@ def fetch_bh_info(bh_id):
 def fetch_adorama_info(adorama_id):
   if not adorama_id:
     return None
-  target_url = f"https://www.adorama.com/{adorama_id}.html"
+
+  clean_id = str(adorama_id).strip().lower()
+  target_url = f"https://www.adorama.com/{clean_id}.html"
+
   try:
     res = requests.get(
         "http://api.scraperapi.com",
@@ -215,26 +240,45 @@ def fetch_adorama_info(adorama_id):
     )
     if res.status_code != 200:
       return None
+
     soup = BeautifulSoup(res.text, "html.parser")
 
-    price_elem = soup.select_one(".your-price") or soup.select_one(
-        '[itemprop="price"]'
-    )
-    stock_elem = soup.select_one(".stock-status") or soup.select_one(
-        ".availability"
-    )
+    price_selectors = [
+        ".your-price",
+        '[itemprop="price"]',
+        ".price",
+        'strong[class*="price"]',
+        "span.value",
+    ]
+
+    adorama_usd = 0.0
+    for sel in price_selectors:
+      elems = soup.select(sel)
+      for elem in elems:
+        clean_p = re.sub(r"[^\d.]", "", elem.get_text().strip())
+        if clean_p:
+          try:
+            val = float(clean_p)
+            if 5.0 <= val <= 10000.0:
+              adorama_usd = val
+              break
+          except ValueError:
+            pass
+      if adorama_usd > 0:
+        break
 
     in_stock = True
-    if stock_elem and "out of stock" in stock_elem.get_text().lower():
-      in_stock = False
+    stock_elem = (
+        soup.select_one(".stock-status")
+        or soup.select_one(".availability")
+        or soup.select_one('[class*="stock"]')
+    )
+    if stock_elem:
+      st_text = stock_elem.get_text().lower()
+      if "out of stock" in st_text or "backorder" in st_text:
+        in_stock = False
 
-    price = 0.0
-    if price_elem:
-      clean_p = re.sub(r"[^\d.]", "", price_elem.get_text())
-      if clean_p:
-        price = float(clean_p)
-
-    return {"price": price, "in_stock": in_stock}
+    return {"price": adorama_usd, "in_stock": in_stock}
   except Exception:
     return None
 
@@ -424,10 +468,9 @@ def run_tbd_tracker(log_container):
 
 
 # ==========================================
-# 3. Streamlit UI 구성 (UI.com Style)
+# 3. Streamlit UI 구성
 # ==========================================
 
-# UI.com Header Banner
 st.markdown(
     """
     <div class="uic-header">
