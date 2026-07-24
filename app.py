@@ -9,6 +9,15 @@ import requests
 import streamlit as st
 import yfinance as yf
 
+from config import (
+    AIRTABLE_API_TOKEN,
+    AIRTABLE_BASE_ID,
+    AIRTABLE_TABLE_NAME,
+    SCRAPERAPI_KEY,
+    TELEGRAM_TOKEN,
+    TELEGRAM_CHAT_ID,
+)
+
 # ==========================================
 # 1. 페이지 및 환경 설정
 # ==========================================
@@ -19,15 +28,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-AIRTABLE_API_TOKEN = "patGCAx3PVLC76hji.998b00597d0a3751e2151d0f1d1e6ef3f2c9790b0ff9686929d4b353cb24c418"
-AIRTABLE_BASE_ID = "apphI9EUz746dP0Ye"
-AIRTABLE_TABLE_NAME = "Products"
-
-SCRAPERAPI_KEY = "643a1d003d0287a250d8cff2f6016159"
-
-TELEGRAM_TOKEN = "8997002649:AAFku9xJ3fKAEq8yaqE8vQAlu8R34vqIwjw"
-TELEGRAM_CHAT_ID = "7729393976"
-
+# 시크릿은 하드코딩하지 않고 config.py(환경변수/Streamlit Secrets)에서 가져옵니다.
 api = Api(AIRTABLE_API_TOKEN)
 table = api.table(AIRTABLE_BASE_ID, AIRTABLE_TABLE_NAME)
 
@@ -38,13 +39,13 @@ st.markdown(
     """
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-    
+
     html, body, [class*="css"] {
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         background-color: #f8fafc;
         color: #0f172a;
     }
-    
+
     .uic-header {
         background: linear-gradient(135deg, #0b132b 0%, #1c2541 100%);
         padding: 24px 32px;
@@ -56,7 +57,7 @@ st.markdown(
         justify-content: space-between;
         align-items: center;
     }
-    
+
     .uic-title {
         font-size: 26px;
         font-weight: 700;
@@ -67,14 +68,14 @@ st.markdown(
         align-items: center;
         gap: 10px;
     }
-    
+
     .uic-subtitle {
         font-size: 13px;
         color: #94a3b8;
         margin-top: 4px;
         font-weight: 400;
     }
-    
+
     .uic-badge {
         background-color: #0066ff;
         color: #ffffff;
@@ -91,7 +92,7 @@ st.markdown(
         font-weight: 700 !important;
         color: #0066ff !important;
     }
-    
+
     .stButton > button {
         background-color: #0066ff !important;
         color: white !important;
@@ -102,7 +103,7 @@ st.markdown(
         transition: all 0.2s ease-in-out !important;
         box-shadow: 0 2px 8px rgba(0, 102, 255, 0.2) !important;
     }
-    
+
     .stButton > button:hover {
         background-color: #0052cc !important;
         box-shadow: 0 4px 12px rgba(0, 102, 255, 0.35) !important;

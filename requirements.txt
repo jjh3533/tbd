@@ -4,3 +4,4 @@ requests
 yfinance
 pandas
 beautifulsoup4
+python-dotenv

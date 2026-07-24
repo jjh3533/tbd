@@ -1,32 +1,25 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import math
-import os
 import re
 from bs4 import BeautifulSoup
 from pyairtable import Api
 import requests
 import yfinance as yf
 
+from config import (
+    AIRTABLE_API_TOKEN,
+    AIRTABLE_BASE_ID,
+    AIRTABLE_TABLE_NAME,
+    SCRAPERAPI_KEY,
+    TELEGRAM_TOKEN,
+    TELEGRAM_CHAT_ID,
+)
+
 # ==========================================
 # 1. 환경 설정 및 인증 정보
 # ==========================================
-AIRTABLE_API_TOKEN = os.getenv(
-    "AIRTABLE_API_TOKEN",
-    "patGCAx3PVLC76hji.998b00597d0a3751e2151d0f1d1e6ef3f2c9790b0ff9686929d4b353cb24c418",
-)
-AIRTABLE_BASE_ID = os.getenv("AIRTABLE_BASE_ID", "apphI9EUz746dP0Ye")
-AIRTABLE_TABLE_NAME = "Products"
-
-SCRAPERAPI_KEY = os.getenv(
-    "SCRAPERAPI_KEY", "643a1d003d0287a250d8cff2f6016159"
-)
-
-TELEGRAM_TOKEN = os.getenv(
-    "TELEGRAM_TOKEN", "8997002649:AAFku9xJ3fKAEq8yaqE8vQAlu8R34vqIwjw"
-)
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "7729393976")
-
+# 시크릿은 하드코딩하지 않고 config.py(환경변수 / GitHub Actions Secrets)에서 가져옵니다.
 api = Api(AIRTABLE_API_TOKEN)
 table = api.table(AIRTABLE_BASE_ID, AIRTABLE_TABLE_NAME)
 
