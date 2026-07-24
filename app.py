@@ -158,96 +158,6 @@ def send_telegram_msg(text: str):
     st.error(f"텔레그램 발송 실패: {e}")
 
 
-def fetch_bh_info(bh_id):
-  if not bh_id:
-    return None
-
-  raw_id = str(bh_id).strip()
-  clean_id = raw_id.replace("-REG", "") if "-REG" in raw_id else raw_id
-  reg_id = raw_id if "-REG" in raw_id else f"{raw_id}-REG"
-
-  target_urls = [
-      f"https://www.bhphotovideo.com/c/product/{reg_id}.html",
-      f"https://www.bhphotovideo.com/c/search?Ntt={clean_id}&N=0&InitialSearch=yes",
-  ]
-
-  for target_url in target_urls:
-    try:
-      res = requests.get(
-          "http://api.scraperapi.com",
-          params={
-              "api_key": SCRAPERAPI_KEY,
-              "url": target_url,
-              "country_code": "us",
-              "keep_headers": "true",
-          },
-          timeout=15,
-      )
-      if res.status_code != 200:
-        continue
-
-      soup = BeautifulSoup(res.text, "html.parser")
-      bh_usd = 0.0
-      in_stock = True
-
-      scripts = soup.find_all("script", type="application/ld+json")
-      for script in scripts:
-        try:
-          data = json.loads(script.string)
-          if isinstance(data, list):
-            data = data[0]
-
-          if data.get("@type") == "ItemList" and "itemListElement" in data:
-            item = data["itemListElement"][0].get("item", {})
-            offers = item.get("offers", {})
-          else:
-            offers = data.get("offers", {})
-
-          if isinstance(offers, list):
-            offers = offers[0]
-
-          price = offers.get("price") or offers.get("lowPrice")
-          if price:
-            bh_usd = float(price)
-            availability = str(offers.get("availability", "")).lower()
-            if "outofstock" in availability or "discontinued" in availability:
-              in_stock = False
-            break
-        except Exception:
-          pass
-
-      if bh_usd == 0.0:
-        price_selectors = [
-            '[data-selenium="pricingPrice"]',
-            '[data-selenium="price"]',
-            'span[data-selenium="price"]',
-            ".price_12-4-0",
-            'span[class*="price"]',
-        ]
-        for sel in price_selectors:
-          elems = soup.select(sel)
-          for elem in elems:
-            clean_p = re.sub(r"[^\d.]", "", elem.get_text().strip())
-            if clean_p:
-              try:
-                val = float(clean_p)
-                if 5.0 <= val <= 10000.0:
-                  bh_usd = val
-                  break
-              except ValueError:
-                pass
-          if bh_usd > 0:
-            break
-
-      if bh_usd > 0:
-        return {"price": bh_usd, "in_stock": in_stock}
-
-    except Exception:
-      continue
-
-  return {"price": 0.0, "in_stock": False}
-
-
 def fetch_adorama_info(adorama_id):
   if not adorama_id:
     return None
@@ -378,7 +288,6 @@ def process_single_record(r, current_rate, log_container):
   fields = r["fields"]
   sku = fields.get("SKU", "무명 상품")
 
-  bh_id = fields.get("BH_ID")
   adorama_id = fields.get("ADORAMA_ID")
   asin = fields.get("ASIN")
 
@@ -386,19 +295,15 @@ def process_single_record(r, current_rate, log_container):
   prev_stock = fields.get("In_Stock", False)
   naver_id = fields.get("Naver_Product_No", "-")
 
-  bh_data = fetch_bh_info(bh_id)
   adorama_data = fetch_adorama_info(adorama_id)
   amazon_data = fetch_amazon_info(asin)
 
-  bh_price = bh_data["price"] if bh_data else 0.0
   adorama_price = adorama_data["price"] if adorama_data else 0.0
   amazon_price = amazon_data["price"] if amazon_data else 0.0
 
   valid_retailers = []
   max_threshold = msrp_usd if msrp_usd > 0 else 99999.0
 
-  if bh_data and bh_data["in_stock"] and 0 < bh_price <= max_threshold:
-    valid_retailers.append("B&H")
   if (
       adorama_data
       and adorama_data["in_stock"]
@@ -415,7 +320,6 @@ def process_single_record(r, current_rate, log_container):
   curr_stock = True if valid_retailers else False
 
   update_data = {
-      "BH_USD": bh_price,
       "Adorama_USD": adorama_price,
       "Amazon_USD": amazon_price,
       "In_Stock": curr_stock,
@@ -428,8 +332,7 @@ def process_single_record(r, current_rate, log_container):
     pass
 
   log_container.write(
-      f"✅ [{sku}] Complete | B&H:${bh_price} / Ado:${adorama_price} /"
-      f" Amz:${amazon_price}"
+      f"✅ [{sku}] Complete | Ado:${adorama_price} / Amz:${amazon_price}"
   )
 
   status_change = None
@@ -456,7 +359,7 @@ def process_single_record(r, current_rate, log_container):
 
 def run_tbd_tracker(log_container):
   log_container.write(
-      "⚡ [UI.com Engine] Multi-threading MSRP Guard Sync Running..."
+      "⚡ [UI.com Engine] Adorama & Amazon Dual-Channel Syncing..."
   )
   current_rate = get_current_exchange_rate()
   log_container.write(f"💱 Applied Exchange Rate: ₩{current_rate}")
@@ -470,7 +373,6 @@ def run_tbd_tracker(log_container):
   detail_messages = []
   updated_count = len(records)
 
-  # 병렬 스레드로 초고속 수집
   with ThreadPoolExecutor(max_workers=5) as executor:
     futures = [
         executor.submit(process_single_record, r, current_rate, log_container)
@@ -521,7 +423,7 @@ st.markdown(
     <div class="uic-header">
         <div>
             <div class="uic-title">⚡ UniFi Supply Monitor</div>
-            <div class="uic-subtitle">MSRP-Based Price Engine & Multi-Retailer Inventory Guard</div>
+            <div class="uic-subtitle">MSRP-Based Price Engine & Adorama/Amazon Dual Guard</div>
         </div>
         <div class="uic-badge">SYSTEM ACTIVE</div>
     </div>
@@ -565,7 +467,6 @@ with tab1:
       data_list.append({
           "SKU / Model": f.get("SKU", "-"),
           "MSRP Base ($)": f"${f.get('MSRP_USD', 0.0):,.2f}",
-          "B&H ($)": f"${f.get('BH_USD', 0.0):,.2f}",
           "Adorama ($)": f"${f.get('Adorama_USD', 0.0):,.2f}",
           "Amazon ($)": f"${f.get('Amazon_USD', 0.0):,.2f}",
           "Status": (
@@ -606,9 +507,6 @@ with tab2:
       )
 
     with f_col2:
-      new_bh = st.text_input(
-          "B&H Code (Optional)", placeholder="e.g. 1815010-REG"
-      )
       new_adorama = st.text_input(
           "Adorama SKU (Optional)", placeholder="e.g. ubcgultr"
       )
@@ -627,8 +525,6 @@ with tab2:
             "MSRP_USD": float(new_msrp),
             "Exchange_Rate": current_rate,
         }
-        if new_bh:
-          new_record_data["BH_ID"] = new_bh.strip()
         if new_adorama:
           new_record_data["ADORAMA_ID"] = new_adorama.strip()
         if new_asin:
