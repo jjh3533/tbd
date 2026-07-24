@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import math
 import re
@@ -161,13 +162,16 @@ def fetch_bh_info(bh_id):
   if not bh_id:
     return None
 
-  clean_id = str(bh_id).strip()
-  ids_to_try = [clean_id]
-  if not clean_id.endswith("-REG"):
-    ids_to_try.append(f"{clean_id}-REG")
+  raw_id = str(bh_id).strip()
+  clean_id = raw_id.replace("-REG", "") if "-REG" in raw_id else raw_id
+  reg_id = raw_id if "-REG" in raw_id else f"{raw_id}-REG"
 
-  for item_id in ids_to_try:
-    target_url = f"https://www.bhphotovideo.com/c/product/{item_id}.html"
+  target_urls = [
+      f"https://www.bhphotovideo.com/c/product/{reg_id}.html",
+      f"https://www.bhphotovideo.com/c/search?Ntt={clean_id}&N=0&InitialSearch=yes",
+  ]
+
+  for target_url in target_urls:
     try:
       res = requests.get(
           "http://api.scraperapi.com",
@@ -175,9 +179,9 @@ def fetch_bh_info(bh_id):
               "api_key": SCRAPERAPI_KEY,
               "url": target_url,
               "country_code": "us",
-              "render": "true",
+              "keep_headers": "true",
           },
-          timeout=45,
+          timeout=15,
       )
       if res.status_code != 200:
         continue
@@ -192,7 +196,13 @@ def fetch_bh_info(bh_id):
           data = json.loads(script.string)
           if isinstance(data, list):
             data = data[0]
-          offers = data.get("offers", {})
+
+          if data.get("@type") == "ItemList" and "itemListElement" in data:
+            item = data["itemListElement"][0].get("item", {})
+            offers = item.get("offers", {})
+          else:
+            offers = data.get("offers", {})
+
           if isinstance(offers, list):
             offers = offers[0]
 
@@ -210,8 +220,9 @@ def fetch_bh_info(bh_id):
         price_selectors = [
             '[data-selenium="pricingPrice"]',
             '[data-selenium="price"]',
-            'span[class*="price"]',
+            'span[data-selenium="price"]',
             ".price_12-4-0",
+            'span[class*="price"]',
         ]
         for sel in price_selectors:
           elems = soup.select(sel)
@@ -230,6 +241,7 @@ def fetch_bh_info(bh_id):
 
       if bh_usd > 0:
         return {"price": bh_usd, "in_stock": in_stock}
+
     except Exception:
       continue
 
@@ -241,79 +253,71 @@ def fetch_adorama_info(adorama_id):
     return None
 
   clean_id = str(adorama_id).strip().lower()
-  target_urls = [
-      f"https://www.adorama.com/{clean_id}.html",
-      f"https://www.adorama.com/p/{clean_id}",
-  ]
+  target_url = f"https://www.adorama.com/{clean_id}.html"
 
-  for target_url in target_urls:
-    try:
-      res = requests.get(
-          "http://api.scraperapi.com",
-          params={
-              "api_key": SCRAPERAPI_KEY,
-              "url": target_url,
-              "country_code": "us",
-              "render": "true",
-          },
-          timeout=45,
-      )
-      if res.status_code != 200:
-        continue
+  try:
+    res = requests.get(
+        "http://api.scraperapi.com",
+        params={
+            "api_key": SCRAPERAPI_KEY,
+            "url": target_url,
+            "country_code": "us",
+            "keep_headers": "true",
+        },
+        timeout=15,
+    )
+    if res.status_code != 200:
+      return None
 
-      soup = BeautifulSoup(res.text, "html.parser")
-      adorama_usd = 0.0
-      in_stock = True
+    soup = BeautifulSoup(res.text, "html.parser")
+    adorama_usd = 0.0
+    in_stock = True
 
-      scripts = soup.find_all("script", type="application/ld+json")
-      for script in scripts:
-        try:
-          data = json.loads(script.string)
-          if isinstance(data, list):
-            data = data[0]
-          offers = data.get("offers", {})
-          if isinstance(offers, list):
-            offers = offers[0]
+    scripts = soup.find_all("script", type="application/ld+json")
+    for script in scripts:
+      try:
+        data = json.loads(script.string)
+        if isinstance(data, list):
+          data = data[0]
+        offers = data.get("offers", {})
+        if isinstance(offers, list):
+          offers = offers[0]
 
-          price = offers.get("price") or offers.get("lowPrice")
-          if price:
-            adorama_usd = float(price)
-            availability = str(offers.get("availability", "")).lower()
-            if "outofstock" in availability:
-              in_stock = False
-            break
-        except Exception:
-          pass
+        price = offers.get("price") or offers.get("lowPrice")
+        if price:
+          adorama_usd = float(price)
+          availability = str(offers.get("availability", "")).lower()
+          if "outofstock" in availability:
+            in_stock = False
+          break
+      except Exception:
+        pass
 
-      if adorama_usd == 0.0:
-        price_selectors = [
-            ".your-price",
-            '[itemprop="price"]',
-            ".price",
-            "span.value",
-        ]
-        for sel in price_selectors:
-          elems = soup.select(sel)
-          for elem in elems:
-            clean_p = re.sub(r"[^\d.]", "", elem.get_text().strip())
-            if clean_p:
-              try:
-                val = float(clean_p)
-                if 5.0 <= val <= 10000.0:
-                  adorama_usd = val
-                  break
-              except ValueError:
-                pass
-          if adorama_usd > 0:
-            break
+    if adorama_usd == 0.0:
+      price_selectors = [
+          ".your-price",
+          '[itemprop="price"]',
+          ".price",
+          "span.value",
+      ]
+      for sel in price_selectors:
+        elems = soup.select(sel)
+        for elem in elems:
+          clean_p = re.sub(r"[^\d.]", "", elem.get_text().strip())
+          if clean_p:
+            try:
+              val = float(clean_p)
+              if 5.0 <= val <= 10000.0:
+                adorama_usd = val
+                break
+            except ValueError:
+              pass
+        if adorama_usd > 0:
+          break
 
-      if adorama_usd > 0:
-        return {"price": adorama_usd, "in_stock": in_stock}
-
-    except Exception:
-      continue
-
-  return {"price": 0.0, "in_stock": False}
+    return {"price": adorama_usd, "in_stock": in_stock}
+  except Exception:
+    return None
 
 
 def fetch_amazon_info(asin):
@@ -329,7 +333,7 @@ def fetch_amazon_info(asin):
             "country_code": "us",
             "keep_headers": "true",
         },
-        timeout=30,
+        timeout=15,
     )
     if res.status_code != 200:
       return None
@@ -369,9 +373,90 @@ def fetch_amazon_info(asin):
     return None
 
 
+def process_single_record(r, current_rate, log_container):
+  record_id = r["id"]
+  fields = r["fields"]
+  sku = fields.get("SKU", "무명 상품")
+
+  bh_id = fields.get("BH_ID")
+  adorama_id = fields.get("ADORAMA_ID")
+  asin = fields.get("ASIN")
+
+  msrp_usd = fields.get("MSRP_USD", 0.0)
+  prev_stock = fields.get("In_Stock", False)
+  naver_id = fields.get("Naver_Product_No", "-")
+
+  bh_data = fetch_bh_info(bh_id)
+  adorama_data = fetch_adorama_info(adorama_id)
+  amazon_data = fetch_amazon_info(asin)
+
+  bh_price = bh_data["price"] if bh_data else 0.0
+  adorama_price = adorama_data["price"] if adorama_data else 0.0
+  amazon_price = amazon_data["price"] if amazon_data else 0.0
+
+  valid_retailers = []
+  max_threshold = msrp_usd if msrp_usd > 0 else 99999.0
+
+  if bh_data and bh_data["in_stock"] and 0 < bh_price <= max_threshold:
+    valid_retailers.append("B&H")
+  if (
+      adorama_data
+      and adorama_data["in_stock"]
+      and 0 < adorama_price <= max_threshold
+  ):
+    valid_retailers.append("Adorama")
+  if (
+      amazon_data
+      and amazon_data["in_stock"]
+      and 0 < amazon_price <= max_threshold
+  ):
+    valid_retailers.append("Amazon")
+
+  curr_stock = True if valid_retailers else False
+
+  update_data = {
+      "BH_USD": bh_price,
+      "Adorama_USD": adorama_price,
+      "Amazon_USD": amazon_price,
+      "In_Stock": curr_stock,
+      "Exchange_Rate": current_rate,
+  }
+
+  try:
+    table.update(record_id, update_data)
+  except Exception:
+    pass
+
+  log_container.write(
+      f"✅ [{sku}] Complete | B&H:${bh_price} / Ado:${adorama_price} /"
+      f" Amz:${amazon_price}"
+  )
+
+  status_change = None
+  if prev_stock != curr_stock:
+    if not curr_stock:
+      status_change = (
+          "OOS",
+          f"🔴 **[OUT OF STOCK - Above MSRP]** *{sku}*\n• SmartStore"
+          f" ID({naver_id}) Action Required",
+      )
+    else:
+      updated_record = table.get(record_id)
+      new_calc_price = updated_record["fields"].get("Calculated_Price", 0)
+      available_sources = ", ".join(valid_retailers)
+      status_change = (
+          "IN_STOCK",
+          f"🟢 **[BACK IN STOCK]** *{sku}*\n• Valid Retailers:"
+          f" **{available_sources}**\n• Target Price (MSRP Based):"
+          f" **`{new_calc_price:,}원`**",
+      )
+
+  return status_change
+
+
 def run_tbd_tracker(log_container):
   log_container.write(
-      "⚡ [UI.com Engine] MSRP Guard Multi-retailer Syncing..."
+      "⚡ [UI.com Engine] Multi-threading MSRP Guard Sync Running..."
   )
   current_rate = get_current_exchange_rate()
   log_container.write(f"💱 Applied Exchange Rate: ₩{current_rate}")
@@ -383,90 +468,23 @@ def run_tbd_tracker(log_container):
   out_of_stock_count = 0
   back_in_stock_count = 0
   detail_messages = []
-  updated_count = 0
+  updated_count = len(records)
 
-  for r in records:
-    record_id = r["id"]
-    fields = r["fields"]
-    sku = fields.get("SKU", "무명 상품")
-
-    bh_id = fields.get("BH_ID")
-    adorama_id = fields.get("ADORAMA_ID")
-    asin = fields.get("ASIN")
-
-    msrp_usd = fields.get("MSRP_USD", 0.0)
-    prev_stock = fields.get("In_Stock", False)
-    prev_rate = fields.get("Exchange_Rate")
-    naver_id = fields.get("Naver_Product_No", "-")
-
-    log_container.write(f"🔍 Fetching Retailer Prices for [{sku}]...")
-
-    bh_data = fetch_bh_info(bh_id)
-    adorama_data = fetch_adorama_info(adorama_id)
-    amazon_data = fetch_amazon_info(asin)
-
-    bh_price = bh_data["price"] if bh_data else 0.0
-    adorama_price = adorama_data["price"] if adorama_data else 0.0
-    amazon_price = amazon_data["price"] if amazon_data else 0.0
-
-    valid_retailers = []
-    max_threshold = msrp_usd if msrp_usd > 0 else 99999.0
-
-    if bh_data and bh_data["in_stock"] and 0 < bh_price <= max_threshold:
-      valid_retailers.append("B&H")
-    if (
-        adorama_data
-        and adorama_data["in_stock"]
-        and 0 < adorama_price <= max_threshold
-    ):
-      valid_retailers.append("Adorama")
-    if (
-        amazon_data
-        and amazon_data["in_stock"]
-        and 0 < amazon_price <= max_threshold
-    ):
-      valid_retailers.append("Amazon")
-
-    curr_stock = True if valid_retailers else False
-
-    update_data = {
-        "BH_USD": bh_price,
-        "Adorama_USD": adorama_price,
-        "Amazon_USD": amazon_price,
-        "In_Stock": curr_stock,
-    }
-    if prev_rate != current_rate:
-      update_data["Exchange_Rate"] = current_rate
-
-    try:
-      table.update(record_id, update_data)
-    except Exception as e:
-      log_container.write(f"⚠️ AirTable Sync Warning ({sku}): {e}")
-
-    updated_count += 1
-
-    if prev_stock != curr_stock:
-      if not curr_stock:
-        out_of_stock_count += 1
-        detail_messages.append(
-            f"🔴 **[OUT OF STOCK - Above MSRP]** *{sku}*\n• SmartStore"
-            f" ID({naver_id}) Action Required"
-        )
-      else:
-        back_in_stock_count += 1
-        updated_record = table.get(record_id)
-        new_calc_price = updated_record["fields"].get("Calculated_Price", 0)
-        available_sources = ", ".join(valid_retailers)
-        detail_messages.append(
-            f"🟢 **[BACK IN STOCK]** *{sku}*\n• Valid Retailers:"
-            f" **{available_sources}**\n• Target Price (MSRP Based):"
-            f" **`{new_calc_price:,}원`**"
-        )
-
-    log_container.write(
-        f"✅ [{sku}] Complete | B&H:${bh_price} / Ado:${adorama_price} /"
-        f" Amz:${amazon_price}"
-    )
+  # 병렬 스레드로 초고속 수집
+  with ThreadPoolExecutor(max_workers=5) as executor:
+    futures = [
+        executor.submit(process_single_record, r, current_rate, log_container)
+        for r in records
+    ]
+    for future in as_completed(futures):
+      res = future.result()
+      if res:
+        st_type, msg = res
+        if st_type == "OOS":
+          out_of_stock_count += 1
+        elif st_type == "IN_STOCK":
+          back_in_stock_count += 1
+        detail_messages.append(msg)
 
   changed_total = out_of_stock_count + back_in_stock_count
 
@@ -490,7 +508,7 @@ def run_tbd_tracker(log_container):
     )
 
   send_telegram_msg(final_msg)
-  log_container.write("🎉 MSRP Guard Sync Complete!")
+  log_container.write("🎉 Fast Parallel Sync Complete!")
   return updated_count
 
 
@@ -529,9 +547,7 @@ with tab1:
     if st.button(
         "⚡ Sync Retailers Now", type="primary", use_container_width=True
     ):
-      with st.status(
-          "Checking Retailer Inventories (JS Rendered)...", expanded=True
-      ) as status:
+      with st.status("Executing Multi-thread Sync...", expanded=True) as status:
         count = run_tbd_tracker(status)
         status.update(
             label=f"Sync Finished ({count} items updated)",
