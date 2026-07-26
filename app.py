@@ -197,12 +197,12 @@ def inject_css(theme_name: str) -> None:
       .uic-logo-wrap {{
           display: flex;
           align-items: center;
-          justify-content: center;
-          padding: 8px 4px 20px 4px;
+          justify-content: flex-start;
+          padding: 10px 4px 20px 4px;
           margin-bottom: 6px;
           border-bottom: 1px solid {t['border']};
       }}
-      .uic-logo-wrap img {{ height: 34px; }}
+      .uic-logo-wrap img {{ height: 30px; width: auto; display: block; }}
       .uic-logo-text {{
           font-size: 15px;
           font-weight: 700;
@@ -247,10 +247,11 @@ def inject_css(theme_name: str) -> None:
           color: {t['accent']} !important;
           font-weight: 700 !important;
       }}
-      /* 라디오 원형 아이콘만 숨김. 이전에는 label의 첫 번째 div 전체를
-         display:none으로 숨겼는데, 그 div 안에 아이콘과 텍스트가 같이
-         들어있어서 메뉴 글자까지 통째로 사라지는 버그였음. svg만 targeted로 숨김. */
-      [data-testid="stSidebar"] div[role="radiogroup"] label svg {{
+      /* 라디오 원형 아이콘만 숨김. 실제 배포된 페이지의 DOM을 직접 열어
+         구조를 확인해보니 label > div > div > div(첫번째, 16x16,
+         border-radius:50%)가 원형 아이콘이고, 그 형제인 두번째 div
+         (stMarkdownContainer)가 텍스트였음. 정확히 그 위치만 숨김. */
+      [data-testid="stSidebar"] div[role="radiogroup"] label > div > div > div:first-child {{
           display: none;
       }}
 
@@ -407,19 +408,43 @@ def inject_css(theme_name: str) -> None:
           gap: 8px;
           margin-top: 6px;
       }}
-      .uic-quicklink {{
+      .uic-quicklink,
+      [data-testid="stSidebar"] a.uic-quicklink {{
           flex: 1;
           text-align: center;
           padding: 8px 4px;
           border-radius: 8px;
           border: 1px solid {t['border']};
+          background-color: {t['surface_tint']};
           font-size: 11px;
-          font-weight: 700;
-          color: {t['text_secondary']};
-          text-decoration: none;
+          font-weight: 600;
+          color: {t['text_secondary']} !important;
+          text-decoration: none !important;
       }}
-      .uic-quicklink:hover {{
+      .uic-quicklink:hover,
+      [data-testid="stSidebar"] a.uic-quicklink:hover {{
           border-color: {t['accent']};
+          color: {t['accent']} !important;
+      }}
+
+      /* ---------- 사이드바 하단 동기화 로그 (최대 5줄) ---------- */
+      .uic-sync-log {{
+          margin-top: 4px;
+          padding: 10px 10px;
+          border-radius: 8px;
+          background-color: {t['surface_tint']};
+          border: 1px solid {t['border']};
+      }}
+      .uic-sync-log-line {{
+          font-size: 10.5px;
+          color: {t['text_secondary']};
+          line-height: 1.5;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+      }}
+      .uic-sync-log-more {{
+          font-weight: 700;
           color: {t['accent']};
       }}
 
@@ -901,6 +926,38 @@ def safe_fetch_records():
 # ==========================================
 # 3. UI 보조 함수
 # ==========================================
+class _CappedSidebarLog:
+  """사이드바 하단 로그 슬롯에 최대 N줄만 표시하는 run_tbd_tracker()용 래퍼.
+
+  run_tbd_tracker()는 여러 줄을 log_container.write(msg)로 계속 호출하는데,
+  좁은 사이드바에 전부 다 찍으면 상품 수가 늘어날수록 계속 길어지므로
+  처음 N개만 보여주고 나머지는 개수만 요약합니다.
+  """
+
+  def __init__(self, slot, limit=5):
+    self.slot = slot
+    self.limit = limit
+    self.lines = []
+    self.total = 0
+
+  def write(self, msg):
+    self.total += 1
+    if len(self.lines) < self.limit:
+      self.lines.append(str(msg))
+    rows = "".join(
+        f'<div class="uic-sync-log-line">{html_escape(l)}</div>'
+        for l in self.lines
+    )
+    if self.total > self.limit:
+      rows += (
+          f'<div class="uic-sync-log-line uic-sync-log-more">'
+          f'…외 {self.total - self.limit}건 처리 중</div>'
+      )
+    self.slot.markdown(
+        f'<div class="uic-sync-log">{rows}</div>', unsafe_allow_html=True
+    )
+
+
 _COLOR_KEY_GOOD = "accent"    # MSRP보다 저렴
 _COLOR_KEY_SAME = "success"   # MSRP와 동일
 _COLOR_KEY_BAD = "danger"     # 가격정보 없음 / MSRP보다 비쌈
@@ -1102,6 +1159,12 @@ def render_sidebar():
       unsafe_allow_html=True,
   )
 
+  sync_clicked = st.sidebar.button(
+      "⚡ Sync Retailers Now", type="primary", use_container_width=True,
+      help="상품 1개당 Adorama+Amazon+B&H 합쳐 보통 약 12크레딧, 봇 차단이"
+      " 걸리면 최대 약 22크레딧까지 소모될 수 있습니다.",
+  )
+
   st.sidebar.markdown('<div class="uic-nav-label">메뉴</div>', unsafe_allow_html=True)
 
   nav_options = ["📊 메인 대시보드"] + [f"　{c}" for c in CATEGORIES] + ["➕ 상품 등록"]
@@ -1136,6 +1199,17 @@ def render_sidebar():
       for name, url in QUICK_LINKS.items()
   ) + "</div>"
   st.sidebar.markdown(links_html, unsafe_allow_html=True)
+
+  # 동기화 실행 로그: 메뉴바 제일 하단에 최대 5줄만 표시.
+  # (버튼은 로고 바로 아래 있지만, 이 슬롯은 사이드바에서 제일 마지막에
+  # 생성되므로 화면상 항상 맨 아래에 위치함 — 위젯 선언 순서 = 렌더링 순서)
+  log_slot = st.sidebar.empty()
+  if sync_clicked:
+    capped_log = _CappedSidebarLog(log_slot, limit=5)
+    with st.spinner("Adorama / Amazon / B&H 동기화 중..."):
+      count = run_tbd_tracker(capped_log)
+    log_slot.success(f"⚡ 동기화 완료 ({count}건 갱신)")
+    st.rerun()
 
   return choice
 
@@ -1181,7 +1255,8 @@ with top_col1:
 if not is_register_page:
   scrapedo_usage = get_scrapedo_usage()
 
-  m1, m2, m3 = st.columns([1.3, 1.3, 2])
+  # Sync 버튼은 사이드바(로고 바로 아래)로 이동했습니다.
+  m1, m2 = st.columns([1, 1])
   with m1:
     st.metric(label="USD / KRW", value=f"₩ {current_rate:,}")
   with m2:
@@ -1198,21 +1273,6 @@ if not is_register_page:
       )
     else:
       st.metric(label="Scrape.do 잔여 크레딧", value="조회 실패")
-  with m3:
-    if st.button(
-        "⚡ Sync Retailers Now", type="primary", use_container_width=True,
-        help="상품 1개당 Adorama+Amazon+B&H 합쳐 보통 약 12크레딧, 봇 차단이"
-        " 걸리면 최대 약 22크레딧까지 소모될 수 있습니다.",
-    ):
-      with st.status("Executing Multi-thread Sync...", expanded=True) as status:
-        count = run_tbd_tracker(status)
-        status.update(
-            label=f"Sync Finished ({count} items updated)",
-            state="complete",
-            expanded=False,
-        )
-      st.success("AirTable and Telegram alerts updated.")
-      st.rerun()
 
   st.divider()
 
