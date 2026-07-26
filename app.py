@@ -569,17 +569,8 @@ def get_scrapedo_usage():
 # Amazon PDP 플러그인 엔드포인트는 토큰당 동시 요청 1개 제한이 있어 세마포어로 직렬화.
 _AMAZON_SEMAPHORE = threading.Semaphore(1)
 
-# Scrape.do 계정 전체 동시 요청 한도(Hobby Plan 기준 10개)에 맞춰, Amazon(위
-# 세마포어로 항상 1개)을 제외한 나머지(Adorama/B&H) 동시 요청 수를 9개로
-# 제한합니다. 예전에는 이 한도를 ThreadPoolExecutor의 max_workers로만 간접
-# 통제했는데, 상품 1개당 Adorama/Amazon/B&H를 순차 실행했기 때문에 우연히
-# 한도 안에 들어왔던 것뿐이라 안전하지 않았습니다. 이제 상품 1개당 세 곳을
-# 동시에 조회하도록 바꾸면서, 실제 계정 한도를 지키는 이 세마포어가 진짜
-# 안전장치입니다.
-_SCRAPEDO_SEMAPHORE = threading.Semaphore(9)
 
-
-def _scrapedo_get(target_url, timeout=25, max_retries=1, retry_delay=2.0,
+def _scrapedo_get(target_url, timeout=60, max_retries=1, retry_delay=2.0,
                    try_super_on_failure=True, force_super=False):
   """Scrape.do 요청 공용 래퍼 (재시도 + 비용 절감 escalation 포함)."""
   if force_super:
@@ -587,24 +578,18 @@ def _scrapedo_get(target_url, timeout=25, max_retries=1, retry_delay=2.0,
   else:
     tiers = [False, True] if try_super_on_failure else [False]
   for use_super in tiers:
-    # super=true는 안티봇 우회를 위해 실제 브라우저 렌더링을 거치는 경우가
-    # 많아 super=false보다 훨씬 느립니다. 호출자가 지정한 timeout이 여기엔
-    # 너무 빠듯할 수 있어(예: B&H는 force_super=True로 항상 이 경로를 탐)
-    # super 요청에는 리팩터 이전(60초) 수준을 최소로 보장합니다.
-    effective_timeout = max(timeout, 60) if use_super else timeout
     for attempt in range(max_retries + 1):
       try:
-        with _SCRAPEDO_SEMAPHORE:
-          res = requests.get(
-              "https://api.scrape.do/",
-              params={
-                  "token": SCRAPEDO_TOKEN,
-                  "url": target_url,
-                  "geoCode": "us",
-                  "super": "true" if use_super else "false",
-              },
-              timeout=effective_timeout,
-          )
+        res = requests.get(
+            "https://api.scrape.do/",
+            params={
+                "token": SCRAPEDO_TOKEN,
+                "url": target_url,
+                "geoCode": "us",
+                "super": "true" if use_super else "false",
+            },
+            timeout=timeout,
+        )
         if res.status_code == 200:
           return res
       except Exception:
@@ -677,7 +662,7 @@ def fetch_adorama_info(adorama_id):
     return None
 
 
-def fetch_amazon_info(asin, timeout=25, max_retries=2, retry_delay=2.0):
+def fetch_amazon_info(asin, timeout=60, max_retries=2, retry_delay=2.0):
   """Scrape.do의 Amazon PDP 플러그인(요청당 1크레딧, 토큰당 동시 1개 제한)으로 조회."""
   if not asin:
     return None
@@ -746,22 +731,6 @@ def _parse_bh_package_weight_kg(soup):
   return None
 
 
-# B&H는 안티봇 방어가 강해서 super=true로도 가끔 캡차/차단 페이지가 200으로
-# 내려올 수 있습니다. 진단을 위해 이런 페이지의 특징 문구를 감지해 로그에
-# "(blocked)"로 표시할 수 있게 합니다.
-_BH_BLOCK_KEYWORDS = [
-    "pardon our interruption",
-    "access denied",
-    "are you a robot",
-    "unusual traffic",
-    "px-captcha",
-    "distil_r_captcha",
-    "request unsuccessful",
-    "reference #",
-    "verify you are a human",
-]
-
-
 def fetch_bh_info(bh_id):
   if not bh_id:
     return None
@@ -770,20 +739,13 @@ def fetch_bh_info(bh_id):
   target_url = f"https://www.bhphotovideo.com/c/product/{clean_id}/"
 
   try:
-    # B&H는 다른 곳보다 캡차에 자주 걸리는 편이라 재시도를 한 번 더 줍니다.
-    res = _scrapedo_get(target_url, force_super=True, max_retries=2)
+    res = _scrapedo_get(target_url, force_super=True)
     if res is None:
-      return {"price": 0.0, "in_stock": False, "weight_kg": None,
-              "note": "request_failed"}
+      return None
 
     soup = BeautifulSoup(res.text, "html.parser")
     bh_usd = 0.0
     in_stock = True
-    note = "ok"
-
-    page_text_lower = soup.get_text(" ", strip=True).lower()
-    if any(kw in page_text_lower for kw in _BH_BLOCK_KEYWORDS):
-      note = "blocked"
 
     scripts = soup.find_all("script", type="application/ld+json")
     for script in scripts:
@@ -828,6 +790,7 @@ def fetch_bh_info(bh_id):
           break
 
     if bh_usd > 0:
+      page_text = soup.get_text(" ", strip=True).lower()
       oos_keywords = [
           "out of stock",
           "discontinued",
@@ -839,21 +802,14 @@ def fetch_bh_info(bh_id):
           "pre-order",
           "preorder",
       ]
-      if any(kw in page_text_lower for kw in oos_keywords):
+      if any(kw in page_text for kw in oos_keywords):
         in_stock = False
-      note = "ok"
-    elif note == "ok":
-      # 페이지는 정상적으로 받아왔는데(캡차 문구도 없는데) 가격을 못 찾은
-      # 경우 - B&H가 구조를 바꿨거나 다른 이유로 파싱이 실패한 것.
-      note = "no_price_found"
 
     weight_kg = _parse_bh_package_weight_kg(soup)
 
-    return {"price": bh_usd, "in_stock": in_stock, "weight_kg": weight_kg,
-            "note": note}
+    return {"price": bh_usd, "in_stock": in_stock, "weight_kg": weight_kg}
   except Exception:
-    return {"price": 0.0, "in_stock": False, "weight_kg": None,
-            "note": "exception"}
+    return None
 
 
 def process_single_record(r, current_rate):
@@ -871,17 +827,9 @@ def process_single_record(r, current_rate):
   naver_id = fields.get("Naver_Product_No", "-")
   max_threshold = msrp_usd if msrp_usd > 0 else 99999.0
 
-  # 세 곳 조회는 서로 무관하니 순차 대신 동시에 실행 (Amazon은 여전히
-  # _AMAZON_SEMAPHORE로, Adorama/B&H는 _SCRAPEDO_SEMAPHORE로 계정 동시요청
-  # 한도 안에서 안전하게 직렬화됨 - 여기서 동시에 "요청을 시작"할 뿐, 실제
-  # 네트워크 요청 동시 개수는 그 세마포어들이 제한함).
-  with ThreadPoolExecutor(max_workers=3) as retailer_executor:
-    future_adorama = retailer_executor.submit(fetch_adorama_info, adorama_id)
-    future_amazon = retailer_executor.submit(fetch_amazon_info, asin)
-    future_bh = retailer_executor.submit(fetch_bh_info, bh_id)
-    adorama_data = future_adorama.result()
-    amazon_data = future_amazon.result()
-    bh_data = future_bh.result()
+  adorama_data = fetch_adorama_info(adorama_id)
+  amazon_data = fetch_amazon_info(asin)
+  bh_data = fetch_bh_info(bh_id)
 
   adorama_price = adorama_data["price"] if adorama_data else 0.0
   amazon_price = amazon_data["price"] if amazon_data else 0.0
@@ -926,11 +874,9 @@ def process_single_record(r, current_rate):
   except Exception:
     pass
 
-  bh_note = bh_data.get("note") if bh_data else "no_response"
-  bh_suffix = f"({bh_note})" if bh_note != "ok" else ""
   log_line = (
       f"✅ [{sku}] Complete | Ado:${adorama_price} / Amz:${amazon_price} /"
-      f" BH:${bh_price}{bh_suffix}"
+      f" BH:${bh_price}"
   )
 
   status_change = None
@@ -971,12 +917,7 @@ def run_tbd_tracker(log_container):
   detail_messages = []
   updated_count = len(records)
 
-  # 상품당 실제 네트워크 동시 요청 수는 이제 _AMAZON_SEMAPHORE(1개)와
-  # _SCRAPEDO_SEMAPHORE(9개)가 계정 한도 안에서 직접 제한하므로, 이 바깥쪽
-  # 풀의 워커 수는 그저 "동시에 대기줄에 들어갈 수 있는 상품 개수"입니다.
-  # 넉넉히 늘려서 모든 상품이 최대한 빨리 세마포어 대기줄에 들어가도록 해,
-  # 특히 가장 오래 걸리는 Amazon(순차 처리) 쪽의 유휴 시간을 줄입니다.
-  with ThreadPoolExecutor(max_workers=min(20, max(total_count, 1))) as executor:
+  with ThreadPoolExecutor(max_workers=8) as executor:
     futures = [
         executor.submit(process_single_record, r, current_rate)
         for r in records
