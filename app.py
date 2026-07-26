@@ -183,12 +183,12 @@ def inject_css(theme_name: str) -> None:
       .uic-logo-wrap {{
           display: flex;
           align-items: center;
-          gap: 10px;
-          padding: 4px 4px 18px 4px;
+          justify-content: center;
+          padding: 8px 4px 20px 4px;
           margin-bottom: 6px;
           border-bottom: 1px solid {t['border']};
       }}
-      .uic-logo-wrap img {{ height: 26px; }}
+      .uic-logo-wrap img {{ height: 34px; }}
       .uic-logo-text {{
           font-size: 15px;
           font-weight: 700;
@@ -225,11 +225,18 @@ def inject_css(theme_name: str) -> None:
       [data-testid="stSidebar"] div[role="radiogroup"] label:hover {{
           background-color: {t['surface_tint']};
       }}
-      [data-testid="stSidebar"] div[role="radiogroup"] input:checked + div {{
+      [data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked) {{
           color: {t['accent']} !important;
           font-weight: 700 !important;
       }}
-      [data-testid="stSidebar"] div[role="radiogroup"] label div:first-child {{
+      [data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked) * {{
+          color: {t['accent']} !important;
+          font-weight: 700 !important;
+      }}
+      /* 라디오 원형 아이콘만 숨김. 이전에는 label의 첫 번째 div 전체를
+         display:none으로 숨겼는데, 그 div 안에 아이콘과 텍스트가 같이
+         들어있어서 메뉴 글자까지 통째로 사라지는 버그였음. svg만 targeted로 숨김. */
+      [data-testid="stSidebar"] div[role="radiogroup"] label svg {{
           display: none;
       }}
 
@@ -1071,11 +1078,7 @@ def render_sidebar():
   st.sidebar.markdown(
       f"""
       <div class="uic-logo-wrap">
-          {'<img src="' + logo_uri + '" />' if logo_uri else '⚡'}
-          <div>
-              <div class="uic-logo-text">UniFi Supply</div>
-              <div class="uic-logo-sub">Price Monitor</div>
-          </div>
+          {'<img src="' + logo_uri + '" alt="UniFi Supply" />' if logo_uri else '⚡ UniFi Supply'}
       </div>
       """,
       unsafe_allow_html=True,
