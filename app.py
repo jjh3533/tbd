@@ -115,13 +115,13 @@ LOGO_DARK = _b64("unifi_supply_logo.svg")  # 어두운 로고 (라이트 배경�
 LOGO_LIGHT = _b64("unifi_supply_logo_white.svg")  # 밝은 로고 (다크 배경용)
 
 
+def logo_data_uri(theme_name: str) -> str:
+  logo_data = LOGO_LIGHT if theme_name == "dark" else LOGO_DARK
+  return f"data:image/svg+xml;base64,{logo_data}" if logo_data else ""
+
+
 def inject_css(theme_name: str) -> None:
   t = THEMES[theme_name]
-  logo_data = LOGO_LIGHT if theme_name == "dark" else LOGO_DARK
-
-  st.session_state["_logo_data_uri"] = (
-      f"data:image/svg+xml;base64,{logo_data}" if logo_data else ""
-  )
 
   st.markdown(
       f"""
@@ -151,7 +151,21 @@ def inject_css(theme_name: str) -> None:
           font-display: swap;
       }}
 
-      html, body, [class*="css"], .stApp, .stMarkdown, button, input, textarea {{
+      /* Streamlit 자체 스타일시트가 [data-testid="stMarkdownContainer"] 등
+         구체적인 엘리먼트에 직접 font-family: "Source Sans"를 걸어두기 때문에,
+         html/body에만 지정하면 상속 우선순위에서 밀려 적용되지 않음.
+         실제로 텍스트가 렌더링되는 컨테이너들을 전부 명시적으로 targeted. */
+      html, body, [class*="css"], .stApp, .stMarkdown, button, input, textarea,
+      [data-testid="stMarkdownContainer"],
+      [data-testid="stMarkdownContainer"] *,
+      [data-testid="stMetricValue"], [data-testid="stMetricLabel"],
+      [data-testid="stMetricDelta"], [data-testid="stCaptionContainer"],
+      [data-testid="stCaptionContainer"] *,
+      [data-testid="stWidgetLabel"], [data-testid="stWidgetLabel"] *,
+      [data-testid="stTextInput"] input, [data-testid="stNumberInput"] input,
+      [data-testid="stSelectbox"], [data-testid="stSelectbox"] *,
+      [data-testid="stSidebar"] *,
+      table.uic-table, table.uic-table * {{
           font-family: 'UI Sans', Inter, -apple-system, BlinkMacSystemFont,
               "Segoe UI", Lato, Arial, sans-serif !important;
       }}
@@ -1074,7 +1088,11 @@ def render_products_table(records, theme_name, show_category=True):
 
 
 def render_sidebar():
-  logo_uri = st.session_state.get("_logo_data_uri", "")
+  # 테마를 세션스테이트에서 직접 읽어와 로고를 고름. (이전에는 inject_css()가
+  # 세션스테이트에 로고를 저장해두고 render_sidebar()가 그걸 읽었는데,
+  # render_sidebar()가 inject_css()보다 먼저 호출되다 보니 매 세션 첫 로드 때는
+  # 항상 "한 런(run) 뒤처진" 빈 값을 읽어서 로고 대신 텍스트만 보이는 버그가 있었음.)
+  logo_uri = logo_data_uri(st.session_state.get("theme", "light"))
   st.sidebar.markdown(
       f"""
       <div class="uic-logo-wrap">
