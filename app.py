@@ -75,6 +75,8 @@ THEMES = {
         "success_soft_bg": "#E4F7EC",
         "danger": "#E5484D",
         "danger_soft_bg": "#FDEBEC",
+        "warning": "#B25E09",
+        "warning_soft_bg": "#FBF0E1",
         "shadow": "0 1px 2px rgba(33, 35, 39, 0.06)",
     },
     "dark": {
@@ -92,6 +94,8 @@ THEMES = {
         "success_soft_bg": "#0F2E1B",
         "danger": "#FF6259",
         "danger_soft_bg": "#3A1414",
+        "warning": "#F0A83C",
+        "warning_soft_bg": "#3A2B0F",
         "shadow": "0 1px 2px rgba(0, 0, 0, 0.4)",
     },
 }
@@ -463,6 +467,7 @@ def inject_css(theme_name: str) -> None:
       }}
       .uic-pill.ok {{ background-color: {t['success_soft_bg']}; color: {t['success']}; }}
       .uic-pill.bad {{ background-color: {t['danger_soft_bg']}; color: {t['danger']}; }}
+      .uic-pill.check {{ background-color: {t['warning_soft_bg']}; color: {t['warning']}; cursor: help; }}
       .uic-pill.cat {{ background-color: {t['accent_soft_bg']}; color: {t['accent']}; }}
 
       /* ---------- 사이드바 바로가기 아이콘 ---------- */
@@ -607,6 +612,37 @@ def _scrapedo_get(target_url, timeout=60, max_retries=1, retry_delay=2.0,
   return None
 
 
+# 사이트가 요청을 거부/차단했을 때 나타나는 흔한 문구. 200 응답이어도 실제
+# 내용이 아니라 이런 인터스티셜/캡차 페이지일 수 있어서, 이걸 감지하면
+# "품절"이 아니라 "확인 필요"로 분류합니다.
+_BLOCK_KEYWORDS = [
+    "pardon our interruption",
+    "access denied",
+    "are you a robot",
+    "unusual traffic",
+    "px-captcha",
+    "distil_r_captcha",
+    "request unsuccessful",
+    "reference #",
+    "verify you are a human",
+    "attention required",
+    "checking your browser",
+]
+
+_OOS_KEYWORDS = [
+    "out of stock",
+    "discontinued",
+    "sold out",
+    "coming soon",
+    "notify when available",
+    "special order",
+    "backordered",
+    "pre-order",
+    "preorder",
+    "no longer available",
+]
+
+
 def fetch_adorama_info(adorama_id):
   if not adorama_id:
     return None
@@ -617,11 +653,18 @@ def fetch_adorama_info(adorama_id):
   try:
     res = _scrapedo_get(target_url)
     if res is None:
-      return None
+      # 재시도까지 다 실패 - 진짜 품절인지 사이트가 막았는지 알 수 없으니
+      # 0으로 확정 짓지 않고 "확인 필요"로만 표시합니다.
+      return {"price": 0.0, "in_stock": False, "status": "check_needed",
+              "detail": "request_failed"}
 
     soup = BeautifulSoup(res.text, "html.parser")
     adorama_usd = 0.0
     in_stock = True
+    confirmed_oos = False
+
+    page_text_lower = soup.get_text(" ", strip=True).lower()
+    blocked = any(kw in page_text_lower for kw in _BLOCK_KEYWORDS)
 
     scripts = soup.find_all("script", type="application/ld+json")
     for script in scripts:
@@ -639,6 +682,7 @@ def fetch_adorama_info(adorama_id):
           availability = str(offers.get("availability", "")).lower()
           if "outofstock" in availability:
             in_stock = False
+            confirmed_oos = True
           break
       except Exception:
         pass
@@ -665,9 +709,26 @@ def fetch_adorama_info(adorama_id):
         if adorama_usd > 0:
           break
 
-    return {"price": adorama_usd, "in_stock": in_stock}
+    if any(kw in page_text_lower for kw in _OOS_KEYWORDS):
+      in_stock = False
+      confirmed_oos = True
+
+    if blocked:
+      status, detail = "check_needed", "blocked"
+    elif confirmed_oos:
+      status, detail = "oos", ""
+    elif adorama_usd > 0:
+      status, detail = "ok", ""
+    else:
+      # 가격도 못 찾고, 차단 문구도 품절 문구도 없음 - 페이지 구조가 바뀌었을
+      # 수 있으니 이것도 확정하지 않고 확인 필요로 남겨둡니다.
+      status, detail = "check_needed", "no_price_found"
+
+    return {"price": adorama_usd, "in_stock": in_stock, "status": status,
+            "detail": detail}
   except Exception:
-    return None
+    return {"price": 0.0, "in_stock": False, "status": "check_needed",
+            "detail": "exception"}
 
 
 def fetch_amazon_info(asin, timeout=60, max_retries=2, retry_delay=2.0):
@@ -694,13 +755,21 @@ def fetch_amazon_info(asin, timeout=60, max_retries=2, retry_delay=2.0):
         if data.get("status") == "success":
           price = data.get("price")
           amazon_usd = float(price) if price is not None else 0.0
-          return {"price": amazon_usd, "in_stock": amazon_usd > 0}
-        return {"price": 0.0, "in_stock": False}
+          # 플러그인이 정상적으로 페이지를 읽어서 "success"를 준 경우라 가격이
+          # 0이어도(=페이지에 가격이 없음) 이건 확정된 정보로 취급합니다.
+          status = "ok" if amazon_usd > 0 else "oos"
+          return {"price": amazon_usd, "in_stock": amazon_usd > 0,
+                  "status": status, "detail": ""}
+        # 플러그인 자체가 이 ASIN을 못 읽었다는 뜻 - 품절 확정이 아니라
+        # 재조회가 필요한 상태.
+        return {"price": 0.0, "in_stock": False, "status": "check_needed",
+                "detail": "plugin_failed"}
     except Exception:
       pass
     if attempt < max_retries:
       time.sleep(retry_delay)
-  return None
+  return {"price": 0.0, "in_stock": False, "status": "check_needed",
+          "detail": "request_failed"}
 
 
 _WEIGHT_UNIT_TO_KG = {
@@ -747,13 +816,19 @@ def fetch_bh_info(bh_id):
   target_url = f"https://www.bhphotovideo.com/c/product/{clean_id}/"
 
   try:
-    res = _scrapedo_get(target_url, force_super=True)
+    # B&H는 다른 곳보다 캡차/차단에 자주 걸리는 편이라 재시도를 한 번 더 줍니다.
+    res = _scrapedo_get(target_url, force_super=True, max_retries=2)
     if res is None:
-      return None
+      return {"price": 0.0, "in_stock": False, "weight_kg": None,
+              "status": "check_needed", "detail": "request_failed"}
 
     soup = BeautifulSoup(res.text, "html.parser")
     bh_usd = 0.0
     in_stock = True
+    confirmed_oos = False
+
+    page_text_lower = soup.get_text(" ", strip=True).lower()
+    blocked = any(kw in page_text_lower for kw in _BLOCK_KEYWORDS)
 
     scripts = soup.find_all("script", type="application/ld+json")
     for script in scripts:
@@ -771,6 +846,7 @@ def fetch_bh_info(bh_id):
           availability = str(offers.get("availability", "")).lower()
           if "outofstock" in availability or "discontinued" in availability:
             in_stock = False
+            confirmed_oos = True
           break
       except Exception:
         pass
@@ -797,27 +873,26 @@ def fetch_bh_info(bh_id):
         if bh_usd > 0:
           break
 
-    if bh_usd > 0:
-      page_text = soup.get_text(" ", strip=True).lower()
-      oos_keywords = [
-          "out of stock",
-          "discontinued",
-          "sold out",
-          "coming soon",
-          "notify when available",
-          "special order",
-          "backordered",
-          "pre-order",
-          "preorder",
-      ]
-      if any(kw in page_text for kw in oos_keywords):
-        in_stock = False
+    if any(kw in page_text_lower for kw in _OOS_KEYWORDS):
+      in_stock = False
+      confirmed_oos = True
 
     weight_kg = _parse_bh_package_weight_kg(soup)
 
-    return {"price": bh_usd, "in_stock": in_stock, "weight_kg": weight_kg}
+    if blocked:
+      status, detail = "check_needed", "blocked"
+    elif confirmed_oos:
+      status, detail = "oos", ""
+    elif bh_usd > 0:
+      status, detail = "ok", ""
+    else:
+      status, detail = "check_needed", "no_price_found"
+
+    return {"price": bh_usd, "in_stock": in_stock, "weight_kg": weight_kg,
+            "status": status, "detail": detail}
   except Exception:
-    return None
+    return {"price": 0.0, "in_stock": False, "weight_kg": None,
+            "status": "check_needed", "detail": "exception"}
 
 
 def process_single_record(r, current_rate):
@@ -832,6 +907,7 @@ def process_single_record(r, current_rate):
 
   msrp_usd = fields.get("MSRP_USD", 0.0)
   prev_stock = fields.get("In_Stock", False)
+  prev_needs_check = fields.get("Needs_Check", False)
   naver_id = fields.get("Naver_Product_No", "-")
   max_threshold = msrp_usd if msrp_usd > 0 else 99999.0
 
@@ -853,32 +929,61 @@ def process_single_record(r, current_rate):
   valid_retailers = []
   if (
       adorama_data
-      and adorama_data["in_stock"]
+      and adorama_data.get("status") == "ok"
       and 0 < adorama_price <= max_threshold
   ):
     valid_retailers.append("Adorama")
   if (
       amazon_data
-      and amazon_data["in_stock"]
+      and amazon_data.get("status") == "ok"
       and 0 < amazon_price <= max_threshold
   ):
     valid_retailers.append("Amazon")
   if (
       bh_data
-      and bh_data["in_stock"]
+      and bh_data.get("status") == "ok"
       and 0 < bh_price <= max_threshold
   ):
     valid_retailers.append("B&H")
 
-  curr_stock = True if valid_retailers else False
+  # ID가 설정된 곳(=data가 None이 아님) 중 이번에 "확인 필요"로 끝난 곳들.
+  # 하나라도 있으면 이번 결과만으로 재고 상태를 확정할 수 없다는 뜻입니다.
+  check_needed_sources = [
+      name for name, data in (
+          ("Adorama", adorama_data), ("Amazon", amazon_data), ("B&H", bh_data)
+      )
+      if data and data.get("status") == "check_needed"
+  ]
+  any_check_needed = bool(check_needed_sources)
+
+  if valid_retailers:
+    curr_stock = True
+  elif not any_check_needed:
+    # 시도한 곳들이 전부 확정적인 답(정상가 또는 품절/사이트 자체 신고)을
+    # 줬는데 유효한 판매처가 없다면, 진짜 품절/MSRP 초과로 확정합니다.
+    curr_stock = False
+  else:
+    # 일부는 사이트가 막았거나 파싱에 실패해서 확답을 못 받은 상태 - 이전
+    # 재고 상태를 그대로 유지하고 "품절"이 아니라 "확인 필요"로만 표시합니다.
+    curr_stock = prev_stock
 
   update_data = {
-      "Adorama_USD": adorama_price,
-      "Amazon_USD": amazon_price,
-      "BH_USD": bh_price,
       "In_Stock": curr_stock,
+      "Needs_Check": any_check_needed,
+      "Check_Note": (
+          ", ".join(f"{name} 확인 필요" for name in check_needed_sources)
+          if check_needed_sources else ""
+      ),
       "Exchange_Rate": current_rate,
   }
+  # 사이트가 막혀서 확정 못 한 가격은 이전 값을 0으로 덮어쓰지 않고 그대로
+  # 둡니다 (마지막으로 확인된 값이 남아있는 게, 잘못된 $0보다 낫습니다).
+  if adorama_data is None or adorama_data.get("status") != "check_needed":
+    update_data["Adorama_USD"] = adorama_price
+  if amazon_data is None or amazon_data.get("status") != "check_needed":
+    update_data["Amazon_USD"] = amazon_price
+  if bh_data is None or bh_data.get("status") != "check_needed":
+    update_data["BH_USD"] = bh_price
 
   bh_weight_kg = bh_data.get("weight_kg") if bh_data else None
   if bh_weight_kg is not None:
@@ -889,13 +994,25 @@ def process_single_record(r, current_rate):
   except Exception:
     pass
 
+  def _fmt(label, data, price):
+    if data and data.get("status") == "check_needed":
+      return f"{label}:⚠({data.get('detail') or 'check'})"
+    return f"{label}:${price}"
+
   log_line = (
-      f"✅ [{sku}] Complete | Ado:${adorama_price} / Amz:${amazon_price} /"
-      f" BH:${bh_price}"
+      f"✅ [{sku}] Complete | {_fmt('Ado', adorama_data, adorama_price)} /"
+      f" {_fmt('Amz', amazon_data, amazon_price)} /"
+      f" {_fmt('BH', bh_data, bh_price)}"
   )
 
   status_change = None
-  if prev_stock != curr_stock:
+  if any_check_needed and not prev_needs_check:
+    status_change = (
+        "CHECK",
+        f"⚠️ **[확인 필요]** *{sku}*\n• {', '.join(check_needed_sources)} 접속/파싱"
+        f" 실패 - 사이트를 직접 확인해주세요",
+    )
+  elif prev_stock != curr_stock:
     if not curr_stock:
       status_change = (
           "OOS",
@@ -929,6 +1046,7 @@ def run_tbd_tracker(log_container):
 
   out_of_stock_count = 0
   back_in_stock_count = 0
+  check_needed_count = 0
   detail_messages = []
   updated_count = len(records)
 
@@ -949,6 +1067,8 @@ def run_tbd_tracker(log_container):
           out_of_stock_count += 1
         elif st_type == "IN_STOCK":
           back_in_stock_count += 1
+        elif st_type == "CHECK":
+          check_needed_count += 1
         detail_messages.append(msg)
 
   changed_total = out_of_stock_count + back_in_stock_count
@@ -958,6 +1078,8 @@ def run_tbd_tracker(log_container):
       f"• **Monitored Items**: {total_count} units",
       f"• **Status Shift**: {changed_total} (🔴 Out of Stock {out_of_stock_count}"
       f" / 🟢 Normal {back_in_stock_count})",
+      f"• **Needs Manual Check**: {check_needed_count} (사이트 접속/파싱 실패 - 품절"
+      " 확정 아님)",
       "\n---",
   ]
 
@@ -1162,11 +1284,19 @@ def render_products_table(records, theme_name, show_category=True):
       color_key = _COLOR_KEY_BAD
     best_color = t[color_key]
 
-    status_html = (
-        '<span class="uic-pill ok">Active</span>'
-        if is_active
-        else '<span class="uic-pill bad">Out of Stock</span>'
-    )
+    needs_check = bool(f.get("Needs_Check"))
+    check_note = f.get("Check_Note") or "사이트 접속/파싱 실패 - 직접 확인해주세요"
+    if needs_check:
+      status_html = (
+          f'<span class="uic-pill check" title="{html_escape(check_note)}">'
+          '⚠ Check Needed</span>'
+      )
+    else:
+      status_html = (
+          '<span class="uic-pill ok">Active</span>'
+          if is_active
+          else '<span class="uic-pill bad">Out of Stock</span>'
+      )
     cat_html = f'<span class="uic-pill cat">{html_escape(category)}</span>'
 
     cell_values = {
