@@ -1064,6 +1064,21 @@ def fmt_krw(v):
     return "-"
 
 
+def sort_records_by_category_then_name(records):
+  """메인 대시보드 '전체 상품' 표 정렬: 1) 왼쪽 메뉴의 카테고리 순서,
+  2) 같은 카테고리 안에서는 이름(SKU) 오름차순."""
+  def _key(r):
+    fields = r["fields"]
+    category = fields.get("Category")
+    category_rank = (
+        CATEGORIES.index(category) if category in CATEGORIES else len(CATEGORIES)
+    )
+    name = str(fields.get("SKU") or "").lower()
+    return (category_rank, name)
+
+  return sorted(records, key=_key)
+
+
 def render_metric_card(col, label, value, tone=""):
   with col:
     st.markdown(
@@ -1372,7 +1387,8 @@ if not is_register_page:
 
     st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
     st.markdown("##### 전체 상품")
-    render_products_table(records, theme_now, show_category=True)
+    sorted_records = sort_records_by_category_then_name(records)
+    render_products_table(sorted_records, theme_now, show_category=True)
 
   else:
     cat_records = [r for r in records if r["fields"].get("Category") == active_category]
