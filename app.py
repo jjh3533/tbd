@@ -569,6 +569,13 @@ def get_scrapedo_usage():
 # Amazon PDP 플러그인 엔드포인트는 토큰당 동시 요청 1개 제한이 있어 세마포어로 직렬화.
 _AMAZON_SEMAPHORE = threading.Semaphore(1)
 
+# Scrape.do 대시보드(dashboard.scrape.do)에서 확인한 실제 계정 동시 요청 한도는
+# Hobby 플랜 기준 10. Amazon이 항상 1개를 쓰므로 Adorama/B&H 합산 한도를
+# 5로 잡아 (5 + 1 = 6) 계정 한도(10)에 여유를 넉넉히 남깁니다. 예전에 9까지
+# 밀어붙였다가 Adorama가 대량 502(약 57초 지연 후 실패)를 뱉은 적이 있어서,
+# 이번엔 계정 한도에 딱 맞추기보다 여유를 두는 쪽을 택했습니다.
+_SCRAPEDO_SEMAPHORE = threading.Semaphore(5)
+
 
 def _scrapedo_get(target_url, timeout=60, max_retries=1, retry_delay=2.0,
                    try_super_on_failure=True, force_super=False):
@@ -580,16 +587,17 @@ def _scrapedo_get(target_url, timeout=60, max_retries=1, retry_delay=2.0,
   for use_super in tiers:
     for attempt in range(max_retries + 1):
       try:
-        res = requests.get(
-            "https://api.scrape.do/",
-            params={
-                "token": SCRAPEDO_TOKEN,
-                "url": target_url,
-                "geoCode": "us",
-                "super": "true" if use_super else "false",
-            },
-            timeout=timeout,
-        )
+        with _SCRAPEDO_SEMAPHORE:
+          res = requests.get(
+              "https://api.scrape.do/",
+              params={
+                  "token": SCRAPEDO_TOKEN,
+                  "url": target_url,
+                  "geoCode": "us",
+                  "super": "true" if use_super else "false",
+              },
+              timeout=timeout,
+          )
         if res.status_code == 200:
           return res
       except Exception:
@@ -827,9 +835,16 @@ def process_single_record(r, current_rate):
   naver_id = fields.get("Naver_Product_No", "-")
   max_threshold = msrp_usd if msrp_usd > 0 else 99999.0
 
-  adorama_data = fetch_adorama_info(adorama_id)
-  amazon_data = fetch_amazon_info(asin)
-  bh_data = fetch_bh_info(bh_id)
+  # 세 곳 조회는 서로 무관하니 순차 대신 동시에 실행합니다. 실제 네트워크
+  # 동시 요청 개수는 _AMAZON_SEMAPHORE(1)와 _SCRAPEDO_SEMAPHORE(5)가
+  # 계정 한도(Hobby 플랜 10) 안에서 제한하므로, 안전합니다.
+  with ThreadPoolExecutor(max_workers=3) as retailer_executor:
+    future_adorama = retailer_executor.submit(fetch_adorama_info, adorama_id)
+    future_amazon = retailer_executor.submit(fetch_amazon_info, asin)
+    future_bh = retailer_executor.submit(fetch_bh_info, bh_id)
+    adorama_data = future_adorama.result()
+    amazon_data = future_amazon.result()
+    bh_data = future_bh.result()
 
   adorama_price = adorama_data["price"] if adorama_data else 0.0
   amazon_price = amazon_data["price"] if amazon_data else 0.0
@@ -917,7 +932,10 @@ def run_tbd_tracker(log_container):
   detail_messages = []
   updated_count = len(records)
 
-  with ThreadPoolExecutor(max_workers=8) as executor:
+  # 바깥쪽 풀은 그저 "동시에 대기줄에 들어갈 수 있는 상품 개수"이고, 실제
+  # 네트워크 동시 요청 한도는 위 세마포어들이 지킵니다. 10개면 상품 10개가
+  # 동시에 세마포어 대기줄에 들어가 충분히 파이프라인을 채웁니다.
+  with ThreadPoolExecutor(max_workers=10) as executor:
     futures = [
         executor.submit(process_single_record, r, current_rate)
         for r in records
