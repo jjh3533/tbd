@@ -590,8 +590,8 @@ def _scrapedo_get(target_url, timeout=25, max_retries=1, retry_delay=2.0,
     # super=true는 안티봇 우회를 위해 실제 브라우저 렌더링을 거치는 경우가
     # 많아 super=false보다 훨씬 느립니다. 호출자가 지정한 timeout이 여기엔
     # 너무 빠듯할 수 있어(예: B&H는 force_super=True로 항상 이 경로를 탐)
-    # super 요청에는 최소 45초를 보장합니다.
-    effective_timeout = max(timeout, 45) if use_super else timeout
+    # super 요청에는 리팩터 이전(60초) 수준을 최소로 보장합니다.
+    effective_timeout = max(timeout, 60) if use_super else timeout
     for attempt in range(max_retries + 1):
       try:
         with _SCRAPEDO_SEMAPHORE:
@@ -746,6 +746,22 @@ def _parse_bh_package_weight_kg(soup):
   return None
 
 
+# B&H는 안티봇 방어가 강해서 super=true로도 가끔 캡차/차단 페이지가 200으로
+# 내려올 수 있습니다. 진단을 위해 이런 페이지의 특징 문구를 감지해 로그에
+# "(blocked)"로 표시할 수 있게 합니다.
+_BH_BLOCK_KEYWORDS = [
+    "pardon our interruption",
+    "access denied",
+    "are you a robot",
+    "unusual traffic",
+    "px-captcha",
+    "distil_r_captcha",
+    "request unsuccessful",
+    "reference #",
+    "verify you are a human",
+]
+
+
 def fetch_bh_info(bh_id):
   if not bh_id:
     return None
@@ -754,13 +770,20 @@ def fetch_bh_info(bh_id):
   target_url = f"https://www.bhphotovideo.com/c/product/{clean_id}/"
 
   try:
-    res = _scrapedo_get(target_url, force_super=True)
+    # B&H는 다른 곳보다 캡차에 자주 걸리는 편이라 재시도를 한 번 더 줍니다.
+    res = _scrapedo_get(target_url, force_super=True, max_retries=2)
     if res is None:
-      return None
+      return {"price": 0.0, "in_stock": False, "weight_kg": None,
+              "note": "request_failed"}
 
     soup = BeautifulSoup(res.text, "html.parser")
     bh_usd = 0.0
     in_stock = True
+    note = "ok"
+
+    page_text_lower = soup.get_text(" ", strip=True).lower()
+    if any(kw in page_text_lower for kw in _BH_BLOCK_KEYWORDS):
+      note = "blocked"
 
     scripts = soup.find_all("script", type="application/ld+json")
     for script in scripts:
@@ -805,7 +828,6 @@ def fetch_bh_info(bh_id):
           break
 
     if bh_usd > 0:
-      page_text = soup.get_text(" ", strip=True).lower()
       oos_keywords = [
           "out of stock",
           "discontinued",
@@ -817,14 +839,21 @@ def fetch_bh_info(bh_id):
           "pre-order",
           "preorder",
       ]
-      if any(kw in page_text for kw in oos_keywords):
+      if any(kw in page_text_lower for kw in oos_keywords):
         in_stock = False
+      note = "ok"
+    elif note == "ok":
+      # 페이지는 정상적으로 받아왔는데(캡차 문구도 없는데) 가격을 못 찾은
+      # 경우 - B&H가 구조를 바꿨거나 다른 이유로 파싱이 실패한 것.
+      note = "no_price_found"
 
     weight_kg = _parse_bh_package_weight_kg(soup)
 
-    return {"price": bh_usd, "in_stock": in_stock, "weight_kg": weight_kg}
+    return {"price": bh_usd, "in_stock": in_stock, "weight_kg": weight_kg,
+            "note": note}
   except Exception:
-    return None
+    return {"price": 0.0, "in_stock": False, "weight_kg": None,
+            "note": "exception"}
 
 
 def process_single_record(r, current_rate):
@@ -897,9 +926,11 @@ def process_single_record(r, current_rate):
   except Exception:
     pass
 
+  bh_note = bh_data.get("note") if bh_data else "no_response"
+  bh_suffix = f"({bh_note})" if bh_note != "ok" else ""
   log_line = (
       f"✅ [{sku}] Complete | Ado:${adorama_price} / Amz:${amazon_price} /"
-      f" BH:${bh_price}"
+      f" BH:${bh_price}{bh_suffix}"
   )
 
   status_change = None
