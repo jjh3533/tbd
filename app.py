@@ -111,13 +111,13 @@ FONT_REGULAR = _b64("ui-sans-v9-regular.woff2")
 FONT_MEDIUM = _b64("ui-sans-v9-medium.woff2")
 FONT_BOLD = _b64("ui-sans-v9-bold.woff2")
 FONT_BLACK = _b64("ui-sans-v9-black.woff2")
-LOGO_DARK = _b64("unifi_supply_logo.svg")  # 어두운 로고 (라이트 배경용)
-LOGO_LIGHT = _b64("unifi_supply_logo_white.svg")  # 밝은 로고 (다크 배경용)
+# 자체 배경색(파란 라운드 사각형)이 있는 아이콘형 로고라 라이트/다크 구분 없이
+# 하나만 사용합니다.
+LOGO_ICON = _b64("t_logo_icon.svg")
 
 
-def logo_data_uri(theme_name: str) -> str:
-  logo_data = LOGO_LIGHT if theme_name == "dark" else LOGO_DARK
-  return f"data:image/svg+xml;base64,{logo_data}" if logo_data else ""
+def logo_data_uri() -> str:
+  return f"data:image/svg+xml;base64,{LOGO_ICON}" if LOGO_ICON else ""
 
 
 def inject_css(theme_name: str) -> None:
@@ -209,7 +209,7 @@ def inject_css(theme_name: str) -> None:
           margin-bottom: 6px;
           border-bottom: 1px solid {t['border']};
       }}
-      .uic-logo-wrap img {{ height: 44px; width: auto; display: block; }}
+      .uic-logo-wrap img {{ height: 80px; width: auto; display: block; }}
       .uic-logo-text {{
           font-size: 15px;
           font-weight: 700;
@@ -361,8 +361,25 @@ def inject_css(theme_name: str) -> None:
           overflow: hidden;
           margin-top: 4px;
       }}
+      /* 실제 배포 페이지에서 직접 측정해보니 모든 행 높이는 이미 43px로
+         동일했음 — "튀어나온" 것처럼 보인 진짜 원인은 표가 가로 스크롤이
+         필요할 만큼 넓어서, 브라우저가 예약해두는 가로 스크롤바 높이(~17px)가
+         라운드 처리된 wrap 안쪽 맨 아래에 빈 공간처럼 끼어 있었던 것.
+         스크롤바를 얇게 커스텀해서 그 여백을 없앰. */
       .uic-table-scroll {{
           overflow-x: auto;
+          scrollbar-width: thin;
+          scrollbar-color: {t['border']} transparent;
+      }}
+      .uic-table-scroll::-webkit-scrollbar {{
+          height: 6px;
+      }}
+      .uic-table-scroll::-webkit-scrollbar-track {{
+          background: transparent;
+      }}
+      .uic-table-scroll::-webkit-scrollbar-thumb {{
+          background-color: {t['text_secondary']};
+          border-radius: 4px;
       }}
       table.uic-table {{
           width: 100%;
@@ -938,14 +955,18 @@ def safe_fetch_records():
 # 3. UI 보조 함수
 # ==========================================
 class _CappedSidebarLog:
-  """사이드바 하단 로그 슬롯에 최대 N줄만 표시하는 run_tbd_tracker()용 래퍼.
+  """사이드바 하단 로그 슬롯에 최근 N줄만 실시간으로 보여주는
+  run_tbd_tracker()용 래퍼.
 
-  run_tbd_tracker()는 여러 줄을 log_container.write(msg)로 계속 호출하는데,
-  좁은 사이드바에 전부 다 찍으면 상품 수가 늘어날수록 계속 길어지므로
-  처음 N개만 보여주고 나머지는 개수만 요약합니다.
+  run_tbd_tracker()는 여러 줄을 log_container.write(msg)로 계속 호출합니다.
+  이전 버전은 "처음 N줄"만 고정해서 보여줬는데, 그러면 동기화가 진행돼도
+  화면이 그대로 멈춰 보여서 실제로 뭐가 갱신되고 있는지 알 수 없었습니다.
+  대신 매번 최근 N줄만 보여주는 롤링(rolling) 윈도우로 바꿔서, 새 줄이
+  들어올 때마다 오래된 줄은 밀려나고 화면이 계속 최신 상태로 갱신되게
+  합니다. (이전 실행 결과는 새 실행 시작과 동시에 지워집니다.)
   """
 
-  def __init__(self, slot, limit=5):
+  def __init__(self, slot, limit=8):
     self.slot = slot
     self.limit = limit
     self.lines = []
@@ -953,17 +974,13 @@ class _CappedSidebarLog:
 
   def write(self, msg):
     self.total += 1
-    if len(self.lines) < self.limit:
-      self.lines.append(str(msg))
+    self.lines.append(str(msg))
+    if len(self.lines) > self.limit:
+      self.lines = self.lines[-self.limit:]
     rows = "".join(
         f'<div class="uic-sync-log-line">{html_escape(l)}</div>'
         for l in self.lines
     )
-    if self.total > self.limit:
-      rows += (
-          f'<div class="uic-sync-log-line uic-sync-log-more">'
-          f'…외 {self.total - self.limit}건 처리 중</div>'
-      )
     self.slot.markdown(
         f'<div class="uic-sync-log">{rows}</div>', unsafe_allow_html=True
     )
@@ -1158,11 +1175,7 @@ def render_products_table(records, theme_name, show_category=True):
 
 
 def render_sidebar():
-  # 테마를 세션스테이트에서 직접 읽어와 로고를 고름. (이전에는 inject_css()가
-  # 세션스테이트에 로고를 저장해두고 render_sidebar()가 그걸 읽었는데,
-  # render_sidebar()가 inject_css()보다 먼저 호출되다 보니 매 세션 첫 로드 때는
-  # 항상 "한 런(run) 뒤처진" 빈 값을 읽어서 로고 대신 텍스트만 보이는 버그가 있었음.)
-  logo_uri = logo_data_uri(st.session_state.get("theme", "light"))
+  logo_uri = logo_data_uri()
   st.sidebar.markdown(
       f"""
       <div class="uic-logo-wrap">
@@ -1218,7 +1231,7 @@ def render_sidebar():
   # 생성되므로 화면상 항상 맨 아래에 위치함 — 위젯 선언 순서 = 렌더링 순서)
   log_slot = st.sidebar.empty()
   if sync_clicked:
-    capped_log = _CappedSidebarLog(log_slot, limit=5)
+    capped_log = _CappedSidebarLog(log_slot, limit=8)
     with st.spinner("Adorama / Amazon / B&H 동기화 중..."):
       count = run_tbd_tracker(capped_log)
     log_slot.success(f"⚡ 동기화 완료 ({count}건 갱신)")
