@@ -1,7 +1,10 @@
 import base64
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from html import escape as html_escape
 import json
 import re
+import threading
+import time
 from pathlib import Path
 
 from bs4 import BeautifulSoup
@@ -9,6 +12,15 @@ from pyairtable import Api
 import requests
 import streamlit as st
 import yfinance as yf
+
+from config import (
+    AIRTABLE_API_TOKEN,
+    AIRTABLE_BASE_ID,
+    AIRTABLE_TABLE_NAME,
+    SCRAPEDO_TOKEN,
+    TELEGRAM_TOKEN,
+    TELEGRAM_CHAT_ID,
+)
 
 # ==========================================
 # 1. 페이지 및 환경 설정
@@ -20,15 +32,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-AIRTABLE_API_TOKEN = "patGCAx3PVLC76hji.998b00597d0a3751e2151d0f1d1e6ef3f2c9790b0ff9686929d4b353cb24c418"
-AIRTABLE_BASE_ID = "apphI9EUz746dP0Ye"
-AIRTABLE_TABLE_NAME = "Products"
-
-SCRAPERAPI_KEY = "643a1d003d0287a250d8cff2f6016159"
-
-TELEGRAM_TOKEN = "8997002649:AAFku9xJ3fKAEq8yaqE8vQAlu8R34vqIwjw"
-TELEGRAM_CHAT_ID = "7729393976"
-
+# 시크릿은 하드코딩하지 않고 config.py(환경변수 / Streamlit Secrets)에서 가져옵니다.
 api = Api(AIRTABLE_API_TOKEN)
 table = api.table(AIRTABLE_BASE_ID, AIRTABLE_TABLE_NAME)
 
@@ -320,11 +324,6 @@ def inject_css(theme_name: str) -> None:
       div[data-testid="stButton"] > button:hover {{
           filter: brightness(1.08);
       }}
-      div[data-testid="stButton"] > button[kind="secondary"] {{
-          background-color: {t['surface']} !important;
-          color: {t['text']} !important;
-          border: 1px solid {t['border']} !important;
-      }}
 
       /* ---------- 커스텀 테이블 (Site Manager 리스트 뷰 스타일) ---------- */
       .uic-table-wrap {{
@@ -333,6 +332,7 @@ def inject_css(theme_name: str) -> None:
           border-radius: 12px;
           overflow: hidden;
           margin-top: 4px;
+          overflow-x: auto;
       }}
       table.uic-table {{
           width: 100%;
@@ -340,26 +340,34 @@ def inject_css(theme_name: str) -> None:
           font-size: 13px;
       }}
       table.uic-table thead th {{
-          text-align: left;
+          text-align: center;
           font-size: 11px;
           font-weight: 700;
           text-transform: uppercase;
           letter-spacing: 0.4px;
           color: {t['text_secondary']};
           background-color: {t['bg_secondary']};
-          padding: 10px 16px;
+          padding: 10px 14px;
           border-bottom: 1px solid {t['border']};
           white-space: nowrap;
       }}
       table.uic-table tbody td {{
-          padding: 11px 16px;
+          padding: 10px 14px;
           border-bottom: 1px solid {t['border']};
           white-space: nowrap;
+          text-align: center;
       }}
       table.uic-table tbody tr:last-child td {{ border-bottom: none; }}
       table.uic-table tbody tr:hover {{ background-color: {t['surface_tint']}; }}
-      table.uic-table td.uic-num {{ text-align: right; font-variant-numeric: tabular-nums; }}
-      table.uic-table td.uic-sku {{ font-weight: 700; }}
+      table.uic-table td.uic-sku {{ font-weight: 700; text-align: left; }}
+      table.uic-table td a {{ color: inherit; text-decoration: none; }}
+      table.uic-table td a:hover {{ text-decoration: underline; }}
+      table.uic-table th.uic-divider, table.uic-table td.uic-divider {{
+          border-left: 2px solid {t['border']};
+      }}
+      table.uic-table th.uic-final-price, table.uic-table td.uic-final-price {{
+          background-color: {t['accent_soft_bg']};
+      }}
 
       .uic-pill {{
           display: inline-block;
@@ -407,7 +415,7 @@ def inject_css(theme_name: str) -> None:
 
 
 # ==========================================
-# 2. 백엔드 핵심 함수 (기존 로직 유지)
+# 2. 백엔드 핵심 함수 (기존 스크래핑/알림 로직 그대로 유지)
 # ==========================================
 def get_current_exchange_rate():
   try:
@@ -433,6 +441,55 @@ def send_telegram_msg(text: str):
     st.error(f"텔레그램 발송 실패: {e}")
 
 
+@st.cache_data(ttl=60)
+def get_scrapedo_usage():
+  """Scrape.do 계정의 남은 크레딧 현황을 조회합니다 (분당 호출 제한이 있어 60초 캐싱)."""
+  try:
+    res = requests.get(
+        "https://api.scrape.do/info",
+        params={"token": SCRAPEDO_TOKEN},
+        timeout=10,
+    )
+    if res.status_code == 200:
+      return res.json()
+  except Exception:
+    pass
+  return None
+
+
+# Amazon PDP 플러그인 엔드포인트는 토큰당 동시 요청 1개 제한이 있어 세마포어로 직렬화.
+_AMAZON_SEMAPHORE = threading.Semaphore(1)
+
+
+def _scrapedo_get(target_url, timeout=60, max_retries=1, retry_delay=2.0,
+                   try_super_on_failure=True, force_super=False):
+  """Scrape.do 요청 공용 래퍼 (재시도 + 비용 절감 escalation 포함)."""
+  if force_super:
+    tiers = [True]
+  else:
+    tiers = [False, True] if try_super_on_failure else [False]
+  for use_super in tiers:
+    for attempt in range(max_retries + 1):
+      try:
+        res = requests.get(
+            "https://api.scrape.do/",
+            params={
+                "token": SCRAPEDO_TOKEN,
+                "url": target_url,
+                "geoCode": "us",
+                "super": "true" if use_super else "false",
+            },
+            timeout=timeout,
+        )
+        if res.status_code == 200:
+          return res
+      except Exception:
+        pass
+      if attempt < max_retries:
+        time.sleep(retry_delay)
+  return None
+
+
 def fetch_adorama_info(adorama_id):
   if not adorama_id:
     return None
@@ -441,17 +498,8 @@ def fetch_adorama_info(adorama_id):
   target_url = f"https://www.adorama.com/{clean_id}.html"
 
   try:
-    res = requests.get(
-        "http://api.scraperapi.com",
-        params={
-            "api_key": SCRAPERAPI_KEY,
-            "url": target_url,
-            "country_code": "us",
-            "keep_headers": "true",
-        },
-        timeout=15,
-    )
-    if res.status_code != 200:
+    res = _scrapedo_get(target_url)
+    if res is None:
       return None
 
     soup = BeautifulSoup(res.text, "html.parser")
@@ -505,80 +553,180 @@ def fetch_adorama_info(adorama_id):
     return None
 
 
-def fetch_amazon_info(asin):
+def fetch_amazon_info(asin, timeout=60, max_retries=2, retry_delay=2.0):
+  """Scrape.do의 Amazon PDP 플러그인(요청당 1크레딧, 토큰당 동시 1개 제한)으로 조회."""
   if not asin:
     return None
-  target_url = f"https://www.amazon.com/dp/{asin}"
+
+  clean_asin = str(asin).strip().upper()
+
+  for attempt in range(max_retries + 1):
+    try:
+      with _AMAZON_SEMAPHORE:
+        res = requests.get(
+            "https://api.scrape.do/plugin/amazon/pdp",
+            params={
+                "token": SCRAPEDO_TOKEN,
+                "asin": clean_asin,
+                "geocode": "US",
+            },
+            timeout=timeout,
+        )
+      if res.status_code == 200:
+        data = res.json()
+        if data.get("status") == "success":
+          price = data.get("price")
+          amazon_usd = float(price) if price is not None else 0.0
+          return {"price": amazon_usd, "in_stock": amazon_usd > 0}
+        return {"price": 0.0, "in_stock": False}
+    except Exception:
+      pass
+    if attempt < max_retries:
+      time.sleep(retry_delay)
+  return None
+
+
+_WEIGHT_UNIT_TO_KG = {
+    "kg": 1.0,
+    "g": 0.001,
+    "lb": 0.453592,
+    "lbs": 0.453592,
+    "oz": 0.0283495,
+}
+
+
+def _parse_bh_package_weight_kg(soup):
+  """B&H Specs의 'Packaging Info > Package Weight' 행에서 배송 패키지 무게를 kg로 추출."""
+  label_pattern = re.compile(r"package\s*weight", re.IGNORECASE)
+  weight_pattern = re.compile(r"([\d.]+)\s*(kg|lbs|lb|oz|g)\b", re.IGNORECASE)
+
+  for row in soup.find_all("tr"):
+    cells = row.find_all(["td", "th"])
+    if len(cells) < 2:
+      continue
+    if label_pattern.search(cells[0].get_text(strip=True)):
+      match = weight_pattern.search(cells[1].get_text(strip=True))
+      if match:
+        value, unit = float(match.group(1)), match.group(2).lower()
+        return round(value * _WEIGHT_UNIT_TO_KG.get(unit, 1.0), 3)
+
+  for dt in soup.find_all("dt"):
+    if label_pattern.search(dt.get_text(strip=True)):
+      dd = dt.find_next_sibling("dd")
+      if dd:
+        match = weight_pattern.search(dd.get_text(strip=True))
+        if match:
+          value, unit = float(match.group(1)), match.group(2).lower()
+          return round(value * _WEIGHT_UNIT_TO_KG.get(unit, 1.0), 3)
+
+  return None
+
+
+def fetch_bh_info(bh_id):
+  if not bh_id:
+    return None
+
+  clean_id = str(bh_id).strip().upper()
+  target_url = f"https://www.bhphotovideo.com/c/product/{clean_id}/"
+
   try:
-    res = requests.get(
-        "http://api.scraperapi.com",
-        params={
-            "api_key": SCRAPERAPI_KEY,
-            "url": target_url,
-            "country_code": "us",
-            "keep_headers": "true",
-        },
-        timeout=15,
-    )
-    if res.status_code != 200:
+    res = _scrapedo_get(target_url, force_super=True)
+    if res is None:
       return None
+
     soup = BeautifulSoup(res.text, "html.parser")
-
-    amazon_usd = 0.0
-    price_selectors = [
-        "#corePriceDisplay_desktop_feature_div .a-offscreen",
-        "#corePrice_feature_div .a-offscreen",
-        "#apex_desktop .a-offscreen",
-        ".a-price .a-offscreen",
-    ]
-    for selector in price_selectors:
-      elems = soup.select(selector)
-      for elem in elems:
-        clean_p = re.sub(r"[^\d.]", "", elem.get_text().strip())
-        if clean_p:
-          try:
-            val = float(clean_p)
-            if 5.0 <= val <= 10000.0:
-              amazon_usd = val
-              break
-          except ValueError:
-            pass
-      if amazon_usd > 0:
-        break
-
+    bh_usd = 0.0
     in_stock = True
-    avail_elem = soup.select_one("#availability")
-    if avail_elem:
-      avail_text = avail_elem.get_text().lower()
-      if "currently unavailable" in avail_text or "out of stock" in avail_text:
+
+    scripts = soup.find_all("script", type="application/ld+json")
+    for script in scripts:
+      try:
+        data = json.loads(script.string)
+        if isinstance(data, list):
+          data = data[0]
+        offers = data.get("offers", {})
+        if isinstance(offers, list):
+          offers = offers[0]
+
+        price = offers.get("price") or offers.get("lowPrice")
+        if price:
+          bh_usd = float(price)
+          availability = str(offers.get("availability", "")).lower()
+          if "outofstock" in availability or "discontinued" in availability:
+            in_stock = False
+          break
+      except Exception:
+        pass
+
+    if bh_usd == 0.0:
+      price_selectors = [
+          '[itemprop="price"]',
+          '[data-selenium="pricingPrice"]',
+          ".price",
+          "span.value",
+      ]
+      for sel in price_selectors:
+        elems = soup.select(sel)
+        for elem in elems:
+          clean_p = re.sub(r"[^\d.]", "", elem.get_text().strip())
+          if clean_p:
+            try:
+              val = float(clean_p)
+              if 5.0 <= val <= 10000.0:
+                bh_usd = val
+                break
+            except ValueError:
+              pass
+        if bh_usd > 0:
+          break
+
+    if bh_usd > 0:
+      page_text = soup.get_text(" ", strip=True).lower()
+      oos_keywords = [
+          "out of stock",
+          "discontinued",
+          "sold out",
+          "coming soon",
+          "notify when available",
+          "special order",
+          "backordered",
+          "pre-order",
+          "preorder",
+      ]
+      if any(kw in page_text for kw in oos_keywords):
         in_stock = False
 
-    return {"price": amazon_usd, "in_stock": in_stock}
+    weight_kg = _parse_bh_package_weight_kg(soup)
+
+    return {"price": bh_usd, "in_stock": in_stock, "weight_kg": weight_kg}
   except Exception:
     return None
 
 
-def process_single_record(r, current_rate, log_container):
+def process_single_record(r, current_rate):
+  """워커 스레드에서 실행되므로 st.* 호출 없이 로그 문자열만 만들어 반환합니다."""
   record_id = r["id"]
   fields = r["fields"]
   sku = fields.get("SKU", "무명 상품")
 
   adorama_id = fields.get("ADORAMA_ID")
   asin = fields.get("ASIN")
+  bh_id = fields.get("BH_ID")
 
   msrp_usd = fields.get("MSRP_USD", 0.0)
   prev_stock = fields.get("In_Stock", False)
   naver_id = fields.get("Naver_Product_No", "-")
+  max_threshold = msrp_usd if msrp_usd > 0 else 99999.0
 
   adorama_data = fetch_adorama_info(adorama_id)
   amazon_data = fetch_amazon_info(asin)
+  bh_data = fetch_bh_info(bh_id)
 
   adorama_price = adorama_data["price"] if adorama_data else 0.0
   amazon_price = amazon_data["price"] if amazon_data else 0.0
+  bh_price = bh_data["price"] if bh_data else 0.0
 
   valid_retailers = []
-  max_threshold = msrp_usd if msrp_usd > 0 else 99999.0
-
   if (
       adorama_data
       and adorama_data["in_stock"]
@@ -591,23 +739,35 @@ def process_single_record(r, current_rate, log_container):
       and 0 < amazon_price <= max_threshold
   ):
     valid_retailers.append("Amazon")
+  if (
+      bh_data
+      and bh_data["in_stock"]
+      and 0 < bh_price <= max_threshold
+  ):
+    valid_retailers.append("B&H")
 
   curr_stock = True if valid_retailers else False
 
   update_data = {
       "Adorama_USD": adorama_price,
       "Amazon_USD": amazon_price,
+      "BH_USD": bh_price,
       "In_Stock": curr_stock,
       "Exchange_Rate": current_rate,
   }
+
+  bh_weight_kg = bh_data.get("weight_kg") if bh_data else None
+  if bh_weight_kg is not None:
+    update_data["Weight_KG"] = bh_weight_kg
 
   try:
     table.update(record_id, update_data)
   except Exception:
     pass
 
-  log_container.write(
-      f"✅ [{sku}] Complete | Ado:${adorama_price} / Amz:${amazon_price}"
+  log_line = (
+      f"✅ [{sku}] Complete | Ado:${adorama_price} / Amz:${amazon_price} /"
+      f" BH:${bh_price}"
   )
 
   status_change = None
@@ -620,21 +780,21 @@ def process_single_record(r, current_rate, log_container):
       )
     else:
       updated_record = table.get(record_id)
-      new_calc_price = updated_record["fields"].get("Calculated_Price", 0)
+      new_sell_price = updated_record["fields"].get("판매금액", 0)
       available_sources = ", ".join(valid_retailers)
       status_change = (
           "IN_STOCK",
           f"🟢 **[BACK IN STOCK]** *{sku}*\n• Valid Retailers:"
           f" **{available_sources}**\n• Target Price (MSRP Based):"
-          f" **`{new_calc_price:,}원`**",
+          f" **`{new_sell_price:,}원`**",
       )
 
-  return status_change
+  return log_line, status_change
 
 
 def run_tbd_tracker(log_container):
   log_container.write(
-      "⚡ [UI.com Engine] Adorama & Amazon Dual-Channel Syncing..."
+      "⚡ [UI.com Engine] Adorama / Amazon / B&H Triple-Channel Syncing..."
   )
   current_rate = get_current_exchange_rate()
   log_container.write(f"💱 Applied Exchange Rate: ₩{current_rate}")
@@ -648,13 +808,14 @@ def run_tbd_tracker(log_container):
   detail_messages = []
   updated_count = len(records)
 
-  with ThreadPoolExecutor(max_workers=5) as executor:
+  with ThreadPoolExecutor(max_workers=8) as executor:
     futures = [
-        executor.submit(process_single_record, r, current_rate, log_container)
+        executor.submit(process_single_record, r, current_rate)
         for r in records
     ]
     for future in as_completed(futures):
-      res = future.result()
+      log_line, res = future.result()
+      log_container.write(log_line)
       if res:
         st_type, msg = res
         if st_type == "OOS":
@@ -689,9 +850,65 @@ def run_tbd_tracker(log_container):
   return updated_count
 
 
+def safe_fetch_records():
+  """Airtable 호출이 실패해도(토큰 만료/권한 부족/네트워크 오류) 대시보드 전체가
+  죽지 않고, 원인을 바로 알 수 있게 에러 메시지를 보여준 뒤 빈 목록으로 계속 진행."""
+  try:
+    return table.all()
+  except requests.exceptions.HTTPError as e:
+    status = e.response.status_code if e.response is not None else "?"
+    if status == 401:
+      hint = "AIRTABLE_API_TOKEN이 만료/무효합니다. Streamlit Secrets에 새 Personal Access Token을 등록하세요."
+    elif status == 403:
+      hint = (
+          "토큰에 이 Base('UniFi Supply')에 대한 접근 권한 또는"
+          " data.records:read/write, schema.bases:read 스코프가 없습니다."
+      )
+    elif status == 404:
+      hint = "Base ID 또는 Table 이름(Products)이 올바른지 확인하세요."
+    elif status == 429:
+      hint = "Airtable API 요청 한도를 초과했습니다. 잠시 후 다시 시도하세요."
+    else:
+      hint = "Airtable API 호출 중 오류가 발생했습니다."
+    st.error(f"⚠️ Airtable 연결 실패 (HTTP {status}): {hint}")
+    return []
+  except Exception as e:
+    st.error(f"⚠️ Airtable 연결 실패: {e}")
+    return []
+
+
 # ==========================================
 # 3. UI 보조 함수
 # ==========================================
+_COLOR_KEY_GOOD = "accent"    # MSRP보다 저렴
+_COLOR_KEY_SAME = "success"   # MSRP와 동일
+_COLOR_KEY_BAD = "danger"     # 가격정보 없음 / MSRP보다 비쌈
+
+
+def _rgba_from_hex(hex_color, alpha):
+  hex_color = hex_color.lstrip("#")
+  r, g, b = (int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
+  return f"rgba({r}, {g}, {b}, {alpha})"
+
+
+def _adorama_url(adorama_id):
+  if not adorama_id:
+    return None
+  return f"https://www.adorama.com/{str(adorama_id).strip().lower()}.html"
+
+
+def _amazon_url(asin):
+  if not asin:
+    return None
+  return f"https://www.amazon.com/dp/{str(asin).strip().upper()}"
+
+
+def _bh_url(bh_id):
+  if not bh_id:
+    return None
+  return f"https://www.bhphotovideo.com/c/product/{str(bh_id).strip().upper()}/"
+
+
 def fmt_usd(v):
   try:
     return f"${float(v):,.2f}"
@@ -719,46 +936,129 @@ def render_metric_card(col, label, value, tone=""):
     )
 
 
-def render_products_table(records, show_category=True):
+def render_products_table(records, theme_name, show_category=True):
+  """Adorama / Amazon / B&H 가격, Best Price(클릭 시 최저가 판매처로 이동),
+  판매가격/최종가격/수익까지 보여주는 Site Manager 스타일 테이블."""
   if not records:
     st.info("등록된 상품이 없습니다.")
     return
 
-  header_cols = ["SKU / Model"]
+  t = THEMES[theme_name]
+
+  columns = ["SKU / Model"]
   if show_category:
-    header_cols.append("Category")
-  header_cols += ["MSRP", "Adorama", "Amazon", "Status", "판매가(KRW)", "Naver ID"]
+    columns.append("Category")
+  columns += [
+      "Naver ID", "UniFi Store ($)", "B&H ($)", "Adorama ($)", "Amazon ($)",
+      "Best Price ($)", "Status", "판매가격", "최종가격", "수익",
+  ]
+  final_price_col = "최종가격"
 
   rows_html = []
   for r in records:
     f = r["fields"]
     sku = f.get("SKU", "-")
     category = f.get("Category") or "미분류"
-    in_stock = f.get("In_Stock", False)
+    is_active = bool(f.get("In_Stock"))
+    msrp = f.get("MSRP_USD", 0.0) or 0.0
+    best_usd = f.get("Best_USD", 0.0) or 0.0
+    bh_usd = f.get("BH_USD", 0.0) or 0.0
+    adorama_usd = f.get("Adorama_USD", 0.0) or 0.0
+    amazon_usd = f.get("Amazon_USD", 0.0) or 0.0
+
+    bh_url = _bh_url(f.get("BH_ID"))
+    adorama_url = _adorama_url(f.get("ADORAMA_ID"))
+    amazon_url = _amazon_url(f.get("ASIN"))
+
+    best_price_url = None
+    for price, url in (
+        (bh_usd, bh_url), (adorama_usd, adorama_url), (amazon_usd, amazon_url)
+    ):
+      if url and price > 0 and abs(price - best_usd) < 0.01:
+        best_price_url = url
+        break
+
+    if best_usd <= 0:
+      color_key = _COLOR_KEY_BAD
+    elif round(best_usd, 2) < round(msrp, 2):
+      color_key = _COLOR_KEY_GOOD
+    elif round(best_usd, 2) == round(msrp, 2):
+      color_key = _COLOR_KEY_SAME
+    else:
+      color_key = _COLOR_KEY_BAD
+    best_color = t[color_key]
+
     status_html = (
         '<span class="uic-pill ok">Active</span>'
-        if in_stock
+        if is_active
         else '<span class="uic-pill bad">Out of Stock</span>'
     )
-    cat_html = f'<span class="uic-pill cat">{category}</span>'
+    cat_html = f'<span class="uic-pill cat">{html_escape(category)}</span>'
 
-    cells = [f'<td class="uic-sku">{sku}</td>']
-    if show_category:
-      cells.append(f"<td>{cat_html}</td>")
-    cells += [
-        f'<td class="uic-num">{fmt_usd(f.get("MSRP_USD", 0))}</td>',
-        f'<td class="uic-num">{fmt_usd(f.get("Adorama_USD", 0))}</td>',
-        f'<td class="uic-num">{fmt_usd(f.get("Amazon_USD", 0))}</td>',
-        f"<td>{status_html}</td>",
-        f'<td class="uic-num">{fmt_krw(f.get("Calculated_Price", 0))}</td>',
-        f'<td>{f.get("Naver_Product_No", "-")}</td>',
-    ]
-    rows_html.append("<tr>" + "".join(cells) + "</tr>")
+    cell_values = {
+        "SKU / Model": html_escape(sku),
+        "Category": cat_html,
+        "Naver ID": html_escape(str(f.get("Naver_Product_No", "-"))),
+        "UniFi Store ($)": fmt_usd(msrp),
+        "B&H ($)": fmt_usd(bh_usd),
+        "Adorama ($)": fmt_usd(adorama_usd),
+        "Amazon ($)": fmt_usd(amazon_usd),
+        "Best Price ($)": fmt_usd(best_usd),
+        "Status": status_html,
+        "판매가격": fmt_krw(f.get("판매금액", 0)),
+        "최종가격": fmt_krw(f.get("최종가격", 0)),
+        "수익": fmt_krw(f.get("수익", 0)),
+    }
+    cell_links = {
+        "B&H ($)": bh_url,
+        "Adorama ($)": adorama_url,
+        "Amazon ($)": amazon_url,
+        "Best Price ($)": best_price_url,
+    }
+
+    tds = []
+    for col in columns:
+      value = cell_values[col]
+      link_url = cell_links.get(col)
+      if link_url:
+        value = (
+            f'<a href="{html_escape(link_url)}" target="_blank"'
+            f' rel="noopener noreferrer">{value}</a>'
+        )
+
+      classes = []
+      style = ""
+      if col == "SKU / Model":
+        classes.append("uic-sku")
+      if col == "Naver ID":
+        classes.append("uic-divider")
+      if col == final_price_col:
+        classes.append("uic-final-price")
+      if col == "Best Price ($)":
+        style = (
+            f' style="color:{best_color};'
+            f' background-color:{_rgba_from_hex(best_color, 0.14)};'
+            ' font-weight:700;"'
+        )
+
+      cls_attr = f' class="{" ".join(classes)}"' if classes else ""
+      tds.append(f"<td{cls_attr}{style}>{value}</td>")
+    rows_html.append("<tr>" + "".join(tds) + "</tr>")
+
+  thead_cells = []
+  for col in columns:
+    classes = []
+    if col == "Naver ID":
+      classes.append("uic-divider")
+    if col == final_price_col:
+      classes.append("uic-final-price")
+    cls_attr = f' class="{" ".join(classes)}"' if classes else ""
+    thead_cells.append(f"<th{cls_attr}>{html_escape(col)}</th>")
 
   table_html = f"""
   <div class="uic-table-wrap">
     <table class="uic-table">
-      <thead><tr>{''.join(f"<th>{c}</th>" for c in header_cols)}</tr></thead>
+      <thead><tr>{''.join(thead_cells)}</tr></thead>
       <tbody>{''.join(rows_html)}</tbody>
     </table>
   </div>
@@ -837,9 +1137,9 @@ page_title = (
     else ("메인 대시보드" if is_dashboard else active_category)
 )
 page_sub = (
-    "Adorama / Amazon 신규 모니터링 상품 추가"
+    "Adorama / Amazon / B&H 신규 모니터링 상품 추가"
     if is_register_page
-    else "MSRP 기준 가격 엔진 · Adorama / Amazon 듀얼 가드"
+    else "MSRP 기준 가격 엔진 · Adorama / Amazon / B&H 트리플 가드"
 )
 
 top_col1, top_col2 = st.columns([4, 1])
@@ -858,11 +1158,31 @@ with top_col1:
   )
 
 if not is_register_page:
-  m1, m2, m3 = st.columns([1.3, 1, 2])
+  scrapedo_usage = get_scrapedo_usage()
+
+  m1, m2, m3 = st.columns([1.3, 1.3, 2])
   with m1:
     st.metric(label="USD / KRW", value=f"₩ {current_rate:,}")
+  with m2:
+    if scrapedo_usage:
+      remaining = scrapedo_usage.get("RemainingMonthlyRequest", 0)
+      max_credits = scrapedo_usage.get("MaxMonthlyRequest", 0)
+      pct_left = f"{remaining / max_credits:.0%} 남음" if max_credits else None
+      st.metric(
+          label="Scrape.do 잔여 크레딧",
+          value=f"{remaining:,}",
+          delta=pct_left,
+          delta_color="off",
+          help=f"월 한도 {max_credits:,} 크레딧 기준",
+      )
+    else:
+      st.metric(label="Scrape.do 잔여 크레딧", value="조회 실패")
   with m3:
-    if st.button("⚡ Sync Retailers Now", type="primary", use_container_width=True):
+    if st.button(
+        "⚡ Sync Retailers Now", type="primary", use_container_width=True,
+        help="상품 1개당 Adorama+Amazon+B&H 합쳐 보통 약 12크레딧, 봇 차단이"
+        " 걸리면 최대 약 22크레딧까지 소모될 수 있습니다.",
+    ):
       with st.status("Executing Multi-thread Sync...", expanded=True) as status:
         count = run_tbd_tracker(status)
         status.update(
@@ -875,7 +1195,8 @@ if not is_register_page:
 
   st.divider()
 
-  records = table.all()
+  records = safe_fetch_records()
+  theme_now = st.session_state.get("theme", "light")
 
   if is_dashboard:
     total = len(records)
@@ -915,7 +1236,7 @@ if not is_register_page:
 
     st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
     st.markdown("##### 전체 상품")
-    render_products_table(records, show_category=True)
+    render_products_table(records, theme_now, show_category=True)
 
   else:
     cat_records = [r for r in records if r["fields"].get("Category") == active_category]
@@ -927,11 +1248,14 @@ if not is_register_page:
     render_metric_card(c3, "품절", f"{len(cat_records) - cat_in_stock}", "danger")
 
     st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
-    render_products_table(cat_records, show_category=False)
+    render_products_table(cat_records, theme_now, show_category=False)
 
 else:
   st.markdown("##### 신규 상품 등록")
-  st.caption("모델명과 MSRP(램 서차지 포함)를 입력하면 자동 모니터링이 시작됩니다.")
+  st.caption(
+      "모델명과 MSRP(램 서차지 포함)를 입력하면 Adorama / Amazon / B&H 자동"
+      " 모니터링이 시작됩니다."
+  )
 
   with st.form("add_product_form", clear_on_submit=True):
     f_col1, f_col2 = st.columns(2)
@@ -957,6 +1281,9 @@ else:
       new_asin = st.text_input(
           "Amazon ASIN (Optional)", placeholder="e.g. B0CWLKD9RP"
       )
+      new_bh_id = st.text_input(
+          "B&H ID (Optional)", placeholder="e.g. 1815010-REG"
+      )
 
     submitted = st.form_submit_button("⚡ Add to Inventory System")
 
@@ -974,6 +1301,8 @@ else:
           new_record_data["ADORAMA_ID"] = new_adorama.strip()
         if new_asin:
           new_record_data["ASIN"] = new_asin.strip().upper()
+        if new_bh_id:
+          new_record_data["BH_ID"] = new_bh_id.strip().upper()
         if new_naver_id:
           new_record_data["Naver_Product_No"] = new_naver_id.strip()
 
