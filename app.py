@@ -111,13 +111,15 @@ FONT_REGULAR = _b64("ui-sans-v9-regular.woff2")
 FONT_MEDIUM = _b64("ui-sans-v9-medium.woff2")
 FONT_BOLD = _b64("ui-sans-v9-bold.woff2")
 FONT_BLACK = _b64("ui-sans-v9-black.woff2")
-# 자체 배경색(파란 라운드 사각형)이 있는 아이콘형 로고라 라이트/다크 구분 없이
-# 하나만 사용합니다.
-LOGO_ICON = _b64("t_logo_icon.svg")
+# TBD Dashboard 워드마크: 배경이 없는 단색 텍스트라 다크 모드에서도 보이도록
+# 흰색 버전을 별도로 만들어둠 (unifi_supply_logo 때와 동일한 방식).
+LOGO_DARK = _b64("tbd_dashboard.svg")   # 어두운 색 로고 (라이트 배경용)
+LOGO_LIGHT = _b64("tbd_dashboard_white.svg")  # 밝은 색 로고 (다크 배경용)
 
 
-def logo_data_uri() -> str:
-  return f"data:image/svg+xml;base64,{LOGO_ICON}" if LOGO_ICON else ""
+def logo_data_uri(theme_name: str) -> str:
+  logo_data = LOGO_LIGHT if theme_name == "dark" else LOGO_DARK
+  return f"data:image/svg+xml;base64,{logo_data}" if logo_data else ""
 
 
 def inject_css(theme_name: str) -> None:
@@ -209,7 +211,7 @@ def inject_css(theme_name: str) -> None:
           margin-bottom: 6px;
           border-bottom: 1px solid {t['border']};
       }}
-      .uic-logo-wrap img {{ height: 80px; width: auto; display: block; }}
+      .uic-logo-wrap img {{ height: 45px; width: auto; display: block; }}
       .uic-logo-text {{
           font-size: 15px;
           font-weight: 700;
@@ -269,9 +271,9 @@ def inject_css(theme_name: str) -> None:
           margin-bottom: 20px;
       }}
       .uic-topbar-title {{
-          font-size: 84px;
+          font-size: 56px;
           font-weight: 900;
-          letter-spacing: -2px;
+          letter-spacing: -1.3px;
           line-height: 1.05;
           margin: 0;
           text-align: left;
@@ -323,15 +325,48 @@ def inject_css(theme_name: str) -> None:
           border-radius: 12px;
           padding: 14px 16px;
           margin-bottom: 10px;
+          transition: border-color 0.15s ease-in-out;
       }}
       .uic-cat-card-title {{
           font-size: 14px;
           font-weight: 700;
+          margin-bottom: 6px;
       }}
       .uic-cat-card-count {{
           font-size: 12px;
           color: {t['text_secondary']};
-          font-weight: 500;
+          font-weight: 600;
+      }}
+      .uic-cat-card-num {{
+          font-size: 28px;
+          font-weight: 900;
+          color: {t['text']};
+          letter-spacing: -0.8px;
+          margin-right: 5px;
+      }}
+
+      /* 카드 전체를 클릭 가능하게: 보이는 카드(div) 위에 투명한 버튼을
+         position:absolute로 겹쳐서, 카드 어디를 눌러도 이동하도록 함. */
+      div[class*="st-key-catcard_"] {{
+          position: relative;
+      }}
+      div[class*="st-key-catcard_"]:hover .uic-cat-card {{
+          border-color: {t['accent']};
+      }}
+      div[class*="st-key-catcard_"] div[data-testid="stButton"] {{
+          position: absolute;
+          inset: 0;
+          margin: 0;
+      }}
+      div[class*="st-key-catcard_"] div[data-testid="stButton"] > button {{
+          width: 100%;
+          height: 100%;
+          background: transparent !important;
+          border: none !important;
+          box-shadow: none !important;
+          opacity: 0;
+          cursor: pointer;
+          padding: 0 !important;
       }}
 
       div[data-testid="stButton"] > button {{
@@ -1175,11 +1210,11 @@ def render_products_table(records, theme_name, show_category=True):
 
 
 def render_sidebar():
-  logo_uri = logo_data_uri()
+  logo_uri = logo_data_uri(st.session_state.get("theme", "light"))
   st.sidebar.markdown(
       f"""
       <div class="uic-logo-wrap">
-          {'<img src="' + logo_uri + '" alt="UniFi Supply" />' if logo_uri else '⚡ UniFi Supply'}
+          {'<img src="' + logo_uri + '" alt="TBD Dashboard" />' if logo_uri else '⚡ TBD Dashboard'}
       </div>
       """,
       unsafe_allow_html=True,
@@ -1314,20 +1349,26 @@ if not is_register_page:
 
     st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
     st.markdown("##### 카테고리별 현황")
-    st.caption("카테고리별 상품 수예요. 세부 가격은 왼쪽 메뉴에서 카테고리를 선택하면 볼 수 있어요.")
+    st.caption("카드를 클릭하면 해당 카테고리의 상품/가격만 모아볼 수 있어요.")
 
     cat_cols = st.columns(4)
     for idx, cat in enumerate(CATEGORIES):
       with cat_cols[idx % 4]:
-        st.markdown(
-            f"""
-            <div class="uic-cat-card">
-                <div class="uic-cat-card-title">{cat}</div>
-                <div class="uic-cat-card-count">{cat_counts[cat]}개 상품</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+        with st.container(key=f"catcard_{cat}"):
+          st.markdown(
+              f"""
+              <div class="uic-cat-card">
+                  <div class="uic-cat-card-title">{cat}</div>
+                  <div class="uic-cat-card-count">
+                      <span class="uic-cat-card-num">{cat_counts[cat]}</span>Products
+                  </div>
+              </div>
+              """,
+              unsafe_allow_html=True,
+          )
+          if st.button(f"{cat} 카테고리 보기", key=f"catbtn_{cat}"):
+            st.session_state.nav_choice = f"　{cat}"
+            st.rerun()
 
     st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
     st.markdown("##### 전체 상품")
