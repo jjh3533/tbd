@@ -169,6 +169,13 @@ def inject_css(theme_name: str) -> None:
           font-family: 'UI Sans', Inter, -apple-system, BlinkMacSystemFont,
               "Segoe UI", Lato, Arial, sans-serif !important;
       }}
+      /* 위 규칙이 사이드바 접기 화살표 등 Material 아이콘 엘리먼트까지
+         덮어써서, 리게처(ligature)로 그려져야 할 아이콘이
+         "keyboard_double_arrow_left" 같은 글자 그대로 보이는 문제가 있었음.
+         아이콘 폰트를 명시적으로 되돌림 (같은 특정도라 순서상 이 규칙이 이김). */
+      [data-testid="stIconMaterial"] {{
+          font-family: "Material Symbols Rounded", "Material Icons" !important;
+      }}
 
       .stApp {{
           background-color: {t['bg']};
@@ -202,7 +209,7 @@ def inject_css(theme_name: str) -> None:
           margin-bottom: 6px;
           border-bottom: 1px solid {t['border']};
       }}
-      .uic-logo-wrap img {{ height: 30px; width: auto; display: block; }}
+      .uic-logo-wrap img {{ height: 44px; width: auto; display: block; }}
       .uic-logo-text {{
           font-size: 15px;
           font-weight: 700;
@@ -257,28 +264,22 @@ def inject_css(theme_name: str) -> None:
 
       /* ---------- 상단 헤더 바 ---------- */
       .uic-topbar {{
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          background-color: {t['bg_secondary']};
-          border: 1px solid {t['border']};
-          border-radius: 12px;
-          padding: 18px 24px;
+          position: relative;
+          padding: 8px 90px 20px 4px;
           margin-bottom: 20px;
       }}
       .uic-topbar-title {{
-          font-size: 21px;
-          font-weight: 700;
-          letter-spacing: -0.3px;
+          font-size: 84px;
+          font-weight: 900;
+          letter-spacing: -2px;
+          line-height: 1.05;
           margin: 0;
-      }}
-      .uic-topbar-sub {{
-          font-size: 12.5px;
-          color: {t['text_secondary']};
-          margin-top: 2px;
-          font-weight: 500;
+          text-align: left;
       }}
       .uic-badge {{
+          position: absolute;
+          top: 4px;
+          right: 4px;
           background-color: {t['accent_soft_bg']};
           color: {t['accent']};
           font-size: 11px;
@@ -348,12 +349,19 @@ def inject_css(theme_name: str) -> None:
       }}
 
       /* ---------- 커스텀 테이블 (Site Manager 리스트 뷰 스타일) ---------- */
+      /* 라운드 코너를 담당하는 바깥 wrap(overflow:hidden만 사용)과, 가로
+         스크롤을 담당하는 안쪽 scroll div를 분리했음. 이전에는 한 엘리먼트에
+         overflow-x:auto + overflow-y:hidden을 같이 걸어뒀는데, 이 조합에서
+         일부 브라우저가 border-radius 클리핑을 마지막 행 쪽에서 제대로 안 하는
+         이슈가 있어서 표 하단이 둥근 모서리 밖으로 살짝 튀어나와 보였음. */
       .uic-table-wrap {{
           background-color: {t['surface']};
           border: 1px solid {t['border']};
           border-radius: 12px;
           overflow: hidden;
           margin-top: 4px;
+      }}
+      .uic-table-scroll {{
           overflow-x: auto;
       }}
       table.uic-table {{
@@ -378,6 +386,9 @@ def inject_css(theme_name: str) -> None:
           border-bottom: 1px solid {t['border']};
           white-space: nowrap;
           text-align: center;
+          vertical-align: middle;
+          line-height: 1.4;
+          box-sizing: border-box;
       }}
       table.uic-table tbody tr:last-child td {{ border-bottom: none; }}
       table.uic-table tbody tr:hover {{ background-color: {t['surface_tint']}; }}
@@ -1135,10 +1146,12 @@ def render_products_table(records, theme_name, show_category=True):
 
   table_html = f"""
   <div class="uic-table-wrap">
-    <table class="uic-table">
-      <thead><tr>{''.join(thead_cells)}</tr></thead>
-      <tbody>{''.join(rows_html)}</tbody>
-    </table>
+    <div class="uic-table-scroll">
+      <table class="uic-table">
+        <thead><tr>{''.join(thead_cells)}</tr></thead>
+        <tbody>{''.join(rows_html)}</tbody>
+      </table>
+    </div>
   </div>
   """
   st.markdown(table_html, unsafe_allow_html=True)
@@ -1226,31 +1239,22 @@ is_register_page = nav_choice == "➕ 상품 등록"
 is_dashboard = nav_choice == "📊 메인 대시보드"
 active_category = None if (is_register_page or is_dashboard) else nav_choice.strip()
 
+# 타이틀은 영문으로 표기 (카테고리명은 이미 영문이라 그대로 사용).
 page_title = (
-    "상품 등록"
+    "Register Product"
     if is_register_page
-    else ("메인 대시보드" if is_dashboard else active_category)
-)
-page_sub = (
-    "Adorama / Amazon / B&H 신규 모니터링 상품 추가"
-    if is_register_page
-    else "MSRP 기준 가격 엔진 · Adorama / Amazon / B&H 트리플 가드"
+    else ("Main Dashboard" if is_dashboard else active_category)
 )
 
-top_col1, top_col2 = st.columns([4, 1])
-with top_col1:
-  st.markdown(
-      f"""
-      <div class="uic-topbar">
-          <div>
-              <div class="uic-topbar-title">⚡ {page_title}</div>
-              <div class="uic-topbar-sub">{page_sub}</div>
-          </div>
-          <div class="uic-badge">System Active</div>
-      </div>
-      """,
-      unsafe_allow_html=True,
-  )
+st.markdown(
+    f"""
+    <div class="uic-topbar">
+        <div class="uic-topbar-title">{page_title}</div>
+        <div class="uic-badge">System Active</div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 if not is_register_page:
   scrapedo_usage = get_scrapedo_usage()
@@ -1296,8 +1300,8 @@ if not is_register_page:
     render_metric_card(c4, "카테고리", f"{len([c for c in cat_counts.values() if c > 0])}", "accent")
 
     st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
-    st.markdown("##### 카테고리별 보기")
-    st.caption("카테고리를 클릭하면 해당 카테고리의 상품/가격만 모아볼 수 있어요.")
+    st.markdown("##### 카테고리별 현황")
+    st.caption("카테고리별 상품 수예요. 세부 가격은 왼쪽 메뉴에서 카테고리를 선택하면 볼 수 있어요.")
 
     cat_cols = st.columns(4)
     for idx, cat in enumerate(CATEGORIES):
@@ -1311,9 +1315,6 @@ if not is_register_page:
             """,
             unsafe_allow_html=True,
         )
-        if st.button("보기", key=f"catbtn_{cat}", use_container_width=True):
-          st.session_state.nav_choice = f"　{cat}"
-          st.rerun()
 
     st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
     st.markdown("##### 전체 상품")
