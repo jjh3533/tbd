@@ -587,6 +587,11 @@ def _scrapedo_get(target_url, timeout=25, max_retries=1, retry_delay=2.0,
   else:
     tiers = [False, True] if try_super_on_failure else [False]
   for use_super in tiers:
+    # super=true는 안티봇 우회를 위해 실제 브라우저 렌더링을 거치는 경우가
+    # 많아 super=false보다 훨씬 느립니다. 호출자가 지정한 timeout이 여기엔
+    # 너무 빠듯할 수 있어(예: B&H는 force_super=True로 항상 이 경로를 탐)
+    # super 요청에는 최소 45초를 보장합니다.
+    effective_timeout = max(timeout, 45) if use_super else timeout
     for attempt in range(max_retries + 1):
       try:
         with _SCRAPEDO_SEMAPHORE:
@@ -598,7 +603,7 @@ def _scrapedo_get(target_url, timeout=25, max_retries=1, retry_delay=2.0,
                   "geoCode": "us",
                   "super": "true" if use_super else "false",
               },
-              timeout=timeout,
+              timeout=effective_timeout,
           )
         if res.status_code == 200:
           return res
