@@ -392,7 +392,7 @@ def inject_css(theme_name: str) -> None:
           margin-top: 6px;
           margin-bottom: 10px;
       }}
-      div[class*="st-key-retailer_sync_row"] div[data-testid="stButton"] > button {{
+      div[class*="st-key-retailer_sync_row"] div[data-testid="stButton"] button {{
           background-color: transparent !important;
           color: {t['text_secondary']} !important;
           border: 1px solid {t['border']} !important;
@@ -406,7 +406,7 @@ def inject_css(theme_name: str) -> None:
           padding: 7px 2px !important;
           min-width: 0;
       }}
-      div[class*="st-key-retailer_sync_row"] div[data-testid="stButton"] > button:hover {{
+      div[class*="st-key-retailer_sync_row"] div[data-testid="stButton"] button:hover {{
           border-color: {t['accent']} !important;
           color: {t['accent']} !important;
           filter: none;
