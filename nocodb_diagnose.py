@@ -2,7 +2,7 @@
 """NocoDB Products 테이블 필드 목록을 점검하는 스크립트.
 
 사용법 (터미널에서, 본인 Mac에서 실행):
-    NOCODB_URL="http://jayjeon.net:8081" NOCODB_TOKEN="여기에_토큰" python3 nocodb_diagnose.py
+    NOCODB_URL="https://nocodb.jayjeon.net" NOCODB_TOKEN="여기에_토큰" python3 nocodb_diagnose.py
 
 토큰 발급 방법:
     NocoDB 우측 상단 프로필 아이콘 클릭 -> Account Settings -> Tokens -> Create New Token
@@ -18,7 +18,7 @@ NOCODB_TOKEN = os.environ.get("NOCODB_TOKEN", "")
 
 if not NOCODB_URL or not NOCODB_TOKEN:
     print("NOCODB_URL과 NOCODB_TOKEN 환경변수를 설정해주세요.")
-    print('예: NOCODB_URL="http://jayjeon.net:8081" NOCODB_TOKEN="xxxx" python3 nocodb_diagnose.py')
+    print('예: NOCODB_URL="https://nocodb.jayjeon.net" NOCODB_TOKEN="xxxx" python3 nocodb_diagnose.py')
     sys.exit(1)
 
 

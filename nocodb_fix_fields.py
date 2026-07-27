@@ -2,7 +2,7 @@
 """NocoDB Products 테이블: Shopping_KRW -> Shipping_KRW 오타 수정 + 나머지 수식 필드 생성.
 
 사용법 (본인 Mac 터미널에서):
-    NOCODB_URL="http://jayjeon.net:8081" NOCODB_TOKEN="토큰" python3 nocodb_fix_fields.py
+    NOCODB_URL="https://nocodb.jayjeon.net" NOCODB_TOKEN="토큰" python3 nocodb_fix_fields.py
 
 재실행해도 안전합니다 (이미 존재하는 필드는 건너뜁니다).
 """
