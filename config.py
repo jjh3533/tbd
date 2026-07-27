@@ -8,9 +8,9 @@
   실제 값을 채워 넣으세요. `.env`는 .gitignore에 의해 git에 커밋되지 않습니다.
 - Streamlit Community Cloud 배포: 앱 Settings > Secrets 에 TOML 형식으로
   아래와 동일한 키 이름으로 값을 등록하세요.
-- GitHub Actions로 tbd_tracker.py를 스케줄 실행하는 경우: 레포 Settings >
+- GitHub Actions로 스케줄 실행하는 경우: 레포 Settings >
   Secrets and variables > Actions 에 등록하고 workflow yml의 `env:`에서
-  `${{ secrets.AIRTABLE_API_TOKEN }}` 형태로 주입하세요.
+  `${{ secrets.NOCODB_API_TOKEN }}` 형태로 주입하세요.
 """
 
 from __future__ import annotations
@@ -49,11 +49,9 @@ def _get_secret(name: str, required: bool = True, default: str | None = None) ->
   return value
 
 
-AIRTABLE_API_TOKEN = _get_secret("AIRTABLE_API_TOKEN")
-AIRTABLE_BASE_ID = _get_secret("AIRTABLE_BASE_ID")
-AIRTABLE_TABLE_NAME = _get_secret(
-    "AIRTABLE_TABLE_NAME", required=False, default="Products"
-)
+NOCODB_URL = _get_secret("NOCODB_URL")
+NOCODB_API_TOKEN = _get_secret("NOCODB_API_TOKEN")
+NOCODB_TABLE_ID = _get_secret("NOCODB_TABLE_ID")
 
 SCRAPEDO_TOKEN = _get_secret("SCRAPEDO_TOKEN")
 

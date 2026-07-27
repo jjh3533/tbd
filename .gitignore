@@ -14,3 +14,10 @@ venv/
 
 # OS
 .DS_Store
+
+# 대용량 이미지 자산 (Product Images는 로컬/Drive에만 보관, git으로 관리하지 않음)
+Product Images/
+
+# 에이전트/도구 메타데이터
+.agents/
+.claude/

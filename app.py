@@ -8,15 +8,15 @@ import time
 from pathlib import Path
 
 from bs4 import BeautifulSoup
-from pyairtable import Api
+from nocodb_client import NocoDBTable
 import requests
 import streamlit as st
 import yfinance as yf
 
 from config import (
-    AIRTABLE_API_TOKEN,
-    AIRTABLE_BASE_ID,
-    AIRTABLE_TABLE_NAME,
+    NOCODB_URL,
+    NOCODB_API_TOKEN,
+    NOCODB_TABLE_ID,
     SCRAPEDO_TOKEN,
     TELEGRAM_TOKEN,
     TELEGRAM_CHAT_ID,
@@ -33,17 +33,16 @@ st.set_page_config(
 )
 
 # 시크릿은 하드코딩하지 않고 config.py(환경변수 / Streamlit Secrets)에서 가져옵니다.
-api = Api(AIRTABLE_API_TOKEN)
-table = api.table(AIRTABLE_BASE_ID, AIRTABLE_TABLE_NAME)
+table = NocoDBTable(NOCODB_URL, NOCODB_API_TOKEN, NOCODB_TABLE_ID)
 
 # 바로가기 링크 (메인 도메인)
 QUICK_LINKS = {
-    "Airtable": "https://airtable.com",
+    "NocoDB": NOCODB_URL,
     "Scrape.do": "https://scrape.do",
     "GitHub": "https://github.com",
 }
 
-# UniFi Store 카테고리 (What's New 제외, Airtable Category 필드와 동일)
+# UniFi Store 카테고리 (What's New 제외, NocoDB Category 필드와 동일)
 CATEGORIES = [
     "Cloud Gateways",
     "Switching",
@@ -387,6 +386,31 @@ def inject_css(theme_name: str) -> None:
           filter: brightness(1.08);
       }}
 
+      /* ---------- 리테일러별 개별 Sync 버튼 (전체 Sync보다 톤 다운) ---------- */
+      div[class*="st-key-retailer_sync_row"] {{
+          margin-top: 6px;
+          margin-bottom: 10px;
+      }}
+      div[class*="st-key-retailer_sync_row"] div[data-testid="stButton"] > button {{
+          background-color: transparent !important;
+          color: {t['text_secondary']} !important;
+          border: 1px solid {t['border']} !important;
+          border-radius: 8px !important;
+          font-weight: 600 !important;
+          font-size: 11px !important;
+          letter-spacing: -0.2px;
+          white-space: nowrap !important;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          padding: 7px 2px !important;
+          min-width: 0;
+      }}
+      div[class*="st-key-retailer_sync_row"] div[data-testid="stButton"] > button:hover {{
+          border-color: {t['accent']} !important;
+          color: {t['accent']} !important;
+          filter: none;
+      }}
+
       /* ---------- 커스텀 테이블 (Site Manager 리스트 뷰 스타일) ---------- */
       /* 라운드 코너를 담당하는 바깥 wrap(overflow:hidden만 사용)과, 가로
          스크롤을 담당하는 안쪽 scroll div를 분리했음. 이전에는 한 엘리먼트에
@@ -465,9 +489,12 @@ def inject_css(theme_name: str) -> None:
           font-size: 11.5px;
           font-weight: 700;
       }}
+      /* title(=Check_Note)이 붙어있는 뱃지는 Active/Out of Stock이어도
+         호버하면 메모가 보이니, 도움말 커서로 힌트를 줌. */
+      .uic-pill[title] {{ cursor: help; }}
       .uic-pill.ok {{ background-color: {t['success_soft_bg']}; color: {t['success']}; }}
       .uic-pill.bad {{ background-color: {t['danger_soft_bg']}; color: {t['danger']}; }}
-      .uic-pill.check {{ background-color: {t['warning_soft_bg']}; color: {t['warning']}; cursor: help; }}
+      .uic-pill.check {{ background-color: {t['warning_soft_bg']}; color: {t['warning']}; }}
       .uic-pill.cat {{ background-color: {t['accent_soft_bg']}; color: {t['accent']}; }}
 
       /* ---------- 사이드바 바로가기 아이콘 ---------- */
@@ -583,14 +610,28 @@ _SCRAPEDO_SEMAPHORE = threading.Semaphore(5)
 
 
 def _scrapedo_get(target_url, timeout=60, max_retries=1, retry_delay=2.0,
-                   try_super_on_failure=True, force_super=False):
-  """Scrape.do 요청 공용 래퍼 (재시도 + 비용 절감 escalation 포함)."""
+                   try_super_on_failure=True, force_super=False,
+                   fast_free_tier=False):
+  """Scrape.do 요청 공용 래퍼 (재시도 + 비용 절감 escalation 포함).
+
+  fast_free_tier=True: 무료 티어(super=false)에서 타임아웃/재시도 횟수를
+  줄여서 "어차피 막힐 요청"에 오래 매달리지 않고 super 티어로 더 빨리
+  넘어가게 합니다. super를 상시로 켜는 것과 달리, 무료 티어에서 성공하는
+  건(=차단 안 걸리는 상품) 여전히 정상가로 처리되니 크레딧은 그대로 아낍니다.
+  Adorama처럼 무료 티어가 자주/오래 막혀서 502로 시간을 잡아먹는 곳에 사용.
+  """
   if force_super:
-    tiers = [True]
+    tiers = [(True, timeout, max_retries, 15000)]
   else:
-    tiers = [False, True] if try_super_on_failure else [False]
-  for use_super in tiers:
-    for attempt in range(max_retries + 1):
+    if fast_free_tier:
+      free_tier = (False, min(timeout, 10), 0, 5000)
+    else:
+      free_tier = (False, timeout, max_retries, 15000)
+    super_tier = (True, timeout, max_retries, 15000)
+    tiers = [free_tier, super_tier] if try_super_on_failure else [free_tier]
+
+  for use_super, tier_timeout, tier_retries, retry_timeout_ms in tiers:
+    for attempt in range(tier_retries + 1):
       try:
         with _SCRAPEDO_SEMAPHORE:
           res = requests.get(
@@ -600,14 +641,17 @@ def _scrapedo_get(target_url, timeout=60, max_retries=1, retry_delay=2.0,
                   "url": target_url,
                   "geoCode": "us",
                   "super": "true" if use_super else "false",
+                  # 무료 티어는 "빨리 확인하고 다음 티어로 넘어가는" 게
+                  # 목적이라 scrape.do 자체 내부 재시도 주기도 짧게 잡음.
+                  "retryTimeout": retry_timeout_ms,
               },
-              timeout=timeout,
+              timeout=tier_timeout,
           )
         if res.status_code == 200:
           return res
       except Exception:
         pass
-      if attempt < max_retries:
+      if attempt < tier_retries:
         time.sleep(retry_delay)
   return None
 
@@ -651,7 +695,10 @@ def fetch_adorama_info(adorama_id):
   target_url = f"https://www.adorama.com/{clean_id}.html"
 
   try:
-    res = _scrapedo_get(target_url)
+    # Adorama는 무료 티어가 자주/오래 막혀서(502, ~57초) super로 넘어가는
+    # 시간이 병목이었음. super를 상시로 켜는 대신, 무료 티어에서 빨리
+    # 포기하고(20초/1회) super로 넘어가도록 fast_free_tier만 켬.
+    res = _scrapedo_get(target_url, fast_free_tier=True)
     if res is None:
       # 재시도까지 다 실패 - 진짜 품절인지 사이트가 막았는지 알 수 없으니
       # 0으로 확정 짓지 않고 "확인 필요"로만 표시합니다.
@@ -781,17 +828,23 @@ _WEIGHT_UNIT_TO_KG = {
 }
 
 
-def _parse_bh_package_weight_kg(soup):
-  """B&H Specs의 'Packaging Info > Package Weight' 행에서 배송 패키지 무게를 kg로 추출."""
-  label_pattern = re.compile(r"package\s*weight", re.IGNORECASE)
-  weight_pattern = re.compile(r"([\d.]+)\s*(kg|lbs|lb|oz|g)\b", re.IGNORECASE)
+_PACKAGE_CORRECTION_KG = 0.3  # General > Weight(제품 자체 무게)에 더해 패키지 무게를 추정
 
+# "Weight" 단독 라벨(General 섹션의 제품 자체 무게)과 "Package Weight" 라벨을
+# 구분해서 찾음. 둘 다 같은 helper(_extract_bh_weight_kg)로 파싱.
+_GENERAL_WEIGHT_LABEL_RE = re.compile(r"^\s*weight\s*$", re.IGNORECASE)
+_PACKAGE_WEIGHT_LABEL_RE = re.compile(r"package\s*weight", re.IGNORECASE)
+_WEIGHT_VALUE_RE = re.compile(r"([\d.]+)\s*(kg|lbs|lb|oz|g)\b", re.IGNORECASE)
+
+
+def _extract_bh_weight_kg(soup, label_pattern):
+  """B&H Specs 표에서 라벨(label_pattern)에 해당하는 무게 값을 kg로 추출."""
   for row in soup.find_all("tr"):
     cells = row.find_all(["td", "th"])
     if len(cells) < 2:
       continue
     if label_pattern.search(cells[0].get_text(strip=True)):
-      match = weight_pattern.search(cells[1].get_text(strip=True))
+      match = _WEIGHT_VALUE_RE.search(cells[1].get_text(strip=True))
       if match:
         value, unit = float(match.group(1)), match.group(2).lower()
         return round(value * _WEIGHT_UNIT_TO_KG.get(unit, 1.0), 3)
@@ -800,10 +853,31 @@ def _parse_bh_package_weight_kg(soup):
     if label_pattern.search(dt.get_text(strip=True)):
       dd = dt.find_next_sibling("dd")
       if dd:
-        match = weight_pattern.search(dd.get_text(strip=True))
+        match = _WEIGHT_VALUE_RE.search(dd.get_text(strip=True))
         if match:
           value, unit = float(match.group(1)), match.group(2).lower()
           return round(value * _WEIGHT_UNIT_TO_KG.get(unit, 1.0), 3)
+
+  return None
+
+
+def _parse_bh_package_weight_kg(soup):
+  """B&H Specs에서 배송 패키지 무게를 kg로 추출.
+
+  우선순위:
+  1) 'Packaging Info > Package Weight' - 있으면 이게 실제 패키지 무게 그
+     자체라 가장 정확함. 1순위로 사용(보정값 더하지 않음).
+  2) 위에서 못 찾았을 때만 General 섹션의 'Weight'(제품 자체 무게, 박스
+     미포함)를 대신 사용. 실제 배송 패키지는 이보다 무거우니 보정값
+     (_PACKAGE_CORRECTION_KG=0.3kg)을 더해 추정치로 씀.
+  """
+  package_weight = _extract_bh_weight_kg(soup, _PACKAGE_WEIGHT_LABEL_RE)
+  if package_weight is not None:
+    return package_weight
+
+  general_weight = _extract_bh_weight_kg(soup, _GENERAL_WEIGHT_LABEL_RE)
+  if general_weight is not None:
+    return round(general_weight + _PACKAGE_CORRECTION_KG, 3)
 
   return None
 
@@ -895,8 +969,43 @@ def fetch_bh_info(bh_id):
             "status": "check_needed", "detail": "exception"}
 
 
-def process_single_record(r, current_rate):
-  """워커 스레드에서 실행되므로 st.* 호출 없이 로그 문자열만 만들어 반환합니다."""
+RETAILER_NAMES = ("Adorama", "Amazon", "B&H")
+_RETAILER_PRICE_FIELD = {"Adorama": "Adorama_USD", "Amazon": "Amazon_USD", "B&H": "BH_USD"}
+# 사이트별로 "그 사이트 자체에 재고가 있는지"를 따로 저장하는 체크박스 필드.
+# 예전엔 가격(>0)으로 재고 여부를 추측했는데, 품절이어도 마지막 확인된 가격이
+# 남아있는 경우가 있어서(사이트가 세일가를 보여준 채 품절 표시) 개별
+# 리테일러만 Sync할 때 다른 두 곳 상태를 잘못 추측하는 원인이었음. 이제
+# fetch_*_info()가 실제로 판단한 in_stock을 이 필드에 그대로 저장해두고,
+# 재조회 안 하는 라운드에는 가격 대신 이 필드를 그대로 읽어옵니다.
+_RETAILER_STOCK_FIELD = {
+    "Adorama": "Adorama_In_Stock", "Amazon": "Amazon_In_Stock", "B&H": "BH_In_Stock",
+}
+
+
+def _stale_retailer_data(name, product_id, fields):
+  """이번 라운드에 다시 조회하지 않는 리테일러의 데이터를, NocoDB에 마지막으로
+  저장된 값(가격 + 사이트별 재고 체크박스)으로 흉내냅니다. 개별 리테일러만
+  Sync할 때도 전체 재고/확인필요 판단(In_Stock, Needs_Check)은 계속 3곳 기준
+  으로 일관되게 나오게 하기 위함 - 단, 이 리테일러의 필드들은 이번에 새로
+  쓰지 않습니다(밑에서 처리)."""
+  if not product_id:
+    return None
+  price = fields.get(_RETAILER_PRICE_FIELD[name], 0.0) or 0.0
+  stock = bool(fields.get(_RETAILER_STOCK_FIELD[name], False))
+  check_note = fields.get("Check_Note") or ""
+  if f"{name} 확인 필요" in check_note:
+    return {"price": price, "in_stock": stock, "status": "check_needed",
+            "detail": "stale"}
+  return {"price": price, "in_stock": stock, "status": "ok" if stock else "oos",
+          "detail": ""}
+
+
+def process_single_record(r, current_rate, retailers=RETAILER_NAMES):
+  """워커 스레드에서 실행되므로 st.* 호출 없이 로그 문자열만 만들어 반환합니다.
+
+  retailers: 이번 라운드에 실제로 재조회할 리테일러 이름 집합/튜플
+  ("Adorama", "Amazon", "B&H" 중 일부 또는 전체). 나머지는 NocoDB에 저장된
+  마지막 값을 그대로 사용합니다(개별 Sync 버튼용)."""
   record_id = r["id"]
   fields = r["fields"]
   sku = fields.get("SKU", "무명 상품")
@@ -911,16 +1020,33 @@ def process_single_record(r, current_rate):
   naver_id = fields.get("Naver_Product_No", "-")
   max_threshold = msrp_usd if msrp_usd > 0 else 99999.0
 
-  # 세 곳 조회는 서로 무관하니 순차 대신 동시에 실행합니다. 실제 네트워크
-  # 동시 요청 개수는 _AMAZON_SEMAPHORE(1)와 _SCRAPEDO_SEMAPHORE(5)가
-  # 계정 한도(Hobby 플랜 10) 안에서 제한하므로, 안전합니다.
-  with ThreadPoolExecutor(max_workers=3) as retailer_executor:
-    future_adorama = retailer_executor.submit(fetch_adorama_info, adorama_id)
-    future_amazon = retailer_executor.submit(fetch_amazon_info, asin)
-    future_bh = retailer_executor.submit(fetch_bh_info, bh_id)
-    adorama_data = future_adorama.result()
-    amazon_data = future_amazon.result()
-    bh_data = future_bh.result()
+  # 이번에 실제로 재조회할 곳만 스레드로 동시에 요청. 실제 네트워크 동시
+  # 요청 개수는 _AMAZON_SEMAPHORE(1)와 _SCRAPEDO_SEMAPHORE(5)가 계정 한도
+  # (Hobby 플랜 10) 안에서 제한하므로, 안전합니다.
+  fresh_results = {}
+  with ThreadPoolExecutor(max_workers=max(len(retailers), 1)) as retailer_executor:
+    futures = {}
+    if "Adorama" in retailers:
+      futures["Adorama"] = retailer_executor.submit(fetch_adorama_info, adorama_id)
+    if "Amazon" in retailers:
+      futures["Amazon"] = retailer_executor.submit(fetch_amazon_info, asin)
+    if "B&H" in retailers:
+      futures["B&H"] = retailer_executor.submit(fetch_bh_info, bh_id)
+    for name, future in futures.items():
+      fresh_results[name] = future.result()
+
+  adorama_data = (
+      fresh_results["Adorama"] if "Adorama" in retailers
+      else _stale_retailer_data("Adorama", adorama_id, fields)
+  )
+  amazon_data = (
+      fresh_results["Amazon"] if "Amazon" in retailers
+      else _stale_retailer_data("Amazon", asin, fields)
+  )
+  bh_data = (
+      fresh_results["B&H"] if "B&H" in retailers
+      else _stale_retailer_data("B&H", bh_id, fields)
+  )
 
   adorama_price = adorama_data["price"] if adorama_data else 0.0
   amazon_price = amazon_data["price"] if amazon_data else 0.0
@@ -967,42 +1093,83 @@ def process_single_record(r, current_rate):
     # 재고 상태를 그대로 유지하고 "품절"이 아니라 "확인 필요"로만 표시합니다.
     curr_stock = prev_stock
 
+  # B&H 패키지 무게 - 배송비(Shipping_KRW) 계산의 입력값이라, 못 찾았을 때
+  # 방치하면(공란/음수 임시값 등) 배송비 계산식이 이상한 값을 뱉습니다.
+  # 유효한(양수) 무게가 이미 있으면 건드리지 않고, 없을 때만 1.0kg 기본값을
+  # 채워 넣습니다. 크롤링 실패 자체는 매 라운드 Check_Note에 남겨서 눈에
+  # 보이게 합니다(값을 덮어쓰든 안 쓰든, "이건 추정치일 수 있다"는 신호).
+  bh_weight_kg = (
+      bh_data.get("weight_kg") if (bh_data and "B&H" in retailers) else None
+  )
+  prev_check_note = fields.get("Check_Note") or ""
+  weight_note_was_active = "Weight_KG 크롤링 실패" in prev_check_note
+  weight_fallback_applied = False
+  if bh_weight_kg is not None:
+    # 이번에 실제로 찾음 - 예전 실패 메모는 자연히 사라짐(check_note_parts에서 제외)
+    weight_update = {"Weight_KG": bh_weight_kg}
+  else:
+    weight_update = {}
+    if "B&H" in retailers and bh_data is not None:
+      # 이번 라운드에 B&H를 다시 시도했지만 여전히 못 찾음
+      weight_fallback_applied = True
+      existing_weight = fields.get("Weight_KG")
+      if not existing_weight or existing_weight <= 0:
+        weight_update["Weight_KG"] = 1.0
+    elif weight_note_was_active:
+      # 이번 라운드엔 B&H를 건드리지 않았지만, 예전에 크롤링 실패로 기본값을
+      # 쓰고 있었다는 사실 자체는 여전히 유효하니 메모를 계속 유지
+      weight_fallback_applied = True
+
+  check_note_parts = [f"{name} 확인 필요" for name in check_needed_sources]
+  if weight_fallback_applied:
+    check_note_parts.append("Weight_KG 크롤링 실패 - 기본값 1.0kg 사용 중")
+
   update_data = {
       "In_Stock": curr_stock,
       "Needs_Check": any_check_needed,
-      "Check_Note": (
-          ", ".join(f"{name} 확인 필요" for name in check_needed_sources)
-          if check_needed_sources else ""
-      ),
+      "Check_Note": ", ".join(check_note_parts),
       "Exchange_Rate": current_rate,
+      **weight_update,
   }
   # 사이트가 막혀서 확정 못 한 가격은 이전 값을 0으로 덮어쓰지 않고 그대로
   # 둡니다 (마지막으로 확인된 값이 남아있는 게, 잘못된 $0보다 낫습니다).
-  if adorama_data is None or adorama_data.get("status") != "check_needed":
+  # 이번 라운드에 실제로 재조회하지 않은 리테일러의 가격 필드는 건드리지
+  # 않습니다(개별 Sync 버튼 - 다른 두 곳 값은 그대로 유지).
+  # 가격과 함께, 그 사이트 자체의 재고 여부(_RETAILER_STOCK_FIELD)도 이번에
+  # 실제로 재조회한 리테일러만 갱신합니다. 이게 있어야 다음번에 이 리테일러를
+  # 건너뛸 때(_stale_retailer_data) 가격>0 추측이 아니라 진짜 마지막 재고
+  # 상태를 정확히 읽어올 수 있습니다.
+  if "Adorama" in retailers and (
+      adorama_data is None or adorama_data.get("status") != "check_needed"
+  ):
     update_data["Adorama_USD"] = adorama_price
-  if amazon_data is None or amazon_data.get("status") != "check_needed":
+    update_data["Adorama_In_Stock"] = bool(adorama_data and adorama_data.get("in_stock"))
+  if "Amazon" in retailers and (
+      amazon_data is None or amazon_data.get("status") != "check_needed"
+  ):
     update_data["Amazon_USD"] = amazon_price
-  if bh_data is None or bh_data.get("status") != "check_needed":
+    update_data["Amazon_In_Stock"] = bool(amazon_data and amazon_data.get("in_stock"))
+  if "B&H" in retailers and (
+      bh_data is None or bh_data.get("status") != "check_needed"
+  ):
     update_data["BH_USD"] = bh_price
-
-  bh_weight_kg = bh_data.get("weight_kg") if bh_data else None
-  if bh_weight_kg is not None:
-    update_data["Weight_KG"] = bh_weight_kg
+    update_data["BH_In_Stock"] = bool(bh_data and bh_data.get("in_stock"))
 
   try:
     table.update(record_id, update_data)
   except Exception:
     pass
 
-  def _fmt(label, data, price):
+  def _fmt(label, name, data, price):
     if data and data.get("status") == "check_needed":
       return f"{label}:⚠({data.get('detail') or 'check'})"
-    return f"{label}:${price}"
+    suffix = "" if name in retailers else "(cached)"
+    return f"{label}:${price}{suffix}"
 
   log_line = (
-      f"✅ [{sku}] Complete | {_fmt('Ado', adorama_data, adorama_price)} /"
-      f" {_fmt('Amz', amazon_data, amazon_price)} /"
-      f" {_fmt('BH', bh_data, bh_price)}"
+      f"✅ [{sku}] Complete | {_fmt('Ado', 'Adorama', adorama_data, adorama_price)} /"
+      f" {_fmt('Amz', 'Amazon', amazon_data, amazon_price)} /"
+      f" {_fmt('BH', 'B&H', bh_data, bh_price)}"
   )
 
   status_change = None
@@ -1033,10 +1200,14 @@ def process_single_record(r, current_rate):
   return log_line, status_change
 
 
-def run_tbd_tracker(log_container):
-  log_container.write(
-      "⚡ [UI.com Engine] Adorama / Amazon / B&H Triple-Channel Syncing..."
+def run_tbd_tracker(log_container, retailers=RETAILER_NAMES):
+  """retailers: 이번 라운드에 재조회할 리테일러 이름 집합/튜플. 기본값은 3곳
+  전체(전체 Sync 버튼). 개별 Sync 버튼은 {"Adorama"} 처럼 1곳만 넘겨줍니다."""
+  retailers_label = (
+      " / ".join(retailers) if len(retailers) < len(RETAILER_NAMES)
+      else "Adorama / Amazon / B&H Triple-Channel"
   )
+  log_container.write(f"⚡ [UI.com Engine] {retailers_label} Syncing...")
   current_rate = get_current_exchange_rate()
   log_container.write(f"💱 Applied Exchange Rate: ₩{current_rate}")
 
@@ -1055,7 +1226,7 @@ def run_tbd_tracker(log_container):
   # 동시에 세마포어 대기줄에 들어가 충분히 파이프라인을 채웁니다.
   with ThreadPoolExecutor(max_workers=10) as executor:
     futures = [
-        executor.submit(process_single_record, r, current_rate)
+        executor.submit(process_single_record, r, current_rate, retailers)
         for r in records
     ]
     for future in as_completed(futures):
@@ -1075,6 +1246,7 @@ def run_tbd_tracker(log_container):
 
   summary_header = [
       "📊 **[UI.com Supply Monitor] Sync Report**",
+      f"• **Synced Retailers**: {' / '.join(retailers)}",
       f"• **Monitored Items**: {total_count} units",
       f"• **Status Shift**: {changed_total} (🔴 Out of Stock {out_of_stock_count}"
       f" / 🟢 Normal {back_in_stock_count})",
@@ -1100,29 +1272,26 @@ def run_tbd_tracker(log_container):
 
 
 def safe_fetch_records():
-  """Airtable 호출이 실패해도(토큰 만료/권한 부족/네트워크 오류) 대시보드 전체가
+  """NocoDB 호출이 실패해도(토큰 만료/권한 부족/네트워크 오류) 대시보드 전체가
   죽지 않고, 원인을 바로 알 수 있게 에러 메시지를 보여준 뒤 빈 목록으로 계속 진행."""
   try:
     return table.all()
   except requests.exceptions.HTTPError as e:
     status = e.response.status_code if e.response is not None else "?"
     if status == 401:
-      hint = "AIRTABLE_API_TOKEN이 만료/무효합니다. Streamlit Secrets에 새 Personal Access Token을 등록하세요."
+      hint = "NOCODB_API_TOKEN이 만료/무효합니다. NocoDB Account Settings > Tokens에서 새 토큰을 발급하세요."
     elif status == 403:
-      hint = (
-          "토큰에 이 Base('UniFi Supply')에 대한 접근 권한 또는"
-          " data.records:read/write, schema.bases:read 스코프가 없습니다."
-      )
+      hint = "토큰에 이 Base('UniFi Supply')/Products 테이블에 대한 접근 권한이 없습니다."
     elif status == 404:
-      hint = "Base ID 또는 Table 이름(Products)이 올바른지 확인하세요."
+      hint = "NOCODB_URL 또는 NOCODB_TABLE_ID가 올바른지 확인하세요."
     elif status == 429:
-      hint = "Airtable API 요청 한도를 초과했습니다. 잠시 후 다시 시도하세요."
+      hint = "NocoDB API 요청 한도를 초과했습니다. 잠시 후 다시 시도하세요."
     else:
-      hint = "Airtable API 호출 중 오류가 발생했습니다."
-    st.error(f"⚠️ Airtable 연결 실패 (HTTP {status}): {hint}")
+      hint = "NocoDB API 호출 중 오류가 발생했습니다."
+    st.error(f"⚠️ NocoDB 연결 실패 (HTTP {status}): {hint}")
     return []
   except Exception as e:
-    st.error(f"⚠️ Airtable 연결 실패: {e}")
+    st.error(f"⚠️ NocoDB 연결 실패: {e}")
     return []
 
 
@@ -1165,6 +1334,8 @@ _COLOR_KEY_GOOD = "accent"    # MSRP보다 저렴
 _COLOR_KEY_SAME = "success"   # MSRP와 동일
 _COLOR_KEY_BAD = "danger"     # 가격정보 없음 / MSRP보다 비쌈
 
+_PRICE_COL_TO_RETAILER = {"B&H ($)": "B&H", "Adorama ($)": "Adorama", "Amazon ($)": "Amazon"}
+
 
 def _rgba_from_hex(hex_color, alpha):
   hex_color = hex_color.lstrip("#")
@@ -1188,6 +1359,44 @@ def _bh_url(bh_id):
   if not bh_id:
     return None
   return f"https://www.bhphotovideo.com/c/product/{str(bh_id).strip().upper()}/"
+
+
+# UniFi Store(store.ui.com) 제품 URL은 카테고리 없이 슬러그만으로 접근 가능함
+# (예: https://store.ui.com/us/en/products/u6-pro). 이 슬러그는 techspecs.ui.com
+# 크롤링 프로젝트 때 만들어둔 product_slug_map.json의 techspecs_slug와 동일한
+# 값이라(실측 확인함) 그 파일을 그대로 재사용합니다.
+# NocoDB로 이전하면서 레코드 id 체계가 완전히 바뀌었으므로(Airtable recXXXX ->
+# NocoDB 정수 Id), 더 이상 record id로 매칭할 수 없습니다. 대신 두 데이터
+# 모두에 안정적으로 존재하는 product_slug_map.json의 "name" <-> NocoDB의
+# "SKU" 필드(실제로는 제품명을 담고 있음, 예: "UniFi U6 Mesh")로 매칭합니다.
+_PRODUCT_SLUG_MAP_FILE = Path(__file__).parent / "product_slug_map.json"
+
+
+@st.cache_data(show_spinner=False)
+def _load_unifi_store_slug_map():
+  if not _PRODUCT_SLUG_MAP_FILE.exists():
+    return {}
+  try:
+    records = json.loads(_PRODUCT_SLUG_MAP_FILE.read_text(encoding="utf-8"))
+    return {
+        r["name"]: r["techspecs_slug"]
+        for r in records if r.get("name") and r.get("techspecs_slug")
+    }
+  except Exception:
+    return {}
+
+
+def _unifi_store_url(product_name):
+  slug = _load_unifi_store_slug_map().get(product_name)
+  if not slug:
+    return None
+  return f"https://store.ui.com/us/en/products/{slug}"
+
+
+def _naver_url(naver_id):
+  if not naver_id or str(naver_id).strip() in ("", "-"):
+    return None
+  return f"https://smartstore.naver.com/tbdseoul/products/{str(naver_id).strip()}"
 
 
 def fmt_usd(v):
@@ -1285,19 +1494,31 @@ def render_products_table(records, theme_name, show_category=True):
     best_color = t[color_key]
 
     needs_check = bool(f.get("Needs_Check"))
-    check_note = f.get("Check_Note") or "사이트 접속/파싱 실패 - 직접 확인해주세요"
+    check_note = f.get("Check_Note") or ""
+    # Status 뱃지는 마우스를 올리면 항상 Check_Note를 보여줍니다(재고
+    # 확인이 안 됐을 때뿐 아니라, Active/Out of Stock 상태에서도 예를 들어
+    # "무게 크롤링 실패로 배송비 추정치 사용 중" 같은 메모가 있으면 보이게).
+    tooltip_note = check_note or (
+        "사이트 접속/파싱 실패 - 직접 확인해주세요" if needs_check else ""
+    )
+    tooltip_attr = f' title="{html_escape(tooltip_note)}"' if tooltip_note else ""
+    # Check_Note에서 "Adorama 확인 필요"처럼 이번에 확인이 안 된 개별
+    # 리테일러를 뽑아냄. 그 리테일러의 가격 셀은 회색으로 표시해서, 이게
+    # 이번에 새로 확인된 값이 아니라 마지막으로 확인됐던 값(stale)이라는
+    # 걸 한눈에 알 수 있게 합니다.
+    blocked_retailers = {
+        name for name in RETAILER_NAMES if f"{name} 확인 필요" in check_note
+    }
     if needs_check:
-      status_html = (
-          f'<span class="uic-pill check" title="{html_escape(check_note)}">'
-          '⚠ Check Needed</span>'
-      )
+      status_html = f'<span class="uic-pill check"{tooltip_attr}>⚠ Check Needed</span>'
+    elif is_active:
+      status_html = f'<span class="uic-pill ok"{tooltip_attr}>Active</span>'
     else:
-      status_html = (
-          '<span class="uic-pill ok">Active</span>'
-          if is_active
-          else '<span class="uic-pill bad">Out of Stock</span>'
-      )
+      status_html = f'<span class="uic-pill bad"{tooltip_attr}>Out of Stock</span>'
     cat_html = f'<span class="uic-pill cat">{html_escape(category)}</span>'
+
+    unifi_store_url = _unifi_store_url(sku)
+    naver_url = _naver_url(f.get("Naver_Product_No"))
 
     cell_values = {
         "SKU / Model": html_escape(sku),
@@ -1314,6 +1535,8 @@ def render_products_table(records, theme_name, show_category=True):
         "수익": fmt_krw(f.get("수익", 0)),
     }
     cell_links = {
+        "Naver ID": naver_url,
+        "UniFi Store ($)": unifi_store_url,
         "B&H ($)": bh_url,
         "Adorama ($)": adorama_url,
         "Amazon ($)": amazon_url,
@@ -1343,6 +1566,11 @@ def render_products_table(records, theme_name, show_category=True):
             f' style="color:{best_color};'
             f' background-color:{_rgba_from_hex(best_color, 0.14)};'
             ' font-weight:700;"'
+        )
+      elif col in _PRICE_COL_TO_RETAILER and _PRICE_COL_TO_RETAILER[col] in blocked_retailers:
+        style = (
+            f' style="color:{_rgba_from_hex(t["text_secondary"], 0.45)};" '
+            f'title="확인 필요 - 마지막으로 확인된 값"'
         )
 
       cls_attr = f' class="{" ".join(classes)}"' if classes else ""
@@ -1383,11 +1611,43 @@ def render_sidebar():
       unsafe_allow_html=True,
   )
 
-  sync_clicked = st.sidebar.button(
-      "⚡ Sync Retailers Now", type="primary", use_container_width=True,
+  sync_all_clicked = st.sidebar.button(
+      "⚡ Sync All Retailers", type="primary", use_container_width=True,
       help="상품 1개당 Adorama+Amazon+B&H 합쳐 보통 약 12크레딧, 봇 차단이"
       " 걸리면 최대 약 22크레딧까지 소모될 수 있습니다.",
   )
+
+  # 리테일러별 개별 Sync 버튼. 한 곳만 다시 확인하고 싶을 때(예: Adorama가
+  # 502로 자주 실패해서 그곳만 재시도) 다른 두 곳까지 전부 돌리지 않아도 됨.
+  # 안 고른 두 곳은 NocoDB에 저장된 마지막 값을 그대로 사용해 In_Stock 등
+  # 전체 판단은 계속 3곳 기준으로 일관되게 유지됩니다.
+  with st.sidebar.container(key="retailer_sync_row"):
+    rcol1, rcol2, rcol3 = st.columns(3, gap="small")
+    with rcol1:
+      sync_adorama_clicked = st.button(
+          "Adorama", use_container_width=True, key="sync_adorama_btn",
+          help="Adorama만 재조회 (Amazon/B&H는 마지막 값 유지)",
+      )
+    with rcol2:
+      sync_amazon_clicked = st.button(
+          "Amazon", use_container_width=True, key="sync_amazon_btn",
+          help="Amazon만 재조회 (Adorama/B&H는 마지막 값 유지)",
+      )
+    with rcol3:
+      sync_bh_clicked = st.button(
+          "B&H", use_container_width=True, key="sync_bh_btn",
+          help="B&H만 재조회 (Adorama/Amazon은 마지막 값 유지)",
+      )
+
+  retailers_to_sync = None
+  if sync_all_clicked:
+    retailers_to_sync = RETAILER_NAMES
+  elif sync_adorama_clicked:
+    retailers_to_sync = ("Adorama",)
+  elif sync_amazon_clicked:
+    retailers_to_sync = ("Amazon",)
+  elif sync_bh_clicked:
+    retailers_to_sync = ("B&H",)
 
   st.sidebar.markdown('<div class="uic-nav-label">메뉴</div>', unsafe_allow_html=True)
 
@@ -1428,11 +1688,15 @@ def render_sidebar():
   # (버튼은 로고 바로 아래 있지만, 이 슬롯은 사이드바에서 제일 마지막에
   # 생성되므로 화면상 항상 맨 아래에 위치함 — 위젯 선언 순서 = 렌더링 순서)
   log_slot = st.sidebar.empty()
-  if sync_clicked:
+  if retailers_to_sync:
     capped_log = _CappedSidebarLog(log_slot, limit=8)
-    with st.spinner("Adorama / Amazon / B&H 동기화 중..."):
-      count = run_tbd_tracker(capped_log)
-    log_slot.success(f"⚡ 동기화 완료 ({count}건 갱신)")
+    sync_label = (
+        " / ".join(retailers_to_sync)
+        if len(retailers_to_sync) < len(RETAILER_NAMES) else "Adorama / Amazon / B&H"
+    )
+    with st.spinner(f"{sync_label} 동기화 중..."):
+      count = run_tbd_tracker(capped_log, retailers_to_sync)
+    log_slot.success(f"⚡ {sync_label} 동기화 완료 ({count}건 갱신)")
     st.rerun()
 
   return choice
