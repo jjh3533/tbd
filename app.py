@@ -320,6 +320,7 @@ def inject_css(theme_name: str) -> None:
       .uic-card-value.accent {{ color: {t['accent']}; }}
       .uic-card-value.success {{ color: {t['success']}; }}
       .uic-card-value.danger {{ color: {t['danger']}; }}
+      .uic-card-value.warning {{ color: {t['warning']}; }}
 
       /* ---------- 카테고리 카드(대시보드 클릭 진입) ---------- */
       .uic-cat-card {{
@@ -409,6 +410,25 @@ def inject_css(theme_name: str) -> None:
           border-color: {t['accent']} !important;
           color: {t['accent']} !important;
           filter: none;
+      }}
+
+      /* ---------- 확인 필요 상품만 재동기화하는 버튼 (경고색으로 구분) ---------- */
+      div[class*="st-key-check_needed_sync_row"] {{
+          margin-top: 6px;
+          margin-bottom: 10px;
+      }}
+      div[class*="st-key-check_needed_sync_row"] div[data-testid="stButton"] button {{
+          background-color: {t['warning']} !important;
+          color: #ffffff !important;
+          border: none !important;
+          border-radius: 8px !important;
+          font-weight: 700 !important;
+          font-size: 13px !important;
+          padding: 8px 16px !important;
+          transition: all 0.15s ease-in-out !important;
+      }}
+      div[class*="st-key-check_needed_sync_row"] div[data-testid="stButton"] button:hover {{
+          filter: brightness(1.08);
       }}
 
       /* ---------- 커스텀 테이블 (Site Manager 리스트 뷰 스타일) ---------- */
@@ -1200,9 +1220,11 @@ def process_single_record(r, current_rate, retailers=RETAILER_NAMES):
   return log_line, status_change
 
 
-def run_tbd_tracker(log_container, retailers=RETAILER_NAMES):
+def run_tbd_tracker(log_container, retailers=RETAILER_NAMES, only_needs_check=False):
   """retailers: 이번 라운드에 재조회할 리테일러 이름 집합/튜플. 기본값은 3곳
-  전체(전체 Sync 버튼). 개별 Sync 버튼은 {"Adorama"} 처럼 1곳만 넘겨줍니다."""
+  전체(전체 Sync 버튼). 개별 Sync 버튼은 {"Adorama"} 처럼 1곳만 넘겨줍니다.
+  only_needs_check=True면 Needs_Check=True인 상품만 골라 재조회합니다
+  ("확인 필요만 Sync" 버튼)."""
   retailers_label = (
       " / ".join(retailers) if len(retailers) < len(RETAILER_NAMES)
       else "Adorama / Amazon / B&H Triple-Channel"
@@ -1212,6 +1234,13 @@ def run_tbd_tracker(log_container, retailers=RETAILER_NAMES):
   log_container.write(f"💱 Applied Exchange Rate: ₩{current_rate}")
 
   records = table.all()
+  if only_needs_check:
+    records = [r for r in records if r["fields"].get("Needs_Check")]
+    log_container.write(f"🔍 확인 필요 상품만 재조회 대상: {len(records)}건")
+    if not records:
+      log_container.write("✨ 확인 필요한 상품이 없습니다.")
+      return 0
+
   total_count = len(records)
   log_container.write(f"📦 Active Inventory Records: {total_count}")
 
@@ -1428,6 +1457,27 @@ def sort_records_by_category_then_name(records):
   return sorted(records, key=_key)
 
 
+def sort_records_by_name(records):
+  """카테고리별 페이지 표 정렬: 상품 이름(SKU) 오름차순."""
+  return sorted(records, key=lambda r: str(r["fields"].get("SKU") or "").lower())
+
+
+def status_counts(records):
+  """판매 가능 / 품절 / 확인 필요 3분류 카운트. render_products_table의 Status
+  뱃지 우선순위(확인 필요 > 판매가능/품절)와 동일한 기준으로 집계해, 카드 숫자와
+  표에 실제로 보이는 뱃지 개수가 항상 일치하게 합니다."""
+  active = out_of_stock = needs_check = 0
+  for r in records:
+    f = r["fields"]
+    if f.get("Needs_Check"):
+      needs_check += 1
+    elif f.get("In_Stock"):
+      active += 1
+    else:
+      out_of_stock += 1
+  return active, out_of_stock, needs_check
+
+
 def render_metric_card(col, label, value, tone=""):
   with col:
     st.markdown(
@@ -1617,6 +1667,15 @@ def render_sidebar():
       " 걸리면 최대 약 22크레딧까지 소모될 수 있습니다.",
   )
 
+  # 확인 필요(Needs_Check=True) 상품만 골라 재조회하는 버튼. 다른 Sync
+  # 버튼과 헷갈리지 않도록 경고색(warning)으로 구분합니다.
+  with st.sidebar.container(key="check_needed_sync_row"):
+    sync_check_needed_clicked = st.button(
+        "🔍 Sync 확인 필요만", use_container_width=True,
+        key="sync_check_needed_btn",
+        help="Needs_Check=True로 표시된 상품만 Adorama+Amazon+B&H 재조회",
+    )
+
   # 리테일러별 개별 Sync 버튼. 한 곳만 다시 확인하고 싶을 때(예: Adorama가
   # 502로 자주 실패해서 그곳만 재시도) 다른 두 곳까지 전부 돌리지 않아도 됨.
   # 안 고른 두 곳은 NocoDB에 저장된 마지막 값을 그대로 사용해 In_Stock 등
@@ -1640,8 +1699,12 @@ def render_sidebar():
       )
 
   retailers_to_sync = None
+  only_needs_check = False
   if sync_all_clicked:
     retailers_to_sync = RETAILER_NAMES
+  elif sync_check_needed_clicked:
+    retailers_to_sync = RETAILER_NAMES
+    only_needs_check = True
   elif sync_adorama_clicked:
     retailers_to_sync = ("Adorama",)
   elif sync_amazon_clicked:
@@ -1690,12 +1753,17 @@ def render_sidebar():
   log_slot = st.sidebar.empty()
   if retailers_to_sync:
     capped_log = _CappedSidebarLog(log_slot, limit=8)
-    sync_label = (
-        " / ".join(retailers_to_sync)
-        if len(retailers_to_sync) < len(RETAILER_NAMES) else "Adorama / Amazon / B&H"
-    )
+    if only_needs_check:
+      sync_label = "확인 필요"
+    else:
+      sync_label = (
+          " / ".join(retailers_to_sync)
+          if len(retailers_to_sync) < len(RETAILER_NAMES) else "Adorama / Amazon / B&H"
+      )
     with st.spinner(f"{sync_label} 동기화 중..."):
-      count = run_tbd_tracker(capped_log, retailers_to_sync)
+      count = run_tbd_tracker(
+          capped_log, retailers_to_sync, only_needs_check=only_needs_check
+      )
     log_slot.success(f"⚡ {sync_label} 동기화 완료 ({count}건 갱신)")
     st.rerun()
 
@@ -1760,19 +1828,19 @@ if not is_register_page:
 
   if is_dashboard:
     total = len(records)
-    in_stock = sum(1 for r in records if r["fields"].get("In_Stock"))
-    out_stock = total - in_stock
+    active_count, out_stock, check_needed = status_counts(records)
     cat_counts = {c: 0 for c in CATEGORIES}
     for r in records:
       c = r["fields"].get("Category")
       if c in cat_counts:
         cat_counts[c] += 1
 
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3, c4, c5 = st.columns(5)
     render_metric_card(c1, "전체 상품", f"{total}")
-    render_metric_card(c2, "판매 가능 (Active)", f"{in_stock}", "success")
+    render_metric_card(c2, "판매 가능 (Active)", f"{active_count}", "success")
     render_metric_card(c3, "품절 (Out of Stock)", f"{out_stock}", "danger")
-    render_metric_card(c4, "카테고리", f"{len([c for c in cat_counts.values() if c > 0])}", "accent")
+    render_metric_card(c4, "확인 필요 (Check Needed)", f"{check_needed}", "warning")
+    render_metric_card(c5, "카테고리", f"{len([c for c in cat_counts.values() if c > 0])}", "accent")
 
     st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
     st.markdown("##### 카테고리별 현황")
@@ -1804,12 +1872,14 @@ if not is_register_page:
 
   else:
     cat_records = [r for r in records if r["fields"].get("Category") == active_category]
-    cat_in_stock = sum(1 for r in cat_records if r["fields"].get("In_Stock"))
+    cat_records = sort_records_by_name(cat_records)
+    cat_active, cat_out_stock, cat_check_needed = status_counts(cat_records)
 
-    c1, c2, c3 = st.columns(3)
+    c1, c2, c3, c4 = st.columns(4)
     render_metric_card(c1, "상품 수", f"{len(cat_records)}")
-    render_metric_card(c2, "판매 가능", f"{cat_in_stock}", "success")
-    render_metric_card(c3, "품절", f"{len(cat_records) - cat_in_stock}", "danger")
+    render_metric_card(c2, "판매 가능", f"{cat_active}", "success")
+    render_metric_card(c3, "품절", f"{cat_out_stock}", "danger")
+    render_metric_card(c4, "확인 필요", f"{cat_check_needed}", "warning")
 
     st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
     render_products_table(cat_records, theme_now, show_category=False)
