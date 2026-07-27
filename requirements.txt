@@ -4,3 +4,7 @@ yfinance
 pandas
 beautifulsoup4
 python-dotenv
+
+# naver_smartstore_uploader 쪽에서 필요
+bcrypt
+openpyxl

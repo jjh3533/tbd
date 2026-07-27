@@ -1,0 +1,1676 @@
+[
+ {
+  "airtable_id": "rec08jirKofNNStzA",
+  "name": "UniFi Mobile Router Industrial",
+  "sku": "UMR-Industrial",
+  "category": "Integrations",
+  "techspecs_category": "integrations",
+  "techspecs_slug": "umr-industrial-us",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "rec0k6Xm5LBRTugKB",
+  "name": "UniFi UNAS 2",
+  "sku": "UNAS-2",
+  "category": "Integrations",
+  "techspecs_category": "integrations",
+  "techspecs_slug": "unas-2",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "rec1bLn7XVWVpRc6E",
+  "name": "UniFi U6 In-Wall",
+  "sku": "U6-IW",
+  "category": "WiFi",
+  "techspecs_category": "wifi",
+  "techspecs_slug": "u6-iw",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "rec1rbNqiYtkhAjJ3",
+  "name": "UniFi U6 Mesh Pro",
+  "sku": "U6-Mesh-Pro",
+  "category": "WiFi",
+  "techspecs_category": "wifi",
+  "techspecs_slug": "u6-mesh-pro",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "rec1vDnwHVhLvHwtf",
+  "name": "UniFi UPS Tower",
+  "sku": "UPS-Tower",
+  "category": "Integrations",
+  "techspecs_category": "integrations",
+  "techspecs_slug": "ups-tower-us",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "rec2OlecT0gYKNAOL",
+  "name": "UniFi Lite 16 PoE",
+  "sku": "USW-Lite-16-PoE",
+  "category": "Switching",
+  "techspecs_category": "switching",
+  "techspecs_slug": "usw-lite-16-poe",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "rec2iItNzOFqQokje",
+  "name": "UniFi AI 360",
+  "sku": "UVC-AI-360",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "uvc-ai-360",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "rec32Rk7Eib7Ae6K0",
+  "name": "UniFi Reader Junction Box",
+  "sku": "UACC-Reader-JB",
+  "category": "Door Access",
+  "techspecs_category": "door-access",
+  "techspecs_slug": "uacc-reader-jb",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "rec3B8f9CpcbCetJ5",
+  "name": "UniFi AI Pro",
+  "sku": "UVC-AI-Pro",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "uvc-ai-pro",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "rec3HefO0AnFghZXd",
+  "name": "UniFi U7 Pro Max",
+  "sku": "U7-Pro-Max",
+  "category": "WiFi",
+  "techspecs_category": "wifi",
+  "techspecs_slug": "u7-pro-max",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "rec3LdRvN8PdJ6is8",
+  "name": "UniFi Dream Machine Beast",
+  "sku": "UDM-Beast",
+  "category": "Cloud Gateways",
+  "techspecs_category": "cloud-gateways",
+  "techspecs_slug": "udm-beast",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "rec3ibxzSsSuX0tKW",
+  "name": "UniFi Intercom",
+  "sku": null,
+  "category": "Door Access",
+  "techspecs_category": "door-access",
+  "techspecs_slug": "ua-intercom",
+  "match_method": "name"
+ },
+ {
+  "airtable_id": "rec404SZnOE4Bj1eV",
+  "name": "UniFi Intercom Viewer Table Stand",
+  "sku": "UACC-Intercom-Viewer-TS",
+  "category": "Door Access",
+  "techspecs_category": "door-access",
+  "techspecs_slug": "uacc-intercom-viewer-ts",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "rec4jrxHE1Pzv8EqN",
+  "name": "UniFi WiFi BaseStation XG",
+  "sku": "UWB-XG",
+  "category": "WiFi",
+  "techspecs_category": "wifi",
+  "techspecs_slug": "uwb-xg",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "rec59oIVPTc1592A4",
+  "name": "UniFi Gate Hub",
+  "sku": "UA-Hub-Gate",
+  "category": "Door Access",
+  "techspecs_category": "door-access",
+  "techspecs_slug": "ua-hub-gate",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "rec6XJqIBvBEZ4tRl",
+  "name": "UniFi G2 Touch Max",
+  "sku": "UTP-TouchMax",
+  "category": "Integrations",
+  "techspecs_category": "integrations",
+  "techspecs_slug": "utp-touchmax-u",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "rec6gqksYMdxwqDWF",
+  "name": "UniFi Intercom Flush Mount",
+  "sku": "UACC-Intercom-FM",
+  "category": "Door Access",
+  "techspecs_category": "door-access",
+  "techspecs_slug": "uacc-intercom-fm",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "rec6uVn1KT0kMvsyM",
+  "name": "UniFi U7 Long-Range",
+  "sku": "U7-LR",
+  "category": "WiFi",
+  "techspecs_category": "wifi",
+  "techspecs_slug": "u7-lr",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "rec7th5PnyG8SPqwL",
+  "name": "UniFi Siren PoE",
+  "sku": "UP-Siren-PoE",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "up-siren-poe",
+  "match_method": "manual"
+ },
+ {
+  "airtable_id": "rec88gSk5FMVVd0gm",
+  "name": "UniFi Dream Wall",
+  "sku": "UDW (420W)",
+  "category": "Cloud Gateways",
+  "techspecs_category": "cloud-gateways",
+  "techspecs_slug": "udw",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "rec8p6S1yhYjqIlhL",
+  "name": "UniFi Remote Control KeyFob",
+  "sku": "USL-FOB",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "usl-fob",
+  "match_method": "manual"
+ },
+ {
+  "airtable_id": "rec8vdFa87QhNSM7f",
+  "name": "UniFi Junction Utility",
+  "sku": "UACC-Junction-Utility",
+  "category": "Door Access",
+  "techspecs_category": "door-access",
+  "techspecs_slug": "uacc-junction-utility",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "rec97jiySGHysV1YT",
+  "name": "UniFi PowerAmp",
+  "sku": "UPL-Amp",
+  "category": "Integrations",
+  "techspecs_category": "integrations",
+  "techspecs_slug": "upl-amp",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "rec9CvZtE0PRHBlLI",
+  "name": "UniFi Magnetic Lock",
+  "sku": "UA-Lock-Magnetic",
+  "category": "Door Access",
+  "techspecs_category": "door-access",
+  "techspecs_slug": "ua-lock-magnetic",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "rec9MkzpuLhdXSBgo",
+  "name": "UniFi G6 Pro Dome",
+  "sku": "UVC-G6-Pro-Dome",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "uvc-g6-pro-dome",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recAA3KumSyDlecCR",
+  "name": "UniFi Reader",
+  "sku": null,
+  "category": "Door Access",
+  "techspecs_category": "door-access",
+  "techspecs_slug": "ua-g3",
+  "match_method": "manual"
+ },
+ {
+  "airtable_id": "recADFjwkVIM8nU9i",
+  "name": "UniFi Door Starter Kit Pro",
+  "sku": null,
+  "category": "Door Access",
+  "techspecs_category": "door-access",
+  "techspecs_slug": "ua-g3-sk-pro",
+  "match_method": "manual"
+ },
+ {
+  "airtable_id": "recAMqatnwVf9w8k5",
+  "name": "UniFi Gate Starter Kit",
+  "sku": null,
+  "category": "Door Access",
+  "techspecs_category": "door-access",
+  "techspecs_slug": "ua-sk-gate",
+  "match_method": "name"
+ },
+ {
+  "airtable_id": "recAtgdWnw7SpCV3y",
+  "name": "UniFi AI LPR",
+  "sku": "UVC-AI-LPR",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "uvc-ai-lpr",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recAyfg2C28oqviul",
+  "name": "UniFi UNAS 4",
+  "sku": "UNAS-4",
+  "category": "Integrations",
+  "techspecs_category": "integrations",
+  "techspecs_slug": "unas-4",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recBI4WVDHroXHcVY",
+  "name": "UniFi G3 Touch Wall",
+  "sku": "UTP-G3-Touch-Wall",
+  "category": "Integrations",
+  "techspecs_category": "integrations",
+  "techspecs_slug": "utp-g3-touch-wall",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recBP4jP8IumJG9xe",
+  "name": "UniFi G6 Pro 360",
+  "sku": "UVC-G6-Pro-360",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "uvc-g6-pro-360",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recBdub27Fbc1JFFm",
+  "name": "UniFi Enterprise Audio-Video Bridge",
+  "sku": "EAV-Bridge",
+  "category": "Integrations",
+  "techspecs_category": "integrations",
+  "techspecs_slug": "eav-bridge",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recCn18kqCNzqPggf",
+  "name": "UniFi All-In-One Sensor",
+  "sku": "UP-Sense",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "up-sense",
+  "match_method": "manual"
+ },
+ {
+  "airtable_id": "recDxhq4GI0l1bYut",
+  "name": "UniFi Network Video Recorder Instant",
+  "sku": "UNVR-Instant",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "unvr-instant",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recFSBRTeWjpx9GFV",
+  "name": "UniFi Door Hub Mini",
+  "sku": "UA-Hub-Door-Mini",
+  "category": "Door Access",
+  "techspecs_category": "door-access",
+  "techspecs_slug": "ua-hub-door-mini",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recFWm2qsdYxqNaGE",
+  "name": "UniFi Device Bridge Pro Sector",
+  "sku": "UDB-Pro-Sector",
+  "category": "WiFi",
+  "techspecs_category": "wifi",
+  "techspecs_slug": "udb-pro-sector",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recFamrpFzRXcUXt2",
+  "name": "UniFi Vape Detection & Air Quality Sensor",
+  "sku": "UP-AirQuality",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "up-airquality",
+  "match_method": "manual"
+ },
+ {
+  "airtable_id": "recFoFq2OIcC1FkMe",
+  "name": "UniFi Intercom Viewer",
+  "sku": "UA-Intercom-Viewer",
+  "category": "Door Access",
+  "techspecs_category": "door-access",
+  "techspecs_slug": "ua-intercom-viewer",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recG5t1DASvxAdYMe",
+  "name": "UniFi Display Cast Lite",
+  "sku": "UC-Cast-Lite",
+  "category": "Integrations",
+  "techspecs_category": "integrations",
+  "techspecs_slug": "uc-cast-lite",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recGXtRUe6mekNNMr",
+  "name": "UniFi Intercom Surface Angle Mount",
+  "sku": "UACC-Intercom-SAM",
+  "category": "Door Access",
+  "techspecs_category": "door-access",
+  "techspecs_slug": "uacc-intercom-sam",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recGlbpdJQ4rHWMLv",
+  "name": "UniFi G6 Edge Dome",
+  "sku": "UVC-G6-Edge-Dome",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "uvc-g6-edge-dome",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recH3lkZNUjzcJnft",
+  "name": "UniFi Reader Pro Junction Box",
+  "sku": "UACC-Reader-Pro-JB",
+  "category": "Door Access",
+  "techspecs_category": "door-access",
+  "techspecs_slug": "uacc-reader-pro-jb",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recHIQGKlRHlEJzaN",
+  "name": "UniFi G6 Entry",
+  "sku": null,
+  "category": "Door Access",
+  "techspecs_category": "door-access",
+  "techspecs_slug": "uvc-g6-entry",
+  "match_method": "name"
+ },
+ {
+  "airtable_id": "recHQRQOsCFz1fpIr",
+  "name": "UniFi Siren",
+  "sku": "USL-Siren",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "usl-siren",
+  "match_method": "manual"
+ },
+ {
+  "airtable_id": "recHTNeyFZaG9Fr9y",
+  "name": "UniFi AI DSLR",
+  "sku": null,
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "uvc-ai-dslr",
+  "match_method": "name"
+ },
+ {
+  "airtable_id": "recHestIegn46O47I",
+  "name": "UniFi G3 Elevator Starter Kit",
+  "sku": "UA-G3-SK-Elevator",
+  "category": "Door Access",
+  "techspecs_category": "door-access",
+  "techspecs_slug": "ua-g3-sk-elevator",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recINOr2Uh59wRte6",
+  "name": "UniFi G6 Edge Bullet",
+  "sku": "UVC-G6-Edge-Bullet",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "uvc-g6-edge-bullet",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recIdOp0gDrCPHS8f",
+  "name": "UniFi WAN Switch",
+  "sku": "USW-WAN",
+  "category": "Switching",
+  "techspecs_category": "switching",
+  "techspecs_slug": "usw-wan",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recIi8IYGWJH2OnZe",
+  "name": "UniFi AI Multi Sensor 2",
+  "sku": "UVC-AI-MS-2",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "uvc-ai-ms-2",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recJ5EX9HSKQ93JDT",
+  "name": "UniFi AI Horn Speaker",
+  "sku": "UP-AI-Horn-Speaker",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "up-ai-horn-speaker",
+  "match_method": "manual"
+ },
+ {
+  "airtable_id": "recJPRwzZSkylrsm7",
+  "name": "UniFi E7 Audience",
+  "sku": null,
+  "category": "WiFi",
+  "techspecs_category": "wifi",
+  "techspecs_slug": "e7-audience-us",
+  "match_method": "name"
+ },
+ {
+  "airtable_id": "recJgczc9XakBCHza",
+  "name": "UniFi U6+",
+  "sku": "U6+",
+  "category": "WiFi",
+  "techspecs_category": "wifi",
+  "techspecs_slug": "u6-plus",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recL2XM4AvJqZv1oS",
+  "name": "UniFi Mobile Router",
+  "sku": "UMR",
+  "category": "Integrations",
+  "techspecs_category": "integrations",
+  "techspecs_slug": "umr-us",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recLR6Xz03ZdXYyy0",
+  "name": "UniFi AC Pro",
+  "sku": "UAP-AC-PRO",
+  "category": "WiFi",
+  "techspecs_category": "wifi",
+  "techspecs_slug": "uap-ac-pro",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recLlEV7UrYJPG9fG",
+  "name": "UniFi G5 Dome Ultra",
+  "sku": "UVC-G5-Dome-Ultra",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "uvc-g5-dome-ultra",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recLsDgvd9JtnbEvu",
+  "name": "UniFi 5G Max",
+  "sku": "U5G-Max",
+  "category": "Integrations",
+  "techspecs_category": "integrations",
+  "techspecs_slug": "u5g-max",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recMGyjW93NYcE1lW",
+  "name": "UniFi AI Dome",
+  "sku": "UVC-AI-Dome",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "uvc-ai-dome",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recN8iE6IEWtz2j7O",
+  "name": "UniFi G3 Wireless Handset",
+  "sku": "UT-G3-Handset",
+  "category": "Integrations",
+  "techspecs_category": "integrations",
+  "techspecs_slug": "ut-g3-handset",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recOJxvfbZbPfWD4K",
+  "name": "UniFi G6 Pro Bullet",
+  "sku": "UVC-G6-Pro-Bullet",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "uvc-g6-pro-bullet",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recOPsCjO0K16xcpN",
+  "name": "UniFi Pro 8 PoE",
+  "sku": "USW-Pro-8-PoE (120W)",
+  "category": "Switching",
+  "techspecs_category": "switching",
+  "techspecs_slug": "usw-pro-8-poe",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recOaoaz349ckVhh4",
+  "name": "UniFi Device Bridge Pro",
+  "sku": "UDB-Pro",
+  "category": "WiFi",
+  "techspecs_category": "wifi",
+  "techspecs_slug": "udb-pro",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recOnn7ec8B6YOlGA",
+  "name": "UniFi Relay",
+  "sku": "USL-Relay",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "usl-relay",
+  "match_method": "manual"
+ },
+ {
+  "airtable_id": "recP1v5meW6Tmw1tt",
+  "name": "UniFi Building Bridge XG",
+  "sku": "UBB-XG",
+  "category": "WiFi",
+  "techspecs_category": "wifi",
+  "techspecs_slug": "ubb-xg",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recP5PSKLwtLdPKtA",
+  "name": "UniFi Mobile Router Ultra",
+  "sku": "UMR-Ultra",
+  "category": "Integrations",
+  "techspecs_category": "integrations",
+  "techspecs_slug": "umr-ultra-us",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recPkGp3DNAtheId1",
+  "name": "UniFi G6 Edge Turret",
+  "sku": "UVC-G6-Edge-Turret",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "uvc-g6-edge-turret",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recPnJkTUJg8QIEKx",
+  "name": "UniFi Doorbells",
+  "sku": "UVC-DOORBELL",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "uvc-g4-doorbell-pro",
+  "match_method": "manual"
+ },
+ {
+  "airtable_id": "recPwutSp9Rv61SXG",
+  "name": "UniFi G6 Instant",
+  "sku": "UVC-G6-INS",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "uvc-g6-ins",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recQ9k8F0PdwK2tjY",
+  "name": "UniFi Flex Mini",
+  "sku": "USW-Flex-Mini",
+  "category": "Switching",
+  "techspecs_category": "switching",
+  "techspecs_slug": "usw-flex-mini",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recQWyfbFnMEtovtI",
+  "name": "UniFi U7 Pro XGS",
+  "sku": "U7-Pro-XGS",
+  "category": "WiFi",
+  "techspecs_category": "wifi",
+  "techspecs_slug": "u7-pro-xgs",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recRnEZ82cH1A6HQX",
+  "name": "UniFi Display Cast Pro",
+  "sku": "UC-Cast-Pro",
+  "category": "Integrations",
+  "techspecs_category": "integrations",
+  "techspecs_slug": "uc-cast-pro",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recS2HlivSIa3Hu8b",
+  "name": "UniFi Network Video Recorder",
+  "sku": "UNVR",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "unvr",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recSJh6TiLIS3MWdy",
+  "name": "UniFi Device Bridge Switch",
+  "sku": "UDB-Switch (35W)",
+  "category": "WiFi",
+  "techspecs_category": "wifi",
+  "techspecs_slug": "udb-switch",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recSMsVA5IALm8ULE",
+  "name": "UniFi 5G Backup",
+  "sku": "U5G",
+  "category": "Integrations",
+  "techspecs_category": "integrations",
+  "techspecs_slug": "u5g-us",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recSWRBRsNcxJkXwt",
+  "name": "UniFi U6 Mesh",
+  "sku": "U6-Mesh",
+  "category": "WiFi",
+  "techspecs_category": "wifi",
+  "techspecs_slug": "u6-mesh",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recSkB8ehtl9EfHL1",
+  "name": "UniFi Cloud Gateway Industrial",
+  "sku": "UCG-Industrial (270W)",
+  "category": "Cloud Gateways",
+  "techspecs_category": "cloud-gateways",
+  "techspecs_slug": "ucg-industrial",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recSkGw0gJ5l1L0gU",
+  "name": "UniFi G6 PTZ",
+  "sku": "UVC-G6-PTZ",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "uvc-g6-ptz",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recSrfMqCdqzKx5ic",
+  "name": "UniFi G3 Reader Fingerprint",
+  "sku": "UA-G3-Fingerprint",
+  "category": "Door Access",
+  "techspecs_category": "door-access",
+  "techspecs_slug": "ua-g3-fingerprint",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recSx691TgWE0080z",
+  "name": "UniFi Flex Mini 2.5G",
+  "sku": "USW-Flex-2.5G-5",
+  "category": "Switching",
+  "techspecs_category": "switching",
+  "techspecs_slug": "usw-flex-2-5g-5",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recT4ATR6gDbkqapc",
+  "name": "UniFi Enterprise NVR Core",
+  "sku": "ENVR-Core",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "envr-core",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recT9dyUQL9alJVqM",
+  "name": "UniFi U7 Pro",
+  "sku": "U7-Pro",
+  "category": "WiFi",
+  "techspecs_category": "wifi",
+  "techspecs_slug": "u7-pro",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recTeaaP7PcGCueid",
+  "name": "UniFi G6 Bullet",
+  "sku": "UVC-G6-Bullet",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "uvc-g6-bullet",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recU6H5o0VBkDow5G",
+  "name": "UniFi G3 Touch Pro",
+  "sku": "UTP-G3-Touch-Pro",
+  "category": "Integrations",
+  "techspecs_category": "integrations",
+  "techspecs_slug": "utp-g3-touch-pro",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recUEWv85BSTsRdIK",
+  "name": "UniFi Retrofit Reader Fingerprint",
+  "sku": "UA-Retrofit-Reader-Fingerprint",
+  "category": "Door Access",
+  "techspecs_category": "door-access",
+  "techspecs_slug": "ua-retrofit-reader-fingerprint",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recUJE9r1ubPkwWTT",
+  "name": "UniFi U7 In-Wall",
+  "sku": "U7-IW",
+  "category": "WiFi",
+  "techspecs_category": "wifi",
+  "techspecs_slug": "u7-iw",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recUyU8YP4pEEHmo8",
+  "name": "UniFi Door Starter Kit",
+  "sku": null,
+  "category": "Door Access",
+  "techspecs_category": "door-access",
+  "techspecs_slug": "ua-g3-sk",
+  "match_method": "manual"
+ },
+ {
+  "airtable_id": "recV0bCGsFSh8RK7v",
+  "name": "UniFi U7 Mesh",
+  "sku": "U7-Mesh",
+  "category": "WiFi",
+  "techspecs_category": "wifi",
+  "techspecs_slug": "u7-mesh",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recVKjPZddBUmN5ac",
+  "name": "UniFi U7 Lite",
+  "sku": "U7-Lite",
+  "category": "WiFi",
+  "techspecs_category": "wifi",
+  "techspecs_slug": "u7-lite",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recVQlP1pltfYGdHu",
+  "name": "UniFi Glass Break Sensor",
+  "sku": "USL-GlassBreak",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "usl-glassbreak",
+  "match_method": "manual"
+ },
+ {
+  "airtable_id": "recVVAOzVJyWKyg3o",
+  "name": "UniFi Network Video Recorder Pro",
+  "sku": "UNVR-Pro",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "unvr-pro",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recVemihp63TTxxrU",
+  "name": "UniFi Electric Locks",
+  "sku": null,
+  "category": "Door Access",
+  "techspecs_category": "door-access",
+  "techspecs_slug": "uacc-lock-bolt-secure",
+  "match_method": "manual"
+ },
+ {
+  "airtable_id": "recW330s83rceZ22a",
+  "name": "UniFi U6 Pro",
+  "sku": "U6-Pro",
+  "category": "WiFi",
+  "techspecs_category": "wifi",
+  "techspecs_slug": "u6-pro",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recWPc8UgRw0jyH7B",
+  "name": "UniFi Access Button",
+  "sku": "UA-Button",
+  "category": "Door Access",
+  "techspecs_category": "door-access",
+  "techspecs_slug": "ua-button",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recWZAquscgtwrzwH",
+  "name": "UniFi Alarm Hub Kit",
+  "sku": "UP-AlarmHub-Kit",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "up-alarmhub-kit",
+  "match_method": "manual"
+ },
+ {
+  "airtable_id": "recWhEFYdxniUNufN",
+  "name": "UniFi G6 Turret",
+  "sku": "UVC-G6-Turret",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "uvc-g6-turret",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recXZv5Pw2Vg2aB52",
+  "name": "UniFi G5 Flex",
+  "sku": "UVC-G5-Flex",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "uvc-g5-flex",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recXcGERw676NxYo1",
+  "name": "UniFi G5 Bullet",
+  "sku": "UVC-G5-Bullet",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "uvc-g5-bullet",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recXttzwIdsiVHmGD",
+  "name": "UniFi Analog Telephone Adapter",
+  "sku": "UT-ATA",
+  "category": "Integrations",
+  "techspecs_category": "integrations",
+  "techspecs_slug": "ut-ata",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recY1mwDreuh0DPWg",
+  "name": "UniFi Door Lock Relay Cable",
+  "sku": "UACC-Cable-DoorLockRelay",
+  "category": "Door Access",
+  "techspecs_category": "door-access",
+  "techspecs_slug": "uacc-cable-doorlockrelay",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recY2lZ34V9tptj9s",
+  "name": "UniFi 5G Max Outdoor",
+  "sku": "U5G-Max-Outdoor",
+  "category": "Integrations",
+  "techspecs_category": "integrations",
+  "techspecs_slug": "u5g-max-outdoor",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recYAwAIo9QKcfxmN",
+  "name": "UniFi Flex Utility",
+  "sku": "USW-Flex-Utility",
+  "category": "Switching",
+  "techspecs_category": "switching",
+  "techspecs_slug": "usw-flexutility",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recYEjVg8ayfpqIQU",
+  "name": "UniFi G6 180",
+  "sku": "UVC-G6-180",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "uvc-g6-180",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recYPhmGXLR3MJHfL",
+  "name": "UniFi AI Turret",
+  "sku": "UVC-AI-Turret",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "uvc-ai-turret",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recYSNANLQr5sqpuC",
+  "name": "UniFi Door Hub",
+  "sku": "UA-Hub-Door",
+  "category": "Door Access",
+  "techspecs_category": "door-access",
+  "techspecs_slug": "ua-hub-door",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recZ7CH7hjsc60VTd",
+  "name": "UniFi Enterprise 8 PoE (Vintage)",
+  "sku": "USW-Enterprise-8-PoE (120W)",
+  "category": "Switching",
+  "techspecs_category": "switching",
+  "techspecs_slug": "usw-enterprise-8-poe",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recZO74CYBqhqHgb5",
+  "name": "UniFi Pro Max 16 PoE",
+  "sku": "USW-Pro-Max-16-PoE (180W)",
+  "category": "Switching",
+  "techspecs_category": "switching",
+  "techspecs_slug": "usw-pro-max-16-poe",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recZbUOKpmJtFaVec",
+  "name": "UniFi Dream Router 5G Max",
+  "sku": "UDR-5G-Max",
+  "category": "Cloud Gateways",
+  "techspecs_category": "cloud-gateways",
+  "techspecs_slug": "udr-5g-max",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "reca1mu2CL7n0fA41",
+  "name": "UniFi U7 Pro Wall",
+  "sku": "U7-Pro-Wall",
+  "category": "WiFi",
+  "techspecs_category": "wifi",
+  "techspecs_slug": "u7-pro-wall",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recaP1ILr5Tv1eM3C",
+  "name": "UniFi Express 7 Cloud Gateway",
+  "sku": "UX7",
+  "category": "Cloud Gateways",
+  "techspecs_category": "cloud-gateways",
+  "techspecs_slug": "ux7",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recaeVcnRwLJ9uX8F",
+  "name": "UniFi Enterprise Access Hub",
+  "sku": "EAH-8",
+  "category": "Door Access",
+  "techspecs_category": "door-access",
+  "techspecs_slug": "eah-8",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recaefFT7ZQpzgsIR",
+  "name": "UniFi U6 Enterprise In-Wall",
+  "sku": "U6-Enterprise-IW",
+  "category": "WiFi",
+  "techspecs_category": "wifi",
+  "techspecs_slug": "u6-enterprise-iw",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recbdPeJ1Qoo9O15a",
+  "name": "UniFi AI Speaker",
+  "sku": "UP-AI-Speaker",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "up-ai-speaker",
+  "match_method": "manual"
+ },
+ {
+  "airtable_id": "reccCsZCJhgJwuh7Q",
+  "name": "UniFi WAN Switch RJ45",
+  "sku": "USW-WAN-RJ45",
+  "category": "Switching",
+  "techspecs_category": "switching",
+  "techspecs_slug": "usw-wan-rj45",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "reccUcWh3ya3SlP6r",
+  "name": "UniFi Flex 10 GbE",
+  "sku": "USW-Flex-XG",
+  "category": "Switching",
+  "techspecs_category": "switching",
+  "techspecs_slug": "usw-flex-xg",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "reccUv0fsiVeHaD0D",
+  "name": "UniFi AI Key",
+  "sku": "AI-Key",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "ai-key",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "reccYL63LL6Hbt9F0",
+  "name": "Unifi Cloud Gateway Fiber",
+  "sku": "UCG-Fiber",
+  "category": "Cloud Gateways",
+  "techspecs_category": "cloud-gateways",
+  "techspecs_slug": "ucg-fiber",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "reccuj6lgSfUpk6Ib",
+  "name": "UniFi PoE Audio Port",
+  "sku": "UPL-Port",
+  "category": "Integrations",
+  "techspecs_category": "integrations",
+  "techspecs_slug": "upl-port",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recdADLOPfSIzIFd8",
+  "name": "UniFi Protect Viewport",
+  "sku": "UP-Viewport",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "ufp-viewport",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recdtMkKFLYLJd18W",
+  "name": "UniFi Access Card",
+  "sku": "UA-Card",
+  "category": "Door Access",
+  "techspecs_category": "door-access",
+  "techspecs_slug": "ua-card",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recdzlrQi5ryltgTV",
+  "name": "UniFi Pocket Keyfob, 10-Pack",
+  "sku": "UA-Pocket",
+  "category": "Door Access",
+  "techspecs_category": "door-access",
+  "techspecs_slug": "ua-pocket",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "receRp1q0GJcu21cM",
+  "name": "UniFi G6 Mini Dome",
+  "sku": "UVC-G6-Mini-Dome",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "uvc-g6-mini-dome",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recepT3LrYz82aIxm",
+  "name": "UniFi Standard 16 PoE",
+  "sku": "USW-16-POE (42W)",
+  "category": "Switching",
+  "techspecs_category": "switching",
+  "techspecs_slug": "usw-16-poe",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recf31QEbmxd4UuBY",
+  "name": "UniFi AC Mesh",
+  "sku": "UAP-AC-M",
+  "category": "WiFi",
+  "techspecs_category": "wifi",
+  "techspecs_slug": "uap-ac-mesh",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recfT50Gay0mWEyw9",
+  "name": "UniFi AI Multi Sensor 4",
+  "sku": "UVC-AI-MS-4",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "uvc-ai-ms-4",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recfkIestOtA31QOK",
+  "name": "UniFi Intercom Wedge Mount",
+  "sku": "UACC-Intercom-WM",
+  "category": "Door Access",
+  "techspecs_category": "door-access",
+  "techspecs_slug": "uacc-intercom-wm",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recg4GdX5NA5fvwX8",
+  "name": "UniFi Building Bridge",
+  "sku": "UBB",
+  "category": "WiFi",
+  "techspecs_category": "wifi",
+  "techspecs_slug": "ubb",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "rech2MVdO10Of2BCX",
+  "name": "UniFi Motion Sensor",
+  "sku": "USL-Motion",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "usl-motion",
+  "match_method": "manual"
+ },
+ {
+  "airtable_id": "rechEUyT8T99fF6Ds",
+  "name": "UniFi G6 Pro Turret",
+  "sku": "UVC-G6-Pro-Turret",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "uvc-g6-pro-turret",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "rechJqPe7hJ2ncd8q",
+  "name": "UniFi U7 Pro XG Wall",
+  "sku": "U7-Pro-XG-Wall",
+  "category": "WiFi",
+  "techspecs_category": "wifi",
+  "techspecs_slug": "u7-pro-xg-wall",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "reciuziCEFmfFdpza",
+  "name": "UniFi Entry Sensor",
+  "sku": "USL-Entry",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "usl-entry",
+  "match_method": "manual"
+ },
+ {
+  "airtable_id": "recj7KUKW3Wlj1nLZ",
+  "name": "UniFi G2 Touch",
+  "sku": "UTP-Touch",
+  "category": "Integrations",
+  "techspecs_category": "integrations",
+  "techspecs_slug": "utp-touch",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "reck3iz62NTx30C4V",
+  "name": "UniFi Intercom Sunshield",
+  "sku": "UACC-Intercom-Sunshield",
+  "category": "Door Access",
+  "techspecs_category": "door-access",
+  "techspecs_slug": "uacc-intercom-sunshield",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "reck8ZD0ctiqquIM6",
+  "name": "UniFi Network Video Recorder G2",
+  "sku": "UNVR-G2",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "unvr-g2",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "reckOSQ3a0blTU6Jj",
+  "name": "UniFi Dream Router 7",
+  "sku": "UDR7",
+  "category": "Cloud Gateways",
+  "techspecs_category": "cloud-gateways",
+  "techspecs_slug": "udr7",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "reclVxirjpOjDVC0d",
+  "name": "UniFi SuperLink Gateway",
+  "sku": null,
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "usl-gateway",
+  "match_method": "manual"
+ },
+ {
+  "airtable_id": "recleNJTDyiW8MSXf",
+  "name": "UniFi LTE Backup Pro",
+  "sku": "U-LTE-Backup Pro",
+  "category": "Integrations",
+  "techspecs_category": "integrations",
+  "techspecs_slug": "u-lte-backup-pro",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recleoDsZY1mA2diL",
+  "name": "UniFi U7 Pro XG",
+  "sku": "U7-Pro-XG",
+  "category": "WiFi",
+  "techspecs_category": "wifi",
+  "techspecs_slug": "u7-pro-xg",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "reclxEJl1LQLmG2W8",
+  "name": "UniFi Lite 8 PoE",
+  "sku": "USW-Lite-8-PoE",
+  "category": "Switching",
+  "techspecs_category": "switching",
+  "techspecs_slug": "usw-lite-8-poe",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recmM8ctILHhU9kMP",
+  "name": "UniFi AI PTZ Precision",
+  "sku": "UVC-AI-PTZ-Precision",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "uvc-ai-ptz-precision",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recmlVPYAkN0wQLFa",
+  "name": "UniFi Device Bridge IoT",
+  "sku": "UDB-IoT",
+  "category": "WiFi",
+  "techspecs_category": "wifi",
+  "techspecs_slug": "udb-iot",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recmlqaqHmvz9ll72",
+  "name": "Unifi Cloud Gateway Max",
+  "sku": "UCG-Max",
+  "category": "Cloud Gateways",
+  "techspecs_category": "cloud-gateways",
+  "techspecs_slug": "ucg-max",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recmrH6o2V5yuDFjn",
+  "name": "UniFi AirWire",
+  "sku": "U-AirWire",
+  "category": "WiFi",
+  "techspecs_category": "wifi",
+  "techspecs_slug": "u-airwire",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recn0GietukKH5kHM",
+  "name": "UniFi Reader Pro Angle Mount",
+  "sku": "UACC-Reader-Pro-AM",
+  "category": "Door Access",
+  "techspecs_category": "door-access",
+  "techspecs_slug": "uacc-reader-pro-am",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recnFn0kIQyjZQOCD",
+  "name": "UniFi E7 Campus",
+  "sku": "E7-Campus",
+  "category": "WiFi",
+  "techspecs_category": "wifi",
+  "techspecs_slug": "e7-campus-us",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recnJmI8NsvA1xS7m",
+  "name": "UniFi Flex Utility Pro",
+  "sku": "UACC-Flex-Utility-Pro",
+  "category": "Switching",
+  "techspecs_category": "switching",
+  "techspecs_slug": "uacc-flex-utility-pro",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recnjSovlyz5qFStt",
+  "name": "UniFi Door Closer",
+  "sku": "UACC-DoorCloser",
+  "category": "Door Access",
+  "techspecs_category": "door-access",
+  "techspecs_slug": "uacc-doorcloser-us",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recnvAh0fQRD1hTlK",
+  "name": "UniFi E7",
+  "sku": "E7",
+  "category": "WiFi",
+  "techspecs_category": "wifi",
+  "techspecs_slug": "e7",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recnzK0wCYKtCkwfi",
+  "name": "UniFi Flex",
+  "sku": "USW-Flex (46W)",
+  "category": "Switching",
+  "techspecs_category": "switching",
+  "techspecs_slug": "usw-flex",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recnzkj1o08t6c47z",
+  "name": "UniFi AI PTZ Industrial",
+  "sku": "UVC-AI-PTZ",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "uvc-ai-ptz",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "reco2O85xbPiHIgRO",
+  "name": "UniFi PoE Over 2-Wire Retrofit Extender",
+  "sku": "UACC-Retrofit-PoE-2Wire",
+  "category": "Door Access",
+  "techspecs_category": "door-access",
+  "techspecs_slug": "uacc-retrofit-poe-2wire",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recoD6tyCvkmN8TRs",
+  "name": "UniFi Enterprise NVR",
+  "sku": "ENVR",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "envr",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recovQ3vEc57R34oY",
+  "name": "UniFi Reader Pro",
+  "sku": null,
+  "category": "Door Access",
+  "techspecs_category": "door-access",
+  "techspecs_slug": "ua-g3-pro",
+  "match_method": "manual"
+ },
+ {
+  "airtable_id": "recozcnU9QS7eVQTo",
+  "name": "UniFi Swiss Army Knife",
+  "sku": "UK-Ultra",
+  "category": "WiFi",
+  "techspecs_category": "wifi",
+  "techspecs_slug": "uk-ultra",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recpBddWiThdfDUXy",
+  "name": "UniFi Device Bridge",
+  "sku": "UDB",
+  "category": "WiFi",
+  "techspecs_category": "wifi",
+  "techspecs_slug": "udb",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recpRxpryGk8dJGVY",
+  "name": "UniFi G3 Touch Enterprise",
+  "sku": "UTP-G3-Touch-Enterprise",
+  "category": "Integrations",
+  "techspecs_category": "integrations",
+  "techspecs_slug": "utp-g3-touch-enterprise",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recqAAVpxEItSeYqb",
+  "name": "UniFi Retrofit Hub",
+  "sku": "UA-Retrofit-Hub-2",
+  "category": "Door Access",
+  "techspecs_category": "door-access",
+  "techspecs_slug": "ua-retrofit-hub-2",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recqmSgFB0hmMQzUe",
+  "name": "UniFi UPS PoE Switch",
+  "sku": "USW-Mission-Critical (120W)",
+  "category": "Integrations",
+  "techspecs_category": "integrations",
+  "techspecs_slug": "usw-mission-critical",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recr4acU4iogDCgNE",
+  "name": "UniFi Pro XG 8 PoE",
+  "sku": "USW-Pro-XG-8-PoE (155W)",
+  "category": "Switching",
+  "techspecs_category": "switching",
+  "techspecs_slug": "usw-pro-xg-8-poe",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recrJVdI4mfAnFBMv",
+  "name": "UniFi Ultra 210W",
+  "sku": "USW-Ultra-210W",
+  "category": "Switching",
+  "techspecs_category": "switching",
+  "techspecs_slug": "usw-ultra-210w",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recriBlr1X1tciW9j",
+  "name": "Unifi Cloud Gateway Ultra",
+  "sku": "UCG-Ultra",
+  "category": "Cloud Gateways",
+  "techspecs_category": "cloud-gateways",
+  "techspecs_slug": "ucg-ultra",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recsLHbd3ji9fXnxJ",
+  "name": "UniFi G5 Turret Ultra",
+  "sku": "UVC-G5-Turret-Ultra",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "uvc-g5-turret-ultra",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recsiCS5pPkSv2qCv",
+  "name": "UniFi G4 Instant",
+  "sku": "UVC-G4-INS",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "uvc-g4-ins",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "rectEErS4EPntvicj",
+  "name": "UniFi U7 Outdoor",
+  "sku": "U7-Outdoor",
+  "category": "WiFi",
+  "techspecs_category": "wifi",
+  "techspecs_slug": "u7-outdoor",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "rectFb9zxrzw1bx3T",
+  "name": "UniFi Flex 2.5G PoE",
+  "sku": "USW-Flex-2.5G-8-PoE",
+  "category": "Switching",
+  "techspecs_category": "switching",
+  "techspecs_slug": "usw-flex-2-5g-8-poe",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "rectIp3N7q7UnHkKK",
+  "name": "UniFi U7 Pro Outdoor",
+  "sku": "U7-Pro-Outdoor",
+  "category": "WiFi",
+  "techspecs_category": "wifi",
+  "techspecs_slug": "u7-pro-outdoor-us",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recu5n9UAotZBI96e",
+  "name": "UniFi Reader Flex",
+  "sku": "UA-G3-Flex",
+  "category": "Door Access",
+  "techspecs_category": "door-access",
+  "techspecs_slug": "ua-g3-flex",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recuTQEGKlnipZ4CS",
+  "name": "UniFi Ultra 60W",
+  "sku": "USW-Ultra-60W",
+  "category": "Switching",
+  "techspecs_category": "switching",
+  "techspecs_slug": "usw-ultra-60w",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recud2KiNjabCx1Gl",
+  "name": "UniFi Panic Bar",
+  "sku": "UACC-PanicBar",
+  "category": "Door Access",
+  "techspecs_category": "door-access",
+  "techspecs_slug": "uacc-panicbar",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recui7f6eyNXF0SU3",
+  "name": "UniFi Floodlight",
+  "sku": "UP-FloodLight",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "up-floodlight",
+  "match_method": "manual"
+ },
+ {
+  "airtable_id": "reculJr6suy21uuBx",
+  "name": "UniFi U6 Enterprise",
+  "sku": "U6-Enterprise",
+  "category": "WiFi",
+  "techspecs_category": "wifi",
+  "techspecs_slug": "u6-enterprise",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recvC2Gj7aVEm8Xer",
+  "name": "UniFi Pro Max 16",
+  "sku": "USW-Pro-Max-16",
+  "category": "Switching",
+  "techspecs_category": "switching",
+  "techspecs_slug": "usw-pro-max-16",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recvC4n8uHOtBqmbq",
+  "name": "UniFi Access Ultra",
+  "sku": "UA-Ultra",
+  "category": "Door Access",
+  "techspecs_category": "door-access",
+  "techspecs_slug": "ua-ultra",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recvH4d1mG0Oi783D",
+  "name": "UniFi G5 PTZ",
+  "sku": "UVC-G5-PTZ",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "uvc-g5-ptz",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recwFIbgVdSxjU6bT",
+  "name": "UniFi Access Rescue KeySwitch",
+  "sku": "UA-Rescue",
+  "category": "Door Access",
+  "techspecs_category": "door-access",
+  "techspecs_slug": "ua-rescue",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recwafOHaMCgb7qKQ",
+  "name": "UniFi Flex 2.5G",
+  "sku": "USW-Flex-2.5G-8",
+  "category": "Switching",
+  "techspecs_category": "switching",
+  "techspecs_slug": "usw-flex-2-5g-8",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recwiXuUUVAAmNx6S",
+  "name": "UniFi G6 Dome",
+  "sku": "UVC-G6-Dome",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "uvc-g6-dome",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recwyFQRLnG1P5NAT",
+  "name": "UniFi Travel Router",
+  "sku": "UTR",
+  "category": "WiFi",
+  "techspecs_category": "wifi",
+  "techspecs_slug": "utr",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recx4KvPqRuAkabNA",
+  "name": "UniFi Retrofit PSU 12V",
+  "sku": "UACC-Retrofit-PSU-12V",
+  "category": "Door Access",
+  "techspecs_category": "door-access",
+  "techspecs_slug": "uacc-retrofit-psu-12v",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recx5H1Y5ZULGuP3m",
+  "name": "UniFi AI Theta",
+  "sku": "UVC-AI-THETA-HUB",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "uvc-ai-theta-hub",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recxq5i1apOtBA8f1",
+  "name": "UniFi Environmental Sensor",
+  "sku": "USL-Environmental",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "usl-environmental",
+  "match_method": "manual"
+ },
+ {
+  "airtable_id": "recyOuszg3Inm4wa1",
+  "name": "UniFi Network Video Recorder G2 Pro",
+  "sku": "UNVR-G2-Pro",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "unvr-g2-pro",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recyQdh6SVhQKBBdy",
+  "name": "UniFi G5 Dome",
+  "sku": "UVC-G5-Dome",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "uvc-g5-dome",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recyXdGQGP8NvaUwv",
+  "name": "UniFi G5 Pro",
+  "sku": "UVC-G5-Pro",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "uvc-g5-pro",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recybDQgbQ0onkceG",
+  "name": "UniFi CloudKey+",
+  "sku": "UCK-G2-SSD",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "uck-g2-ssd",
+  "match_method": "sku"
+ },
+ {
+  "airtable_id": "recyd0a5haIsppk1k",
+  "name": "UniFi Smoke and CO Alarm",
+  "sku": "USL-Smoke",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "usl-smoke",
+  "match_method": "manual"
+ },
+ {
+  "airtable_id": "recylDy6LdsEMWcOe",
+  "name": "UniFi AI Port",
+  "sku": "UP-AI-Port",
+  "category": "Physical Security",
+  "techspecs_category": "physical-security",
+  "techspecs_slug": "up-ai-port",
+  "match_method": "sku"
+ }
+]
