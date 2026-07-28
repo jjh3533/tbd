@@ -6,6 +6,9 @@
 # Streamlit
 .streamlit/secrets.toml
 
+# NiceGUI 로컬 스토리지 캐시 (사용자별 세션/테마 저장 파일)
+.nicegui/
+
 # Python
 __pycache__/
 *.pyc
