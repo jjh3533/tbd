@@ -19,6 +19,7 @@ from dashboard.pages import home, category, register  # noqa: F401
 ui.run(
     title="UniFi Supply Center",
     favicon="⚡",
+    host="0.0.0.0",  # 컨테이너 밖에서 접속하려면 필수
     port=8080,
     storage_secret="tbd-dashboard-local-dev-secret",
     reload=False,
