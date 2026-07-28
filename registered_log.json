@@ -2221,5 +2221,121 @@
       "naverShoppingRegistration": true,
       "channelProductDisplayStatusType": "ON"
     }
+  },
+  "UniFi Cloud Gateway Industrial UCG-Industrial": {
+    "originProductNo": 13625691899,
+    "smartstoreChannelProductNo": 13685891894,
+    "originProduct": {
+      "statusType": "SALE",
+      "saleType": "NEW",
+      "leafCategoryId": "50003150",
+      "name": "UniFi Cloud Gateway Industrial UCG-Industrial / 유니파이 클라우드 게이트웨이 인더스트리얼",
+      "detailContent": "<img src=\"https://shop-phinf.pstatic.net/20260728_109/1785247644827MkHf5_PNG/21024891854010492_83123158.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260728_83/1785247644987sDFhC_PNG/21024892090613113_163003208.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260728_131/1785247645107wrtz0_PNG/21024892209047673_1820873809.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260728_180/17852476452444p44f_PNG/21024892339476498_991602593.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260727_214/17851434259357rwxP_PNG/35865562661470491_1350730123.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260727_231/17851434260521o9y4_PNG/35865562774017594_1260161909.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260727_4/17851434261585YbDe_PNG/35865562881226006_295070362.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260727_47/1785145526624RNNWd_PNG/110320392412435082_1645552949.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260727_21/1785143426422vG2Vk_PNG/35865563156474268_1798912781.png\" style=\"width:860px;display:block;\" />",
+      "images": {
+        "representativeImage": {
+          "url": "https://shop-phinf.pstatic.net/20260728_225/1785247636218kI0aB_PNG/119380444172631176_1360557980.png"
+        },
+        "optionalImages": [
+          {
+            "url": "https://shop-phinf.pstatic.net/20260728_108/1785247640134csfxk_PNG/7364224366564424_1351382293.png"
+          },
+          {
+            "url": "https://shop-phinf.pstatic.net/20260728_263/1785247640436Fx2Pf_PNG/7364224651821427_1026265552.png"
+          },
+          {
+            "url": "https://shop-phinf.pstatic.net/20260728_48/1785247640694QJsPV_PNG/7364224920811577_571027966.png"
+          },
+          {
+            "url": "https://shop-phinf.pstatic.net/20260728_92/1785247642154FXxUJ_PNG/110422507863180695_619636212.png"
+          }
+        ]
+      },
+      "salePrice": 1321200,
+      "stockQuantity": 5,
+      "deliveryInfo": {
+        "deliveryType": "DELIVERY",
+        "deliveryAttributeType": "NORMAL",
+        "deliveryCompany": "CJGLS",
+        "deliveryBundleGroupUsable": true,
+        "deliveryBundleGroupId": 57357067,
+        "visitAddressId": 200519179,
+        "deliveryFee": {
+          "deliveryFeeType": "FREE",
+          "baseFee": 0
+        },
+        "claimDeliveryInfo": {
+          "returnDeliveryCompanyPriorityType": "PRIMARY",
+          "returnDeliveryFee": 3000,
+          "exchangeDeliveryFee": 6000,
+          "shippingAddressId": 200519179,
+          "returnAddressId": 200519180,
+          "freeReturnInsuranceYn": false
+        },
+        "installationFee": false
+      },
+      "detailAttribute": {
+        "afterServiceInfo": {
+          "afterServiceTelephoneNumber": "010-5938-3577",
+          "afterServiceGuideContent": "제품 문의 및 A/S는 스마트스토어 문의하기를 이용해주세요."
+        },
+        "purchaseQuantityInfo": {},
+        "originAreaInfo": {
+          "originAreaCode": "0200037",
+          "importer": "TBD Seoul/티비디서울",
+          "content": "중국산(TBD Seoul/티비디서울)",
+          "plural": false
+        },
+        "sellerCodeInfo": {},
+        "optionInfo": {
+          "simpleOptionSortType": "CREATE",
+          "optionSimple": [],
+          "optionCustom": [],
+          "optionCombinationSortType": "CREATE",
+          "standardOptionGroups": [],
+          "optionStandards": [],
+          "useStockManagement": true,
+          "optionDeliveryAttributes": []
+        },
+        "purchaseReviewInfo": {
+          "purchaseReviewExposure": true
+        },
+        "isbnInfo": {},
+        "taxType": "TAX",
+        "certificationTargetExcludeContent": {},
+        "sellerCommentUsable": false,
+        "minorPurchasable": true,
+        "productInfoProvidedNotice": {
+          "productInfoProvidedNoticeType": "OFFICE_APPLIANCES",
+          "officeAppliances": {
+            "returnCostReason": "1",
+            "noRefundReason": "1",
+            "qualityAssuranceStandard": "1",
+            "compensationProcedure": "1",
+            "troubleShootingContents": "1",
+            "itemName": "유니파이 클라우드 게이트웨이 인더스트리얼",
+            "modelName": "UniFi Cloud Gateway Industrial UCG-Industrial",
+            "certificationType": "상세페이지 참조",
+            "ratedVoltage": "상세페이지 참조",
+            "powerConsumption": "상세페이지 참조",
+            "energyEfficiencyRating": "상세페이지 참조",
+            "releaseDateText": "상세페이지 참조",
+            "manufacturer": "Ubiquiti Inc.",
+            "size": "상세페이지 참조",
+            "weight": "상세페이지 참조",
+            "specification": "상세페이지 참조",
+            "warrantyPolicy": "1년 (제조사 정책에 따름, 상세페이지 참조)",
+            "afterServiceDirector": "010-5938-3577"
+          }
+        },
+        "itselfProductionProductYn": false,
+        "seoInfo": {}
+      },
+      "customerBenefit": {}
+    },
+    "smartstoreChannelProduct": {
+      "storeKeepExclusiveProduct": false,
+      "naverShoppingRegistration": true,
+      "channelProductDisplayStatusType": "ON"
+    }
   }
 }

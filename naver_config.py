@@ -22,9 +22,13 @@ SHIPPING_ADDRESS_ID = int(os.environ.get("NAVER_SHIPPING_ADDRESS_ID", "200519179
 RETURN_ADDRESS_ID = int(os.environ.get("NAVER_RETURN_ADDRESS_ID", "200519180"))  # 반품교환지 (REFUND_OR_EXCHANGE)
 
 # --- 배송 기본값 ---
-DELIVERY_COMPANY = "CJGLS"  # 택배사 코드 - 실제 이용 택배사에 맞게 수정
-DEFAULT_RETURN_DELIVERY_FEE = 3000
-DEFAULT_EXCHANGE_DELIVERY_FEE = 6000
+DELIVERY_COMPANY = "ACE"  # 택배사 코드: ACE Express Inc. ("택배사 코드.xls" 공식 코드표 기준)
+DEFAULT_RETURN_DELIVERY_FEE = 40000
+DEFAULT_EXCHANGE_DELIVERY_FEE = 80000
+
+# 직접수령(방문수령): deliveryInfo.visitAddressId 필드 자체를 아예 넣지 않으면
+# "직접수령 불가능"으로 등록된다 (product_builder.py 참고). 0을 넣으면 네이버가
+# "존재하지 않는 방문수령 주소"라며 등록/수정 요청을 거부하니 주의.
 
 # --- 상품 필수 부가정보 기본값 (모든 카테고리 공통 필수 항목) ---
 MINOR_PURCHASABLE = True  # 미성년자 구매 가능 여부
@@ -32,8 +36,8 @@ MINOR_PURCHASABLE = True  # 미성년자 구매 가능 여부
 AS_PHONE_NUMBER = "010-5938-3577"  # A/S 문의 전화번호 - 실제 고객센터 번호로 수정 권장
 AS_GUIDE_CONTENT = "제품 문의 및 A/S는 스마트스토어 문의하기를 이용해주세요."
 
-ORIGIN_AREA_CODE = "0200037"  # 수입산>아시아>중국 (origin_lookup.py로 조회한 값)
-ORIGIN_COUNTRY_NAME = "중국"  # 대부분의 UniFi 제품 생산국. 제품별로 다르면 엑셀에 열 추가해서 조정
+ORIGIN_AREA_CODE = "0204000"  # 수입산>북아메리카(북미)>미국 (origin_lookup.py로 조회한 값)
+ORIGIN_COUNTRY_NAME = "미국"  # 모든 UniFi 제품의 실제 생산국(미국산)으로 통일
 
 # --- 상품정보제공고시 (공정거래위원회 표시사항) ---
 # UniFi 네트워크 장비는 notice_lookup.py 조회 결과 "OFFICE_APPLIANCES(사무용기기)" 유형에 해당.

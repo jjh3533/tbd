@@ -75,7 +75,8 @@ def build_product_payload(row: dict, image_urls: dict) -> dict:
             "deliveryAttributeType": "NORMAL",
             "deliveryCompany": config.DELIVERY_COMPANY,
             "deliveryBundleGroupUsable": True,
-            "visitAddressId": config.SHIPPING_ADDRESS_ID,
+            # visitAddressId를 아예 넣지 않아야 "직접수령 불가능"으로 등록됨.
+            # 0 등 임의 값을 넣으면 네이버가 "존재하지 않는 방문수령 주소"로 거부함.
             "deliveryFee": {
                 "deliveryFeeType": delivery_fee_type,
                 "baseFee": base_fee,

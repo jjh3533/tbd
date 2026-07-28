@@ -60,6 +60,12 @@ def apply_price_stock(body: dict, new_price: int, new_stock: int) -> dict:
     if origin is None:
         raise RuntimeError(f"originProduct 키를 찾을 수 없음. 응답 구조 확인 필요: {list(body.keys())}")
 
+    # statusType은 GET 응답에서 재고에 따라 네이버가 계산해서 내려주는 표시값이라
+    # ("OUTOFSTOCK" 등) 그대로 PUT에 되돌리면 "허용되지 않은 Enum 값"으로 거부된다.
+    # SALE로 되돌려도 stockQuantity가 0이면 품절로 다시 표시되므로 동작은 동일함.
+    if origin.get("statusType") == "OUTOFSTOCK":
+        origin["statusType"] = "SALE"
+
     origin["salePrice"] = new_price
 
     option_info = (origin.get("detailAttribute") or {}).get("optionInfo")
