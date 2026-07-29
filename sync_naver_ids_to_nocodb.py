@@ -48,6 +48,10 @@ TARGET_PRODUCTS = {
     "UniFi Flex Utility Pro": "Flex Utility Pro",
     "UniFi Switch Pro 8 PoE": "Pro 8 PoE",
     "UniFi Switch Pro XG 8 PoE": "Pro XG 8 PoE",
+    "UniFi Switch Pro Max 16": "Pro Max 16",
+    "UniFi Switch Pro Max 16 PoE": "Pro Max 16 PoE",
+    "UniFi Switch Flex XG": "Flex 10 GbE",
+    "UniFi Cloud Gateway Industrial UCG-Industrial": "Cloud Gateway Industrial",
 }
 
 
