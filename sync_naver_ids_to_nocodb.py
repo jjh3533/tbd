@@ -52,6 +52,24 @@ TARGET_PRODUCTS = {
     "UniFi Switch Pro Max 16 PoE": "Pro Max 16 PoE",
     "UniFi Switch Flex XG": "Flex 10 GbE",
     "UniFi Cloud Gateway Industrial UCG-Industrial": "Cloud Gateway Industrial",
+    "UniFi U7 In-Wall": "U7 In-Wall",
+    # WiFi 신규 16개 제품 (2026-07-29 추가)
+    "UniFi AC Pro": "AC Pro",
+    "UniFi Building Bridge XG": "Building Bridge XG",
+    "UniFi Device Bridge": "Device Bridge",
+    "UniFi Device Bridge Switch": "Device Bridge Switch",
+    "UniFi E7 Campus": "E7 Campus",
+    "UniFi U6 Enterprise": "U6 Enterprise",
+    "UniFi U6 Enterprise In-Wall": "U6 Enterprise In-Wall",
+    "UniFi U6 In-Wall": "U6 In-Wall",
+    "UniFi U6 Mesh": "U6 Mesh",
+    "UniFi U6 Mesh Pro": "U6 Mesh Pro",
+    "UniFi U6+": "U6+",
+    "UniFi U7 Outdoor": "U7 Outdoor",
+    "UniFi U7 Pro Outdoor": "U7 Pro Outdoor",
+    "UniFi U7 Pro Wall": "U7 Pro Wall",
+    "UniFi U7 Pro XG Wall": "U7 Pro XG Wall",
+    "UniFi U7 Pro XGS": "U7 Pro XGS",
 }
 
 
