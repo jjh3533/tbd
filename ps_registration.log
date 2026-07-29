@@ -1,0 +1,80 @@
+이미 등록된 상품 46개는 건너뜁니다 (registered_log.json 참고, --force로 강제 재등록 가능).
+13개 상품 처리 시작 (dry_run=False)
+
+=== UniFi G6 Pro 360 ===
+  대표이미지: /Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Images/UniFi G6 Pro 360/uvc-g6-pro-360-1.png
+  추가이미지 4장 (최대 4장까지만 사용)
+  상세페이지 이미지 9장
+  [실패] 400: {"code":"BAD_REQUEST","message":"입력한 데이터가 유효하지 않습니다.","invalidInputs":[{"name":"originProduct.customerBenefit.immediateDiscountPolicy.discountMethod.value","type":"DecimalMin","message":"허용하는 최소값보다 작은 값을 입력하였습니다."}],"timestamp":"2026-07-29T21:24:15.681+09:00"}
+
+=== UniFi AI PTZ Industrial ===
+  대표이미지: /Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Images/UniFi AI PTZ Industrial/uvc-ai-ptz-1.png
+  추가이미지 4장 (최대 4장까지만 사용)
+  상세페이지 이미지 9장
+  [실패] 400: {"code":"BAD_REQUEST","message":"입력한 데이터가 유효하지 않습니다.","invalidInputs":[{"name":"originProduct.customerBenefit.immediateDiscountPolicy.discountMethod.value","type":"DecimalMin","message":"허용하는 최소값보다 작은 값을 입력하였습니다."}],"timestamp":"2026-07-29T21:24:18.215+09:00"}
+
+=== UniFi G5 Turret Ultra ===
+  대표이미지: /Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Images/UniFi G5 Turret Ultra/uvc-g5-turret-ultra-1.png
+  추가이미지 4장 (최대 4장까지만 사용)
+  상세페이지 이미지 9장
+  [실패] 400: {"code":"BAD_REQUEST","message":"입력한 데이터가 유효하지 않습니다.","invalidInputs":[{"name":"originProduct.customerBenefit.immediateDiscountPolicy.discountMethod.value","type":"DecimalMin","message":"허용하는 최소값보다 작은 값을 입력하였습니다."}],"timestamp":"2026-07-29T21:24:21.086+09:00"}
+
+=== UniFi G6 Dome ===
+  대표이미지: /Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Images/UniFi G6 Dome/uvc-g6-dome-1.png
+  추가이미지 4장 (최대 4장까지만 사용)
+  상세페이지 이미지 9장
+  [실패] 400: {"code":"BAD_REQUEST","message":"입력한 데이터가 유효하지 않습니다.","invalidInputs":[{"name":"originProduct.customerBenefit.immediateDiscountPolicy.discountMethod.value","type":"DecimalMin","message":"허용하는 최소값보다 작은 값을 입력하였습니다."}],"timestamp":"2026-07-29T21:24:23.960+09:00"}
+
+=== UniFi AI Theta ===
+  대표이미지: /Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Images/UniFi AI Theta/uvc-ai-theta-hub-1.png
+  추가이미지 4장 (최대 4장까지만 사용)
+  상세페이지 이미지 9장
+  [실패] 400: {"code":"BAD_REQUEST","message":"입력한 데이터가 유효하지 않습니다.","invalidInputs":[{"name":"originProduct.customerBenefit.immediateDiscountPolicy.discountMethod.value","type":"DecimalMin","message":"허용하는 최소값보다 작은 값을 입력하였습니다."}],"timestamp":"2026-07-29T21:24:26.823+09:00"}
+
+=== UniFi All-In-One Sensor ===
+  대표이미지: /Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Images/UniFi All-In-One Sensor/up-sense-1.png
+  추가이미지 4장 (최대 4장까지만 사용)
+  상세페이지 이미지 9장
+  [실패] 400: {"code":"BAD_REQUEST","message":"입력한 데이터가 유효하지 않습니다.","invalidInputs":[{"name":"originProduct.customerBenefit.immediateDiscountPolicy.discountMethod.value","type":"DecimalMin","message":"허용하는 최소값보다 작은 값을 입력하였습니다."}],"timestamp":"2026-07-29T21:24:28.964+09:00"}
+
+=== UniFi Glass Break Sensor ===
+  대표이미지: /Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Images/UniFi Glass Break Sensor/usl-glassbreak-1.png
+  추가이미지 4장 (최대 4장까지만 사용)
+  상세페이지 이미지 9장
+  [실패] 400: {"code":"BAD_REQUEST","message":"입력한 데이터가 유효하지 않습니다.","invalidInputs":[{"name":"originProduct.customerBenefit.immediateDiscountPolicy.discountMethod.value","type":"DecimalMin","message":"허용하는 최소값보다 작은 값을 입력하였습니다."}],"timestamp":"2026-07-29T21:24:30.886+09:00"}
+
+=== UniFi Motion Sensor ===
+  대표이미지: /Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Images/UniFi Motion Sensor/usl-motion-1.png
+  추가이미지 4장 (최대 4장까지만 사용)
+  상세페이지 이미지 9장
+  [실패] 400: {"code":"BAD_REQUEST","message":"입력한 데이터가 유효하지 않습니다.","invalidInputs":[{"name":"originProduct.customerBenefit.immediateDiscountPolicy.discountMethod.value","type":"DecimalMin","message":"허용하는 최소값보다 작은 값을 입력하였습니다."}],"timestamp":"2026-07-29T21:24:33.273+09:00"}
+
+=== UniFi Network Video Recorder Instant ===
+  대표이미지: /Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Images/UniFi Network Video Recorder Instant/unvr-instant-1.png
+  추가이미지 4장 (최대 4장까지만 사용)
+  상세페이지 이미지 9장
+  [실패] 400: {"code":"BAD_REQUEST","message":"입력한 데이터가 유효하지 않습니다.","invalidInputs":[{"name":"originProduct.customerBenefit.immediateDiscountPolicy.discountMethod.value","type":"DecimalMin","message":"허용하는 최소값보다 작은 값을 입력하였습니다."}],"timestamp":"2026-07-29T21:24:37.307+09:00"}
+
+=== UniFi CloudKey+ ===
+  대표이미지: /Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Images/UniFi CloudKey+/uck-g2-ssd-1.png
+  추가이미지 4장 (최대 4장까지만 사용)
+  상세페이지 이미지 9장
+  [실패] 400: {"code":"BAD_REQUEST","message":"입력한 데이터가 유효하지 않습니다.","invalidInputs":[{"name":"originProduct.customerBenefit.immediateDiscountPolicy.discountMethod.value","type":"DecimalMin","message":"허용하는 최소값보다 작은 값을 입력하였습니다."}],"timestamp":"2026-07-29T21:24:43.749+09:00"}
+
+=== UniFi AI Horn Speaker ===
+  대표이미지: /Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Images/UniFi AI Horn Speaker/up-ai-horn-speaker-1.png
+  추가이미지 4장 (최대 4장까지만 사용)
+  상세페이지 이미지 9장
+  [실패] 400: {"code":"BAD_REQUEST","message":"입력한 데이터가 유효하지 않습니다.","invalidInputs":[{"name":"originProduct.customerBenefit.immediateDiscountPolicy.discountMethod.value","type":"DecimalMin","message":"허용하는 최소값보다 작은 값을 입력하였습니다."}],"timestamp":"2026-07-29T21:24:46.617+09:00"}
+
+=== UniFi SuperLink Gateway ===
+  대표이미지: /Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Images/UniFi SuperLink Gateway/usl-gateway-1.png
+  추가이미지 4장 (최대 4장까지만 사용)
+  상세페이지 이미지 9장
+  [실패] 400: {"code":"BAD_REQUEST","message":"입력한 데이터가 유효하지 않습니다.","invalidInputs":[{"name":"originProduct.customerBenefit.immediateDiscountPolicy.discountMethod.value","type":"DecimalMin","message":"허용하는 최소값보다 작은 값을 입력하였습니다."}],"timestamp":"2026-07-29T21:24:49.363+09:00"}
+
+=== UniFi Floodlight ===
+  대표이미지: /Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Images/UniFi Floodlight/up-floodlight-1.png
+  추가이미지 4장 (최대 4장까지만 사용)
+  상세페이지 이미지 9장
+  [실패] 400: {"code":"BAD_REQUEST","message":"입력한 데이터가 유효하지 않습니다.","invalidInputs":[{"name":"originProduct.customerBenefit.immediateDiscountPolicy.discountMethod.value","type":"DecimalMin","message":"허용하는 최소값보다 작은 값을 입력하였습니다."}],"timestamp":"2026-07-29T21:24:52.303+09:00"}

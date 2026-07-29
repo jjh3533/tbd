@@ -70,6 +70,20 @@ TARGET_PRODUCTS = {
     "UniFi U7 Pro Wall": "U7 Pro Wall",
     "UniFi U7 Pro XG Wall": "U7 Pro XG Wall",
     "UniFi U7 Pro XGS": "U7 Pro XGS",
+    # Physical Security 신규 13개 제품 (2026-07-29 추가)
+    "UniFi G6 Pro 360": "G6 Pro 360",
+    "UniFi AI PTZ Industrial": "AI PTZ Industrial",
+    "UniFi G5 Turret Ultra": "G5 Turret Ultra",
+    "UniFi G6 Dome": "G6 Dome",
+    "UniFi AI Theta": "AI Theta",
+    "UniFi All-In-One Sensor": "All-In-One Sensor",
+    "UniFi Glass Break Sensor": "Glass Break Sensor",
+    "UniFi Motion Sensor": "Motion Sensor",
+    "UniFi Network Video Recorder Instant": "Network Video Recorder Instant",
+    "UniFi CloudKey+": "CloudKey+",
+    "UniFi AI Horn Speaker": "AI Horn Speaker",
+    "UniFi SuperLink Gateway": "SuperLink Gateway",
+    "UniFi Floodlight": "Floodlight",
 }
 
 

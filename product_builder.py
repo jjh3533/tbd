@@ -50,8 +50,24 @@ def build_product_payload(row: dict, image_urls: dict) -> dict:
     discount_price = row.get("할인가")
     stock = int(row.get("재고수량", 0) or 0)
 
-    delivery_fee_type = "FREE" if str(row.get("배송비타입", "")).strip() == "무료" else "PAID"
-    base_fee = int(row.get("배송비금액") or 0) if delivery_fee_type == "PAID" else 0
+    delivery_fee_type = str(row.get("배송비타입", "")).strip().upper()
+    if delivery_fee_type not in ("FREE", "PAID"):
+        delivery_fee_type = "FREE"  # 기본값
+
+    base_fee = int(row.get("배송비금액") or 0)
+
+    # 무료배송인 경우
+    if delivery_fee_type == "FREE":
+        delivery_fee_config = {
+            "deliveryFeeType": "FREE",
+        }
+    else:
+        # 유료배송인 경우 - baseFee는 최소 10원 이상
+        delivery_fee_config = {
+            "deliveryFeeType": "PAID",
+            "baseFee": max(10, base_fee),
+            "deliveryFeePayType": "PREPAY",
+        }
 
     detail_urls = image_urls.get("detail", [])
     if isinstance(detail_urls, str):  # 하위호환: 단일 URL로 넘어온 경우
@@ -77,11 +93,7 @@ def build_product_payload(row: dict, image_urls: dict) -> dict:
             "deliveryBundleGroupUsable": True,
             # visitAddressId를 아예 넣지 않아야 "직접수령 불가능"으로 등록됨.
             # 0 등 임의 값을 넣으면 네이버가 "존재하지 않는 방문수령 주소"로 거부함.
-            "deliveryFee": {
-                "deliveryFeeType": delivery_fee_type,
-                "baseFee": base_fee,
-                "deliveryFeePayType": "PREPAY",
-            },
+            "deliveryFee": delivery_fee_config,
             "claimDeliveryInfo": {
                 "returnDeliveryFee": config.DEFAULT_RETURN_DELIVERY_FEE,
                 "exchangeDeliveryFee": config.DEFAULT_EXCHANGE_DELIVERY_FEE,
@@ -122,14 +134,17 @@ def build_product_payload(row: dict, image_urls: dict) -> dict:
     }
 
     if discount_price not in (None, "", 0):
-        origin_product["customerBenefit"] = {
-            "immediateDiscountPolicy": {
-                "discountMethod": {
-                    "value": sale_price - int(discount_price),
-                    "unitType": "WON",
+        discount_amount = sale_price - int(discount_price)
+        # 할인 금액이 0보다 클 때만 customerBenefit 추가
+        if discount_amount > 0:
+            origin_product["customerBenefit"] = {
+                "immediateDiscountPolicy": {
+                    "discountMethod": {
+                        "value": discount_amount,
+                        "unitType": "WON",
+                    }
                 }
             }
-        }
 
     option_name = str(row.get("옵션명") or "").strip()
     option_values_raw = str(row.get("옵션값(콤마구분)") or "").strip()

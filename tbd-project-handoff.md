@@ -26,8 +26,8 @@
 | `fix_delivery_settings.py` | 이미 등록된 상품의 배송사/배송비/원산지 일괄 수정 |
 | `update_live_customs_image.py` | **신규**: 라이브 상세페이지의 통관 안내 섹션 이미지만 교체 |
 | `category_lookup.py`/`notice_lookup.py`/`origin_lookup.py`/`address_lookup.py` | 네이버 API 조회용 1회성 스크립트 |
-| `product_pages/scripts/` | 상세페이지 생성기: `build_pages.py`(공용 빌더+공용 섹션 텍스트), `gen_batch1.py`, `gen_batch2.py`, `gen_flexxg.py`, `export_sections.py`(Playwright PNG export), `crop_hero.py` |
-| `naver_상품등록_템플릿.xlsx` | 등록용 엑셀 (현재 29행: 기존 26 + 신규 3) |
+| `product_pages/scripts/` | 상세페이지 생성기: `build_pages.py`(공용 빌더+공용 섹션 텍스트), `gen_batch1.py`, `gen_batch2.py`, `gen_flexxg.py`, `gen_wifi_batch1~4.py`(WiFi 16개), `gen_ps_batch1~4.py`(Physical Security 13개), `process_wifi_images.py`/`process_ps_images.py`(이미지 자동 처리), `export_sections.py`(Playwright PNG export), `export_wifi_pages.py`/`export_ps_pages.py`(배치별 export), `crop_hero.py`(반사 제거) |
+| `naver_상품등록_템플릿.xlsx` | 등록용 엑셀 (현재 87행: Switching 29 + WiFi 16 + Physical Security 13 + 기타 29) |
 | `registered_log.json` | 등록된 상품들의 전체 API payload 로컬 로그 |
 | `.env`/`.env.example` | 시크릿 (NocoDB/Scrape.do/Telegram/NAVER_CLIENT_ID·SECRET) |
 | `.claude/launch.json` | `tbd-dashboard`(Streamlit :8501), `tbd-dashboard-nicegui`(NiceGUI :8080) |
@@ -56,23 +56,34 @@
 14. 신규 3개 상품 네이버 스마트스토어 등록 완료 (Pro Max 16 / Pro Max 16 PoE / Flex XG = Flex 10 GbE). Flex XG는 NocoDB 재고 0이라 5개로 등록 후 `update_price_stock.py`로 즉시 품절 처리
 15. `sync_naver_ids_to_nocodb.py` `TARGET_PRODUCTS`에 신규 3개(Pro Max 16, Pro Max 16 PoE, Flex XG) + 기존에 누락되어 있던 UCG Industrial 추가 — 전체 29개 채널상품번호 NocoDB 반영 완료
 16. `update_price_stock.py` 전체 실행 — 29개 전 상품 가격/재고 네이버 동기화 완료
+17. **WiFi 카테고리 16개 제품 상세페이지 생성 및 네이버 등록 완료** (AC Pro, Building Bridge XG, Device Bridge, Device Bridge Switch, E7 Campus, U6 Enterprise, U6 Enterprise In-Wall, U6 In-Wall, U6 Mesh, U6 Mesh Pro, U6+, U7 Outdoor, U7 Pro Outdoor, U7 Pro Wall, U7 Pro XG Wall, U7 Pro XGS). WiFi 5/6/6E/7 전 세대 + 무선 브리지 + 옥외 메시 등 다양한 라인업 커버. 4개 배치로 나눠 순차 생성(`gen_wifi_batch1~4.py`), 이미지 자동 처리(`process_wifi_images.py`), PNG export(`export_wifi_pages.py`), 네이버 등록(채널상품번호 13686839735~13686840578), NocoDB 동기화 완료
+18. `sync_naver_ids_to_nocodb.py` `TARGET_PRODUCTS`에 16개 WiFi 제품 매핑 추가 — 전체 46개 채널상품번호 NocoDB 반영 완료
+19. `update_price_stock.py` 전체 실행 — 46개 전 상품 가격/재고 네이버 동기화 완료
+20. **Physical Security 카테고리 13개 제품 상세페이지 생성 및 네이버 등록 완료** (G6 Pro 360, AI PTZ Industrial, G5 Turret Ultra, G6 Dome, AI Theta, All-In-One Sensor, Glass Break Sensor, Motion Sensor, NVR Instant, CloudKey+, AI Horn Speaker, SuperLink Gateway, Floodlight). 카메라(6개, CCTV 카테고리), 센서(3개, AP 카테고리), 녹화/컨트롤(2개, AP 카테고리), 기타(2개, AP 카테고리)로 구성. 4개 배치로 나눠 순차 생성(`gen_ps_batch1~4.py`), 이미지 자동 처리(`process_ps_images.py`), PNG export(`export_ps_pages.py`), 네이버 등록(채널상품번호 13686870764~13686872710), NocoDB 동기화 완료. **카테고리 이슈**: 일부 제품이 도서 카테고리로 오인식되는 문제 발견 → AP 카테고리(50001623)로 통일하여 해결
+21. `sync_naver_ids_to_nocodb.py` `TARGET_PRODUCTS`에 13개 Physical Security 제품 매핑 추가 — 전체 59개 채널상품번호 NocoDB 반영 완료
+22. `update_price_stock.py` 전체 실행 — 59개 전 상품 가격/재고 네이버 동기화 완료
+23. `product_builder.py` 수정: 할인가=판매가일 때 할인 금액 0으로 `customerBenefit` 생성하던 버그 수정 (네이버 API가 거부), 무료배송일 때 `deliveryFeePayType` 필드를 빼도록 수정 (유료배송일 때만 필수)
 
 ## 4. 현재 작업 상태
 
-이번 세션에서 진행한 작업은 **전부 완료 및 검증됨**. 마지막 액션은 커밋 `74ad9c6`을 GitHub에 push. 알려진 미해결 버그나 진행 중인 작업 없음.
+이번 세션에서 진행한 작업은 **전부 완료 및 검증됨**. 알려진 미해결 버그나 진행 중인 작업 없음.
 
 **현재 수치**:
-- 네이버 스마트스토어 등록 상품: 29개 (이전 26개)
-- 상세페이지(HTML) 보유: 29개
-- NocoDB `Product_Page = Detail` 설정: 29개
-- NocoDB `Naver_Product_No` 연동: 29개
+- 네이버 스마트스토어 등록 상품: **59개** (이전 46개 → Physical Security 13개 추가)
+  - Switching: 29개
+  - WiFi: 16개
+  - Physical Security: 13개 (신규)
+  - Door Access: 1개
+- 상세페이지(HTML) 보유: **58개** (U7 In-Wall, Switching 29개, WiFi 16개, Physical Security 13개)
+- NocoDB `Product_Page = Detail` 설정: **58개**
+- NocoDB `Naver_Product_No` 연동: **59개**
 
 ## 5. 다음 작업 계획 (우선순위 순은 아니며, 이전에 합의된 로드맵)
 
 1. **대시보드 Phase 2**: `main.py`/`run_pipeline.py`/`update_price_stock.py`/`fix_delivery_settings.py`를 NiceGUI 대시보드의 "상품 등록" 페이지에서 버튼으로 실행 (dry-run/limit 안전장치 UI 포함)
 2. **대시보드 Phase 3**: 디자인 디테일 폴리싱 (호버 상태, 아바타칩 실사용 등)
 3. **대시보드 Phase 4**: 주문관리/배송관리 — 네이버 Pay-Order/Claims API 신규 연동 필요 (코드 전혀 없음, 그린필드). **착수 전 커머스API 앱에 주문/클레임 조회 권한이 실제로 있는지 확인 필수**
-4. NocoDB에 Switching 외 다른 카테고리(AP, Door Access, Physical Security 등)에도 미등록(`Naver_Product_No` 없음) 상품이 더 있는지 확인 — 사용자가 원하면 계속 등록 확장
+4. NocoDB에 다른 카테고리(Gateway, Routing 등)에도 미등록(`Naver_Product_No` 없음) 상품이 더 있는지 확인 — 사용자가 원하면 계속 등록 확장
 5. Git 히스토리에 남아있는 예전 네이버 시크릿 완전 삭제 여부 결정 (재발급은 했지만 히스토리 정리는 별도 논의 필요)
 6. `requirements.txt`에 `nicegui` 추가 필요 (현재 누락)
 
@@ -86,6 +97,9 @@
   - `statusType: OUTOFSTOCK`은 GET엔 나오지만 PUT엔 거부됨 → `SALE`로 정규화 후 전송
   - `visitAddressId`는 0이 아니라 **필드 자체를 빼야** 방문수령 불가로 처리됨
   - 신규 등록 시 `stockQuantity=0`은 거부됨 (기존 상품 PUT 수정은 0 허용) → 1로 등록 후 실제값으로 보정
+  - `customerBenefit.immediateDiscountPolicy.discountMethod.value`는 0보다 커야 함 (0일 때는 필드 자체를 빼야 함)
+  - 무료배송(`deliveryFeeType: FREE`)일 때는 `deliveryFeePayType` 필드를 넣으면 안 됨, 유료배송(`PAID`)일 때만 필수
+  - 카테고리 ID 유효성: 일부 카테고리(네트워크장비 50000098, 주변기기 50000094)는 리프 카테고리처럼 보이지만 실제로는 등록 불가. 하위 카테고리(AP 50001623, CCTV 50002707)를 사용해야 함
 - **Synology NAS**: `scp`/`rsync` 기본 SFTP가 안 먹혀서 `-O`(legacy SCP) 플래그 필수. 홈디렉토리/`.ssh` 권한이 조금만 느슨해도(777) SSH 키 인증을 조용히 무시함 → `chmod 700` 필요
 - **상세페이지 디자인 시스템**: 860px 고정폭, UI Sans 커스텀 폰트(base64 내장), 강조색 `#3371FB`, 한글 텍스트엔 `word-break:keep-all` 필수, 공용 섹션(TBD Seoul 신뢰뱃지/통관안내/배송반품/FAQ/Footer)은 의도적 문구 수정이 아니면 그대로 유지
 - **NiceGUI 대시보드 디자인 시스템**: 페이지 배경(연한 회색) ≠ 카드 배경(흰색)이 핵심 원칙. 버튼 색은 반드시 Tailwind `!bg-[...]` 강제 클래스 사용(일반 커스텀 클래스는 NiceGUI 기본 `color=primary`와의 명시도 싸움에서 짐). 활성 메뉴는 흰색/surface 배경(검정 아님, 명시적 요청으로 변경됨)
