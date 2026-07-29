@@ -89,7 +89,7 @@ TRUST_TO_FOOTER = """
       </div>
       <div style="display:flex;padding:22px 36px;gap:24px;">
         <div style="width:170px;flex-shrink:0;font-size:14px;font-weight:600;color:#212326;">관/부가세</div>
-        <div style="font-size:14px;color:#696F78;line-height:1.7;">개인 사용 목적, 미화 150달러 이하(미국 발송 200달러 이하) 등 목록통관 기준 충족 시 별도 세금이 발생하지 않을 수 있으며, 기준 초과 시 관세·부가세가 부과될 수 있습니다.</div>
+        <div style="font-size:14px;color:#696F78;line-height:1.7;">본 상품 가격에는 개인 사용 목적, 1개 제품 구매 기준의 목록통관 관세·부가세가 이미 포함되어 있습니다. 다만 여러 제품을 함께 구매하시거나 같은 날 통관되는 구매자님의 다른 해외직구 물품이 있는 경우, 목록통관 기준을 초과해 관세·부가세가 별도로 부과될 수 있습니다.</div>
       </div>
     </div>
   </section>
@@ -165,6 +165,116 @@ class Component extends DCLogic {
 </body>
 </html>
 """
+
+
+def hero(title, tagline_html, img_src, img_alt):
+    return f'''
+  <div style="padding:100px 60px 4px;text-align:center;" data-screen-label="Hero">
+    <img src="assets/common/common_logo-symbol.svg" alt="UniFi" style="height:60px;width:auto;display:block;margin:0 auto;">
+    <h1 style="font-size:52px;font-weight:700;letter-spacing:-0.03em;line-height:1.15;margin-top:48px;">{title}</h1>
+    <div style="margin-top:18px;font-size:21px;color:#696F78;font-weight:400;">{tagline_html}</div>
+    <div style="margin-top:56px;">
+      <img src="{img_src}" alt="{img_alt}" style="width:100%;height:auto;display:block;">
+    </div>
+  </div>
+'''
+
+
+def why_section(eyebrow, headline_html, sub_html, cards):
+    cards_html = "\n".join(f'''      <div style="padding:36px 28px;background:#fff;border:1px solid #E4E4E9;border-radius:18px;">
+        <div style="font-size:13px;color:#3371FB;font-weight:700;margin-bottom:16px;">{i:02d}</div>
+        <h3 style="font-size:19px;font-weight:600;margin-bottom:10px;">{h}</h3>
+        <p style="font-size:14.5px;color:#696F78;line-height:1.6;">{p}</p>
+      </div>''' for i, (h, p) in enumerate(cards, 1))
+    return f'''
+  <section style="padding:100px 60px;" data-screen-label="{eyebrow}">
+    <div style="max-width:520px;margin:0 auto 48px;text-align:center;">
+      <div style="font-size:13px;letter-spacing:0.06em;color:#3371FB;font-weight:600;text-transform:uppercase;">{eyebrow}</div>
+      <h2 style="font-size:36px;font-weight:700;letter-spacing:-0.02em;margin-top:10px;line-height:1.25;">{headline_html}</h2>
+      <p style="margin-top:14px;font-size:17px;color:#696F78;line-height:1.6;">{sub_html}</p>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:32px;">
+{cards_html}
+    </div>
+  </section>
+'''
+
+
+def design_section(img_src, img_alt, headline_html, body_html, bg=True):
+    bg_style = "background:#F5F4F7;" if bg else ""
+    return f'''
+  <section style="padding:100px 60px;{bg_style}" data-screen-label="Design">
+    <div style="display:flex;align-items:center;gap:60px;">
+      <div style="flex:1;">
+        <img src="{img_src}" alt="{img_alt}" style="width:100%;height:auto;display:block;">
+      </div>
+      <div style="flex:1;">
+        <div style="font-size:13px;letter-spacing:0.06em;color:#3371FB;font-weight:600;text-transform:uppercase;margin-bottom:12px;">Design</div>
+        <h2 style="font-size:30px;font-weight:700;letter-spacing:-0.02em;line-height:1.3;margin-bottom:16px;">{headline_html}</h2>
+        <p style="font-size:16px;color:#696F78;line-height:1.7;">{body_html}</p>
+      </div>
+    </div>
+  </section>
+'''
+
+
+def compare_cell(text, highlight=False, border_top=True, bottom_radius=False):
+    bg = "background:rgba(51,113,251,0.06);" if highlight else ""
+    bt = "border-top:1px solid #E4E4E9;" if border_top else ""
+    br = "border-radius:0 0 12px 12px;" if bottom_radius else ""
+    return f'<div style="padding:16px 12px;{bt}text-align:center;font-size:13.5px;{bg}{br}">{text}</div>'
+
+
+def compare_section(headline_html, sub_html, cols, rows):
+    """cols: list of (img_src, alt, name, desc_html, highlight_bool)
+       rows: list of (label, [values per col])"""
+    n = len(cols)
+    header_imgs = "\n".join(
+        f'''      <div style="padding:0 16px 20px;text-align:center;height:130px;display:flex;align-items:flex-end;justify-content:center;{"background:rgba(51,113,251,0.06);border-radius:12px 12px 0 0;" if hl else ""}">
+        <img src="{img}" alt="{alt}" style="max-width:100%;max-height:100%;object-fit:contain;display:block;">
+      </div>''' for img, alt, name, desc, hl in cols)
+    name_cells = "\n".join(
+        f'''      <div style="padding:0 12px 20px;text-align:center;{"background:rgba(51,113,251,0.06);" if hl else ""}">
+        <div style="font-size:16px;font-weight:700;color:#3371FB;margin-bottom:8px;">{name}</div>
+        <div style="font-size:12.5px;color:#696F78;line-height:1.5;">{desc}</div>
+      </div>''' for img, alt, name, desc, hl in cols)
+    row_html_parts = []
+    total_rows = len(rows)
+    for ridx, (label, values) in enumerate(rows):
+        is_last = ridx == total_rows - 1
+        label_style = "padding:16px 0;border-top:1px solid #E4E4E9;font-size:13.5px;color:#696F78;"
+        if is_last:
+            label_style += "border-bottom:1px solid #E4E4E9;"
+        row = [f'<div style="{label_style}">{label}</div>']
+        for cidx, val in enumerate(values):
+            hl = cols[cidx][4]
+            bg = "background:rgba(51,113,251,0.06);" if hl else ""
+            bt = "border-top:1px solid #E4E4E9;"
+            bb = "border-bottom:1px solid #E4E4E9;" if is_last else ""
+            brad = "border-radius:0 0 12px 12px;" if (is_last and hl) else ""
+            row.append(f'<div style="padding:16px 12px;{bt}{bb}text-align:center;font-size:13.5px;{bg}{brad}">{val}</div>')
+        row_html_parts.append("\n      ".join(row))
+    rows_html = "\n      ".join(row_html_parts)
+    cols_template = " ".join(["1fr"] * n)
+    min_width = 200 + n * 160
+    return f'''
+  <section style="padding:100px 60px;" data-screen-label="Compare">
+    <div style="max-width:520px;margin:0 auto 48px;text-align:center;">
+      <div style="font-size:13px;letter-spacing:0.06em;color:#3371FB;font-weight:600;text-transform:uppercase;">Compare</div>
+      <h2 style="font-size:36px;font-weight:700;letter-spacing:-0.02em;margin-top:10px;line-height:1.25;">{headline_html}</h2>
+      <p style="margin-top:14px;font-size:17px;color:#696F78;line-height:1.6;">{sub_html}</p>
+    </div>
+    <div style="overflow-x:auto;">
+    <div style="display:grid;grid-template-columns:170px {cols_template};min-width:{min_width}px;">
+      <div></div>
+{header_imgs}
+      <div></div>
+{name_cells}
+      {rows_html}
+    </div>
+    </div>
+  </section>
+'''
 
 
 def spec_row(label, value, highlight=False):
