@@ -7,14 +7,18 @@
 naver_smartstore_uploader 쪽 스크립트들은 전부 `import naver_config as config`
 형태로 이 파일을 불러옵니다.
 
-절대 이 파일에 실제 값을 커밋/공유하지 마세요.
-실제 값은 naver_config_local.py 를 만들어 덮어쓰거나, 환경변수로 주입하는 것을 권장합니다.
+시크릿(CLIENT_ID/CLIENT_SECRET)은 이 파일에 하드코딩하지 않고 config.py의
+_get_secret()을 그대로 재사용해 .env에서 읽습니다 (NocoDB/Scrape.do 시크릿과
+동일한 방식). 로컬에서는 .env에 NAVER_CLIENT_ID/NAVER_CLIENT_SECRET을
+채워두세요 (.env.example 참고).
 """
 import os
 
+from config import _get_secret
+
 # --- 커머스API 인증 정보 (apicenter.commerce.naver.com 에서 발급) ---
-CLIENT_ID = os.environ.get("NAVER_CLIENT_ID", "1vFKnRKBe0NiO9JrNcUjaM")
-CLIENT_SECRET = os.environ.get("NAVER_CLIENT_SECRET", "$2a$04$LDmR2Ke7JxwHYKrRDuSejO")
+CLIENT_ID = _get_secret("NAVER_CLIENT_ID")
+CLIENT_SECRET = _get_secret("NAVER_CLIENT_SECRET")
 
 # --- 배송/반품지 정보 (스마트스토어센터 > 판매자정보 > 배송지 관리에 등록되어 있어야 함) ---
 # 아래 값들은 "주소록 조회 API"(GET /external/v1/seller/addressbooks)로 확인 후 채워넣으세요.
