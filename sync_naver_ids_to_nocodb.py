@@ -42,6 +42,12 @@ TARGET_PRODUCTS = {
     "UniFi Switch Lite 8 PoE": "Lite 8 PoE",
     "UniFi Switch Ultra 210W": "Ultra 210W",
     "UniFi Switch Ultra 60W": "Ultra 60W",
+    "UniFi Switch Enterprise 8 PoE": "Enterprise 8 PoE (Vintage)",
+    "UniFi Switch Flex": "UniFi Flex",  # 짧은 "Flex"만 쓰면 "UniFi G5 Flex"와 혼동됨(find()가 순서에 따라 잘못된 레코드를 반환)
+    "UniFi Flex Utility": "Flex Utility",
+    "UniFi Flex Utility Pro": "Flex Utility Pro",
+    "UniFi Switch Pro 8 PoE": "Pro 8 PoE",
+    "UniFi Switch Pro XG 8 PoE": "Pro XG 8 PoE",
 }
 
 

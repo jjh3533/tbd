@@ -2337,5 +2337,695 @@
       "naverShoppingRegistration": true,
       "channelProductDisplayStatusType": "ON"
     }
+  },
+  "UniFi Switch Enterprise 8 PoE": {
+    "originProductNo": 13626428155,
+    "smartstoreChannelProductNo": 13686636670,
+    "originProduct": {
+      "statusType": "SALE",
+      "saleType": "NEW",
+      "leafCategoryId": "50001506",
+      "name": "UniFi Switch Enterprise 8 PoE / 유니파이 스위치 엔터프라이즈 8 PoE",
+      "detailContent": "<img src=\"https://shop-phinf.pstatic.net/20260729_168/1785311305517I0Fd7_PNG/4595236662119597_1089958404.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_243/1785311305662j5Nxz_PNG/4595236799162279_1564654002.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_32/1785311305824ptcWy_PNG/4595236975532229_392878720.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_239/1785311305924FNGbF_PNG/4595237071727583_2019096208.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_192/1785311306030vyMou_PNG/4595237182461483_860963707.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_6/1785311306132qRBMm_PNG/4595237282970222_1694693327.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_61/178531130623405fYU_PNG/4595237384667133_1804365483.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_267/1785311306334uJLt2_PNG/4595237485118990_2036387614.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_216/1785311306423ULPDW_PNG/4595237575378327_1425490103.png\" style=\"width:860px;display:block;\" />",
+      "images": {
+        "representativeImage": {
+          "url": "https://shop-phinf.pstatic.net/20260729_108/1785311279150HN2JV_PNG/29827026019276799_995690296.png"
+        },
+        "optionalImages": [
+          {
+            "url": "https://shop-phinf.pstatic.net/20260729_141/1785311295973ewgeN_PNG/15649656400855782_1250358462.png"
+          },
+          {
+            "url": "https://shop-phinf.pstatic.net/20260729_66/1785311296250hXkpU_PNG/15649656701245135_562085925.png"
+          },
+          {
+            "url": "https://shop-phinf.pstatic.net/20260729_93/1785311296569vDQAT_PNG/15649656972226130_46124244.png"
+          },
+          {
+            "url": "https://shop-phinf.pstatic.net/20260729_126/1785311302653XwVGq_PNG/21088549669108378_965943839.png"
+          }
+        ]
+      },
+      "salePrice": 1075300,
+      "stockQuantity": 5,
+      "deliveryInfo": {
+        "deliveryType": "DELIVERY",
+        "deliveryAttributeType": "NORMAL",
+        "deliveryCompany": "ACE",
+        "deliveryBundleGroupUsable": true,
+        "deliveryBundleGroupId": 57357067,
+        "deliveryFee": {
+          "deliveryFeeType": "FREE",
+          "baseFee": 0
+        },
+        "claimDeliveryInfo": {
+          "returnDeliveryCompanyPriorityType": "PRIMARY",
+          "returnDeliveryFee": 40000,
+          "exchangeDeliveryFee": 80000,
+          "shippingAddressId": 200519179,
+          "returnAddressId": 200519180,
+          "freeReturnInsuranceYn": false
+        },
+        "installationFee": false
+      },
+      "detailAttribute": {
+        "afterServiceInfo": {
+          "afterServiceTelephoneNumber": "010-5938-3577",
+          "afterServiceGuideContent": "제품 문의 및 A/S는 스마트스토어 문의하기를 이용해주세요."
+        },
+        "purchaseQuantityInfo": {},
+        "originAreaInfo": {
+          "originAreaCode": "0204000",
+          "importer": "TBD Seoul/티비디서울",
+          "content": "미국산(TBD Seoul/티비디서울)",
+          "plural": false
+        },
+        "sellerCodeInfo": {},
+        "optionInfo": {
+          "simpleOptionSortType": "CREATE",
+          "optionSimple": [],
+          "optionCustom": [],
+          "optionCombinationSortType": "CREATE",
+          "standardOptionGroups": [],
+          "optionStandards": [],
+          "useStockManagement": true,
+          "optionDeliveryAttributes": []
+        },
+        "purchaseReviewInfo": {
+          "purchaseReviewExposure": true
+        },
+        "isbnInfo": {},
+        "taxType": "TAX",
+        "certificationTargetExcludeContent": {},
+        "sellerCommentUsable": false,
+        "minorPurchasable": true,
+        "productInfoProvidedNotice": {
+          "productInfoProvidedNoticeType": "OFFICE_APPLIANCES",
+          "officeAppliances": {
+            "returnCostReason": "1",
+            "noRefundReason": "1",
+            "qualityAssuranceStandard": "1",
+            "compensationProcedure": "1",
+            "troubleShootingContents": "1",
+            "itemName": "유니파이 스위치 엔터프라이즈 8 PoE",
+            "modelName": "UniFi Switch Enterprise 8 PoE",
+            "certificationType": "상세페이지 참조",
+            "ratedVoltage": "상세페이지 참조",
+            "powerConsumption": "상세페이지 참조",
+            "energyEfficiencyRating": "상세페이지 참조",
+            "releaseDateText": "상세페이지 참조",
+            "manufacturer": "Ubiquiti Inc.",
+            "size": "상세페이지 참조",
+            "weight": "상세페이지 참조",
+            "specification": "상세페이지 참조",
+            "warrantyPolicy": "1년 (제조사 정책에 따름, 상세페이지 참조)",
+            "afterServiceDirector": "010-5938-3577"
+          }
+        },
+        "itselfProductionProductYn": false,
+        "seoInfo": {}
+      },
+      "customerBenefit": {}
+    },
+    "smartstoreChannelProduct": {
+      "storeKeepExclusiveProduct": false,
+      "naverShoppingRegistration": true,
+      "channelProductDisplayStatusType": "ON"
+    }
+  },
+  "UniFi Switch Flex": {
+    "originProductNo": 13626429607,
+    "smartstoreChannelProductNo": 13686638143,
+    "originProduct": {
+      "statusType": "SALE",
+      "saleType": "NEW",
+      "leafCategoryId": "50001506",
+      "name": "UniFi Switch Flex / 유니파이 스위치 플렉스",
+      "detailContent": "<img src=\"https://shop-phinf.pstatic.net/20260729_83/17853114102917uwn6_PNG/119444218372287173_1939693369.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_287/1785311410407VHmPp_PNG/119444218492343990_1670714416.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_78/1785311410508nXMhH_PNG/119444218593380552_1479727999.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_48/1785311410601oRakV_PNG/119444218682763982_1558912503.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_212/1785311410686iAb9V_PNG/119444218770323893_221783380.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_200/1785311410792o2Q2p_PNG/119444218871219101_332397940.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_199/1785311410889BNznp_PNG/119444218972689092_348651258.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_52/1785311411005d7eLi_PNG/119444219087557849_74841758.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_64/1785311411096ertHk_PNG/119444219183127743_938134236.png\" style=\"width:860px;display:block;\" />",
+      "images": {
+        "representativeImage": {
+          "url": "https://shop-phinf.pstatic.net/20260729_110/1785311383271FBIt8_PNG/2342432590960278_448493124.png"
+        },
+        "optionalImages": [
+          {
+            "url": "https://shop-phinf.pstatic.net/20260729_95/1785311405716Mxfu9_PNG/13211398862698819_326273969.png"
+          },
+          {
+            "url": "https://shop-phinf.pstatic.net/20260729_102/1785311406037dJERv_PNG/13211399200757468_936050809.png"
+          },
+          {
+            "url": "https://shop-phinf.pstatic.net/20260729_151/1785311406236DYeyG_PNG/13211399400552921_1595817612.png"
+          },
+          {
+            "url": "https://shop-phinf.pstatic.net/20260729_49/1785311406423dqYc5_PNG/13211399591340211_212044927.png"
+          }
+        ]
+      },
+      "salePrice": 194500,
+      "stockQuantity": 5,
+      "deliveryInfo": {
+        "deliveryType": "DELIVERY",
+        "deliveryAttributeType": "NORMAL",
+        "deliveryCompany": "ACE",
+        "deliveryBundleGroupUsable": true,
+        "deliveryBundleGroupId": 57357067,
+        "deliveryFee": {
+          "deliveryFeeType": "FREE",
+          "baseFee": 0
+        },
+        "claimDeliveryInfo": {
+          "returnDeliveryCompanyPriorityType": "PRIMARY",
+          "returnDeliveryFee": 40000,
+          "exchangeDeliveryFee": 80000,
+          "shippingAddressId": 200519179,
+          "returnAddressId": 200519180,
+          "freeReturnInsuranceYn": false
+        },
+        "installationFee": false
+      },
+      "detailAttribute": {
+        "afterServiceInfo": {
+          "afterServiceTelephoneNumber": "010-5938-3577",
+          "afterServiceGuideContent": "제품 문의 및 A/S는 스마트스토어 문의하기를 이용해주세요."
+        },
+        "purchaseQuantityInfo": {},
+        "originAreaInfo": {
+          "originAreaCode": "0204000",
+          "importer": "TBD Seoul/티비디서울",
+          "content": "미국산(TBD Seoul/티비디서울)",
+          "plural": false
+        },
+        "sellerCodeInfo": {},
+        "optionInfo": {
+          "simpleOptionSortType": "CREATE",
+          "optionSimple": [],
+          "optionCustom": [],
+          "optionCombinationSortType": "CREATE",
+          "standardOptionGroups": [],
+          "optionStandards": [],
+          "useStockManagement": true,
+          "optionDeliveryAttributes": []
+        },
+        "purchaseReviewInfo": {
+          "purchaseReviewExposure": true
+        },
+        "isbnInfo": {},
+        "taxType": "TAX",
+        "certificationTargetExcludeContent": {},
+        "sellerCommentUsable": false,
+        "minorPurchasable": true,
+        "productInfoProvidedNotice": {
+          "productInfoProvidedNoticeType": "OFFICE_APPLIANCES",
+          "officeAppliances": {
+            "returnCostReason": "1",
+            "noRefundReason": "1",
+            "qualityAssuranceStandard": "1",
+            "compensationProcedure": "1",
+            "troubleShootingContents": "1",
+            "itemName": "유니파이 스위치 플렉스",
+            "modelName": "UniFi Switch Flex",
+            "certificationType": "상세페이지 참조",
+            "ratedVoltage": "상세페이지 참조",
+            "powerConsumption": "상세페이지 참조",
+            "energyEfficiencyRating": "상세페이지 참조",
+            "releaseDateText": "상세페이지 참조",
+            "manufacturer": "Ubiquiti Inc.",
+            "size": "상세페이지 참조",
+            "weight": "상세페이지 참조",
+            "specification": "상세페이지 참조",
+            "warrantyPolicy": "1년 (제조사 정책에 따름, 상세페이지 참조)",
+            "afterServiceDirector": "010-5938-3577"
+          }
+        },
+        "itselfProductionProductYn": false,
+        "seoInfo": {}
+      },
+      "customerBenefit": {}
+    },
+    "smartstoreChannelProduct": {
+      "storeKeepExclusiveProduct": false,
+      "naverShoppingRegistration": true,
+      "channelProductDisplayStatusType": "ON"
+    }
+  },
+  "UniFi Switch Pro 8 PoE": {
+    "originProductNo": 13626431451,
+    "smartstoreChannelProductNo": 13686639851,
+    "originProduct": {
+      "statusType": "SALE",
+      "saleType": "NEW",
+      "leafCategoryId": "50001506",
+      "name": "UniFi Switch Pro 8 PoE / 유니파이 스위치 프로 8 PoE",
+      "detailContent": "<img src=\"https://shop-phinf.pstatic.net/20260729_194/17853114956451YN1P_PNG/45355662803682935_1089109474.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_235/1785311495749X16qS_PNG/45355662909972114_213810673.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_104/1785311495858n5ShW_PNG/45355663017981426_2076127626.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_32/1785311495989VYu02_PNG/45355663148667991_594053604.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_192/1785311306030vyMou_PNG/4595237182461483_860963707.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_6/1785311306132qRBMm_PNG/4595237282970222_1694693327.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_23/1785311496120nnFvN_PNG/45355663283759630_1431548075.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_267/1785311306334uJLt2_PNG/4595237485118990_2036387614.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_216/1785311306423ULPDW_PNG/4595237575378327_1425490103.png\" style=\"width:860px;display:block;\" />",
+      "images": {
+        "representativeImage": {
+          "url": "https://shop-phinf.pstatic.net/20260729_230/1785311470094WOAYz_PNG/32802036934897289_1347695824.png"
+        },
+        "optionalImages": [
+          {
+            "url": "https://shop-phinf.pstatic.net/20260729_63/1785311480634i75M7_PNG/36033617253932941_127125067.png"
+          },
+          {
+            "url": "https://shop-phinf.pstatic.net/20260729_276/1785311480929soMlu_PNG/36033617565510182_1317493568.png"
+          },
+          {
+            "url": "https://shop-phinf.pstatic.net/20260729_272/17853114933885Lohf_PNG/119444301415456988_1088399836.png"
+          },
+          {
+            "url": "https://shop-phinf.pstatic.net/20260729_136/1785311493757J4HAJ_PNG/119444301771411971_1226599953.png"
+          }
+        ]
+      },
+      "salePrice": 789800,
+      "stockQuantity": 5,
+      "deliveryInfo": {
+        "deliveryType": "DELIVERY",
+        "deliveryAttributeType": "NORMAL",
+        "deliveryCompany": "ACE",
+        "deliveryBundleGroupUsable": true,
+        "deliveryBundleGroupId": 57357067,
+        "deliveryFee": {
+          "deliveryFeeType": "FREE",
+          "baseFee": 0
+        },
+        "claimDeliveryInfo": {
+          "returnDeliveryCompanyPriorityType": "PRIMARY",
+          "returnDeliveryFee": 40000,
+          "exchangeDeliveryFee": 80000,
+          "shippingAddressId": 200519179,
+          "returnAddressId": 200519180,
+          "freeReturnInsuranceYn": false
+        },
+        "installationFee": false
+      },
+      "detailAttribute": {
+        "afterServiceInfo": {
+          "afterServiceTelephoneNumber": "010-5938-3577",
+          "afterServiceGuideContent": "제품 문의 및 A/S는 스마트스토어 문의하기를 이용해주세요."
+        },
+        "purchaseQuantityInfo": {},
+        "originAreaInfo": {
+          "originAreaCode": "0204000",
+          "importer": "TBD Seoul/티비디서울",
+          "content": "미국산(TBD Seoul/티비디서울)",
+          "plural": false
+        },
+        "sellerCodeInfo": {},
+        "optionInfo": {
+          "simpleOptionSortType": "CREATE",
+          "optionSimple": [],
+          "optionCustom": [],
+          "optionCombinationSortType": "CREATE",
+          "standardOptionGroups": [],
+          "optionStandards": [],
+          "useStockManagement": true,
+          "optionDeliveryAttributes": []
+        },
+        "purchaseReviewInfo": {
+          "purchaseReviewExposure": true
+        },
+        "isbnInfo": {},
+        "taxType": "TAX",
+        "certificationTargetExcludeContent": {},
+        "sellerCommentUsable": false,
+        "minorPurchasable": true,
+        "productInfoProvidedNotice": {
+          "productInfoProvidedNoticeType": "OFFICE_APPLIANCES",
+          "officeAppliances": {
+            "returnCostReason": "1",
+            "noRefundReason": "1",
+            "qualityAssuranceStandard": "1",
+            "compensationProcedure": "1",
+            "troubleShootingContents": "1",
+            "itemName": "유니파이 스위치 프로 8 PoE",
+            "modelName": "UniFi Switch Pro 8 PoE",
+            "certificationType": "상세페이지 참조",
+            "ratedVoltage": "상세페이지 참조",
+            "powerConsumption": "상세페이지 참조",
+            "energyEfficiencyRating": "상세페이지 참조",
+            "releaseDateText": "상세페이지 참조",
+            "manufacturer": "Ubiquiti Inc.",
+            "size": "상세페이지 참조",
+            "weight": "상세페이지 참조",
+            "specification": "상세페이지 참조",
+            "warrantyPolicy": "1년 (제조사 정책에 따름, 상세페이지 참조)",
+            "afterServiceDirector": "010-5938-3577"
+          }
+        },
+        "itselfProductionProductYn": false,
+        "seoInfo": {}
+      },
+      "customerBenefit": {}
+    },
+    "smartstoreChannelProduct": {
+      "storeKeepExclusiveProduct": false,
+      "naverShoppingRegistration": true,
+      "channelProductDisplayStatusType": "ON"
+    }
+  },
+  "UniFi Switch Pro XG 8 PoE": {
+    "originProductNo": 13626432976,
+    "smartstoreChannelProductNo": 13686641547,
+    "originProduct": {
+      "statusType": "SALE",
+      "saleType": "NEW",
+      "leafCategoryId": "50001506",
+      "name": "UniFi Switch Pro XG 8 PoE / 유니파이 스위치 프로 XG 8 PoE",
+      "detailContent": "<img src=\"https://shop-phinf.pstatic.net/20260729_92/1785311603480fePHK_PNG/29827350402306346_430868078.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_175/1785311603605KJTQe_PNG/29827350540357226_881754756.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_271/1785311603719KV3dg_PNG/29827350655951867_1703456278.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_128/1785311603836IJC2Q_PNG/29827350772532139_835053620.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_233/1785311603938w8kKL_PNG/29827350876623282_1694807197.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_200/1785311410792o2Q2p_PNG/119444218871219101_332397940.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_212/1785311604060utQBA_PNG/29827350998402223_1154707066.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_52/1785311411005d7eLi_PNG/119444219087557849_74841758.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_64/1785311411096ertHk_PNG/119444219183127743_938134236.png\" style=\"width:860px;display:block;\" />",
+      "images": {
+        "representativeImage": {
+          "url": "https://shop-phinf.pstatic.net/20260729_298/178531152026170xV5_PNG/7428104489647167_1828328970.png"
+        },
+        "optionalImages": [
+          {
+            "url": "https://shop-phinf.pstatic.net/20260729_178/1785311530560fgoDW_PNG/4595461572617269_2085976958.png"
+          },
+          {
+            "url": "https://shop-phinf.pstatic.net/20260729_10/1785311530882TyJ9Q_PNG/4595461923486239_1251345778.png"
+          },
+          {
+            "url": "https://shop-phinf.pstatic.net/20260729_91/1785311586837TyS0z_PNG/38025898864261599_564197167.png"
+          },
+          {
+            "url": "https://shop-phinf.pstatic.net/20260729_173/1785311598573Qm0rl_PNG/28535570545821478_1831398797.png"
+          }
+        ]
+      },
+      "salePrice": 1119600,
+      "stockQuantity": 5,
+      "deliveryInfo": {
+        "deliveryType": "DELIVERY",
+        "deliveryAttributeType": "NORMAL",
+        "deliveryCompany": "ACE",
+        "deliveryBundleGroupUsable": true,
+        "deliveryBundleGroupId": 57357067,
+        "deliveryFee": {
+          "deliveryFeeType": "FREE",
+          "baseFee": 0
+        },
+        "claimDeliveryInfo": {
+          "returnDeliveryCompanyPriorityType": "PRIMARY",
+          "returnDeliveryFee": 40000,
+          "exchangeDeliveryFee": 80000,
+          "shippingAddressId": 200519179,
+          "returnAddressId": 200519180,
+          "freeReturnInsuranceYn": false
+        },
+        "installationFee": false
+      },
+      "detailAttribute": {
+        "afterServiceInfo": {
+          "afterServiceTelephoneNumber": "010-5938-3577",
+          "afterServiceGuideContent": "제품 문의 및 A/S는 스마트스토어 문의하기를 이용해주세요."
+        },
+        "purchaseQuantityInfo": {},
+        "originAreaInfo": {
+          "originAreaCode": "0204000",
+          "importer": "TBD Seoul/티비디서울",
+          "content": "미국산(TBD Seoul/티비디서울)",
+          "plural": false
+        },
+        "sellerCodeInfo": {},
+        "optionInfo": {
+          "simpleOptionSortType": "CREATE",
+          "optionSimple": [],
+          "optionCustom": [],
+          "optionCombinationSortType": "CREATE",
+          "standardOptionGroups": [],
+          "optionStandards": [],
+          "useStockManagement": true,
+          "optionDeliveryAttributes": []
+        },
+        "purchaseReviewInfo": {
+          "purchaseReviewExposure": true
+        },
+        "isbnInfo": {},
+        "taxType": "TAX",
+        "certificationTargetExcludeContent": {},
+        "sellerCommentUsable": false,
+        "minorPurchasable": true,
+        "productInfoProvidedNotice": {
+          "productInfoProvidedNoticeType": "OFFICE_APPLIANCES",
+          "officeAppliances": {
+            "returnCostReason": "1",
+            "noRefundReason": "1",
+            "qualityAssuranceStandard": "1",
+            "compensationProcedure": "1",
+            "troubleShootingContents": "1",
+            "itemName": "유니파이 스위치 프로 XG 8 PoE",
+            "modelName": "UniFi Switch Pro XG 8 PoE",
+            "certificationType": "상세페이지 참조",
+            "ratedVoltage": "상세페이지 참조",
+            "powerConsumption": "상세페이지 참조",
+            "energyEfficiencyRating": "상세페이지 참조",
+            "releaseDateText": "상세페이지 참조",
+            "manufacturer": "Ubiquiti Inc.",
+            "size": "상세페이지 참조",
+            "weight": "상세페이지 참조",
+            "specification": "상세페이지 참조",
+            "warrantyPolicy": "1년 (제조사 정책에 따름, 상세페이지 참조)",
+            "afterServiceDirector": "010-5938-3577"
+          }
+        },
+        "itselfProductionProductYn": false,
+        "seoInfo": {}
+      },
+      "customerBenefit": {}
+    },
+    "smartstoreChannelProduct": {
+      "storeKeepExclusiveProduct": false,
+      "naverShoppingRegistration": true,
+      "channelProductDisplayStatusType": "ON"
+    }
+  },
+  "UniFi Flex Utility": {
+    "originProductNo": 13626436412,
+    "smartstoreChannelProductNo": 13686645033,
+    "originProduct": {
+      "statusType": "SALE",
+      "saleType": "NEW",
+      "leafCategoryId": "50001506",
+      "name": "UniFi Flex Utility / 유니파이 플렉스 유틸리티",
+      "detailContent": "<img src=\"https://shop-phinf.pstatic.net/20260729_287/1785311449456KXRMC_PNG/15649809969959416_770255777.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_276/17853114495745tMUi_PNG/15649810103806596_1007521942.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_2/1785311449673Q9iLn_PNG/15649810199708822_264662178.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_296/1785311449789tF9Wk_PNG/15649810319079401_261617549.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_212/1785311410686iAb9V_PNG/119444218770323893_221783380.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_200/1785311410792o2Q2p_PNG/119444218871219101_332397940.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_199/1785311410889BNznp_PNG/119444218972689092_348651258.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_52/1785311411005d7eLi_PNG/119444219087557849_74841758.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_64/1785311411096ertHk_PNG/119444219183127743_938134236.png\" style=\"width:860px;display:block;\" />",
+      "images": {
+        "representativeImage": {
+          "url": "https://shop-phinf.pstatic.net/20260729_221/1785311421609eKgE3_PNG/32801988398819549_2093060300.png"
+        },
+        "optionalImages": [
+          {
+            "url": "https://shop-phinf.pstatic.net/20260729_46/1785311434469WYQnV_PNG/36033571135957481_37409273.png"
+          },
+          {
+            "url": "https://shop-phinf.pstatic.net/20260729_40/1785311434776COtDO_PNG/36033571432954444_2001345327.png"
+          },
+          {
+            "url": "https://shop-phinf.pstatic.net/20260729_44/1785311446213sGOKv_PNG/39960179050044011_1263025855.png"
+          },
+          {
+            "url": "https://shop-phinf.pstatic.net/20260729_137/1785311446523nWLfh_PNG/39960179400217180_571168342.png"
+          }
+        ]
+      },
+      "salePrice": 100800,
+      "stockQuantity": 1,
+      "deliveryInfo": {
+        "deliveryType": "DELIVERY",
+        "deliveryAttributeType": "NORMAL",
+        "deliveryCompany": "ACE",
+        "deliveryBundleGroupUsable": true,
+        "deliveryBundleGroupId": 57357067,
+        "deliveryFee": {
+          "deliveryFeeType": "FREE",
+          "baseFee": 0
+        },
+        "claimDeliveryInfo": {
+          "returnDeliveryCompanyPriorityType": "PRIMARY",
+          "returnDeliveryFee": 40000,
+          "exchangeDeliveryFee": 80000,
+          "shippingAddressId": 200519179,
+          "returnAddressId": 200519180,
+          "freeReturnInsuranceYn": false
+        },
+        "installationFee": false
+      },
+      "detailAttribute": {
+        "afterServiceInfo": {
+          "afterServiceTelephoneNumber": "010-5938-3577",
+          "afterServiceGuideContent": "제품 문의 및 A/S는 스마트스토어 문의하기를 이용해주세요."
+        },
+        "purchaseQuantityInfo": {},
+        "originAreaInfo": {
+          "originAreaCode": "0204000",
+          "importer": "TBD Seoul/티비디서울",
+          "content": "미국산(TBD Seoul/티비디서울)",
+          "plural": false
+        },
+        "sellerCodeInfo": {},
+        "optionInfo": {
+          "simpleOptionSortType": "CREATE",
+          "optionSimple": [],
+          "optionCustom": [],
+          "optionCombinationSortType": "CREATE",
+          "standardOptionGroups": [],
+          "optionStandards": [],
+          "useStockManagement": true,
+          "optionDeliveryAttributes": []
+        },
+        "purchaseReviewInfo": {
+          "purchaseReviewExposure": true
+        },
+        "isbnInfo": {},
+        "taxType": "TAX",
+        "certificationTargetExcludeContent": {},
+        "sellerCommentUsable": false,
+        "minorPurchasable": true,
+        "productInfoProvidedNotice": {
+          "productInfoProvidedNoticeType": "OFFICE_APPLIANCES",
+          "officeAppliances": {
+            "returnCostReason": "1",
+            "noRefundReason": "1",
+            "qualityAssuranceStandard": "1",
+            "compensationProcedure": "1",
+            "troubleShootingContents": "1",
+            "itemName": "유니파이 플렉스 유틸리티",
+            "modelName": "UniFi Flex Utility",
+            "certificationType": "상세페이지 참조",
+            "ratedVoltage": "상세페이지 참조",
+            "powerConsumption": "상세페이지 참조",
+            "energyEfficiencyRating": "상세페이지 참조",
+            "releaseDateText": "상세페이지 참조",
+            "manufacturer": "Ubiquiti Inc.",
+            "size": "상세페이지 참조",
+            "weight": "상세페이지 참조",
+            "specification": "상세페이지 참조",
+            "warrantyPolicy": "1년 (제조사 정책에 따름, 상세페이지 참조)",
+            "afterServiceDirector": "010-5938-3577"
+          }
+        },
+        "itselfProductionProductYn": false,
+        "seoInfo": {}
+      },
+      "customerBenefit": {}
+    },
+    "smartstoreChannelProduct": {
+      "storeKeepExclusiveProduct": false,
+      "naverShoppingRegistration": true,
+      "channelProductDisplayStatusType": "ON"
+    }
+  },
+  "UniFi Flex Utility Pro": {
+    "originProductNo": 13626436551,
+    "smartstoreChannelProductNo": 13686645177,
+    "originProduct": {
+      "statusType": "SALE",
+      "saleType": "NEW",
+      "leafCategoryId": "50001506",
+      "name": "UniFi Flex Utility Pro / 유니파이 플렉스 유틸리티 프로",
+      "detailContent": "<img src=\"https://shop-phinf.pstatic.net/20260729_38/1785311461982E0YAO_PNG/29827208904105096_1965639633.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_169/1785311462084MkB4D_PNG/29827209022031929_1144340029.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_264/1785311462196Csbgb_PNG/29827209132780571_350909920.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_224/1785311462307ojPgi_PNG/29827209241302178_1558263965.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_80/1785311462415zyem2_PNG/29827209352550106_538479879.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_292/1785311462531CeEVp_PNG/29827209463677001_199385587.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_118/1785311462637dy47U_PNG/29827209574491051_1162503335.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_33/1785311462734cbJNc_PNG/29827209672915865_2050367003.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_258/1785311462825PsSmB_PNG/29827209768831718_608214382.png\" style=\"width:860px;display:block;\" />",
+      "images": {
+        "representativeImage": {
+          "url": "https://shop-phinf.pstatic.net/20260729_194/1785311452871hbIGN_PNG/119444250933987363_698091915.png"
+        },
+        "optionalImages": [
+          {
+            "url": "https://shop-phinf.pstatic.net/20260729_173/1785311459458G01YP_PNG/45355626612828742_1997189575.png"
+          },
+          {
+            "url": "https://shop-phinf.pstatic.net/20260729_245/1785311459613e5N3u_PNG/45355626758140512_225041558.png"
+          },
+          {
+            "url": "https://shop-phinf.pstatic.net/20260729_128/1785311459735cM1nj_PNG/45355626891348897_738753788.png"
+          },
+          {
+            "url": "https://shop-phinf.pstatic.net/20260729_201/1785311459874LqE5m_PNG/45355627027628757_947896298.png"
+          }
+        ]
+      },
+      "salePrice": 123800,
+      "stockQuantity": 1,
+      "deliveryInfo": {
+        "deliveryType": "DELIVERY",
+        "deliveryAttributeType": "NORMAL",
+        "deliveryCompany": "ACE",
+        "deliveryBundleGroupUsable": true,
+        "deliveryBundleGroupId": 57357067,
+        "deliveryFee": {
+          "deliveryFeeType": "FREE",
+          "baseFee": 0
+        },
+        "claimDeliveryInfo": {
+          "returnDeliveryCompanyPriorityType": "PRIMARY",
+          "returnDeliveryFee": 40000,
+          "exchangeDeliveryFee": 80000,
+          "shippingAddressId": 200519179,
+          "returnAddressId": 200519180,
+          "freeReturnInsuranceYn": false
+        },
+        "installationFee": false
+      },
+      "detailAttribute": {
+        "afterServiceInfo": {
+          "afterServiceTelephoneNumber": "010-5938-3577",
+          "afterServiceGuideContent": "제품 문의 및 A/S는 스마트스토어 문의하기를 이용해주세요."
+        },
+        "purchaseQuantityInfo": {},
+        "originAreaInfo": {
+          "originAreaCode": "0204000",
+          "importer": "TBD Seoul/티비디서울",
+          "content": "미국산(TBD Seoul/티비디서울)",
+          "plural": false
+        },
+        "sellerCodeInfo": {},
+        "optionInfo": {
+          "simpleOptionSortType": "CREATE",
+          "optionSimple": [],
+          "optionCustom": [],
+          "optionCombinationSortType": "CREATE",
+          "standardOptionGroups": [],
+          "optionStandards": [],
+          "useStockManagement": true,
+          "optionDeliveryAttributes": []
+        },
+        "purchaseReviewInfo": {
+          "purchaseReviewExposure": true
+        },
+        "isbnInfo": {},
+        "taxType": "TAX",
+        "certificationTargetExcludeContent": {},
+        "sellerCommentUsable": false,
+        "minorPurchasable": true,
+        "productInfoProvidedNotice": {
+          "productInfoProvidedNoticeType": "OFFICE_APPLIANCES",
+          "officeAppliances": {
+            "returnCostReason": "1",
+            "noRefundReason": "1",
+            "qualityAssuranceStandard": "1",
+            "compensationProcedure": "1",
+            "troubleShootingContents": "1",
+            "itemName": "유니파이 플렉스 유틸리티 프로",
+            "modelName": "UniFi Flex Utility Pro",
+            "certificationType": "상세페이지 참조",
+            "ratedVoltage": "상세페이지 참조",
+            "powerConsumption": "상세페이지 참조",
+            "energyEfficiencyRating": "상세페이지 참조",
+            "releaseDateText": "상세페이지 참조",
+            "manufacturer": "Ubiquiti Inc.",
+            "size": "상세페이지 참조",
+            "weight": "상세페이지 참조",
+            "specification": "상세페이지 참조",
+            "warrantyPolicy": "1년 (제조사 정책에 따름, 상세페이지 참조)",
+            "afterServiceDirector": "010-5938-3577"
+          }
+        },
+        "itselfProductionProductYn": false,
+        "seoInfo": {}
+      },
+      "customerBenefit": {}
+    },
+    "smartstoreChannelProduct": {
+      "storeKeepExclusiveProduct": false,
+      "naverShoppingRegistration": true,
+      "channelProductDisplayStatusType": "ON"
+    }
   }
 }

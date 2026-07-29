@@ -67,7 +67,7 @@ MAX_OPTIONAL_IMAGES = 4
 
 # --- 상품 이미지 / 상세페이지 원본 폴더 (구글드라이브 동기화 폴더) ---
 PRODUCT_IMAGES_DIR = "/Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Images"
-PRODUCT_PAGES_DIR = "/Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Pages"
+PRODUCT_PAGES_DIR = "/Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Pages_html/exports"
 
 try:
     from naver_config_local import *  # noqa  # 개인 설정으로 위 값들을 덮어쓰고 싶을 때 사용
