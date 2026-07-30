@@ -1,9 +1,12 @@
 # 프로젝트 인계 문서
 
+지난 세션들의 상세 작업 이력(시간순, 무엇을 왜 했는지)은 `HISTORY.md` 참고 —
+이 문서는 "지금 상태"만 빠르게 파악하기 위한 용도입니다.
+
 ## 1. 프로젝트 개요
 
 - **목적/종류**: "TBD Seoul" — 미국에서 Ubiquiti UniFi 네트워크 장비를 병행수입(해외직구)해서 네이버 스마트스토어에 재판매하는 1인 사업의 자동화 시스템. 가격 모니터링, 상품 등록, 상세페이지 생성, 대시보드로 구성.
-- **기술 스택**: Python 3 (로컬 Mac은 3.14, NAS Docker는 3.11), NiceGUI(대시보드), NocoDB(DB, Airtable에서 이전), requests/BeautifulSoup4(스크래핑), yfinance(환율), Playwright(헤드리스 크롬 - 상세페이지 HTML→PNG 렌더링), openpyxl(엑셀 템플릿), 네이버 커머스API, Docker + Synology Container Manager, Cloudflare Tunnel
+- **기술 스택**: Python 3 (로컬 Mac은 3.14, NAS Docker는 3.11), NiceGUI(대시보드), NocoDB(DB, Airtable에서 이전), requests/BeautifulSoup4(스크래핑), yfinance(환율), APScheduler(자동 동기화 스케줄러), Playwright(헤드리스 크롬 - 상세페이지 HTML→PNG 렌더링), openpyxl(엑셀 템플릿), 네이버 커머스API, Docker + Synology Container Manager, Cloudflare Tunnel
 - **디렉토리**: `/Users/cheil/tbd` (git 저장소, GitHub `jjh3533/tbd` — **private 레포**, 로컬 git만 사용, GitHub 푸시 안 함)
 
 ## 2. 프로젝트 구조
@@ -11,8 +14,8 @@
 ### 루트 핵심 파일
 | 파일 | 역할 |
 |---|---|
-| `sync_engine.py` | 스크래핑/동기화/포맷팅 로직 - 프레임워크 독립 모듈 |
-| `dashboard/` | NiceGUI 대시보드 (`theme.py`, `layout.py`, `components.py`, `app.py`, `pages/{home,category,register}.py`, `deploy/{Dockerfile,docker-compose.yml}`) |
+| `sync_engine.py` | 스크래핑/동기화/포맷팅 로직 - 프레임워크 독립 모듈. `start_background_scheduler()`로 매일 09:00 KST 전체 동기화 + 4시간마다 확인 필요 상품만 재조회하는 자동화도 포함 |
+| `dashboard/` | NiceGUI 대시보드 (`theme.py`, `layout.py`, `components.py`, `app.py`, `pages/{home,category,register,inventory}.py`, `deploy/{Dockerfile,docker-compose.yml}`) |
 | `config.py` | 공용 시크릿 로더 (`.env`), NocoDB/Scrape.do/Telegram 값 |
 | `naver_config.py` | 네이버 커머스API 설정 (CLIENT_ID/SECRET은 `.env`에서) |
 | `nocodb_client.py` | NocoDB REST v2용 Airtable 호환 어댑터 |
@@ -29,10 +32,13 @@
 | `update_live_customs_image.py` | 라이브 상세페이지의 통관 안내 섹션 이미지만 교체 |
 | `rename_fields_to_english.py` | NocoDB 필드명을 한글에서 영문으로 변경하는 스크립트 |
 | `FIELD_MIGRATION.md` | NocoDB 필드명 한글→영문 마이그레이션 문서 |
+| `create_price_history_table.py` | NocoDB `Price_History` 테이블(가격/재고 변동 이력, EAV 스타일) 생성 1회성 스크립트 |
 | `category_lookup.py`/`notice_lookup.py`/`origin_lookup.py`/`address_lookup.py` | 네이버 API 조회용 1회성 스크립트 |
-| `product_pages/scripts/` | 상세페이지 생성기 (66개 제품) |
+| `product_pages/scripts/` | 상세페이지 생성기 - 재사용 가능한 공용 도구만 남음: `build_pages.py`(신규 생성 패턴), `crop_hero.py`(히어로 이미지 반사 크롭), `export_sections.py`(섹션별 PNG 검증용 export). 카테고리별 1회성 배치 스크립트는 `archive/product_pages_scripts/`로 이동함 |
+| `archive/` | 이미 끝난 1회성 조사/디버그/검증/수정 스크립트 + 더 이상 안 쓰는 데이터/로그 보관 (삭제 아님, 필요하면 재사용 가능 - `archive/README.md` 참고) |
 | `naver_상품등록_템플릿.xlsx` | 등록용 엑셀 (126행: Switching 29 + WiFi 16 + Physical Security 13 + Door Access 31 + Integrations 8 + 기타 29) |
 | `registered_log.json` | 등록된 상품들의 전체 API payload 로컬 로그 |
+| `product_slug_map.json` | `sync_engine.py`가 UI Store 상품 URL을 만들 때 쓰는 name↔slug 매핑 (크롤링 프로젝트 때 생성) |
 | `.env`/`.env.example` | 시크릿 (NocoDB/Scrape.do/Telegram/NAVER_CLIENT_ID·SECRET) |
 | `.claude/launch.json` | `tbd-dashboard-nicegui`(NiceGUI :8080) |
 
@@ -41,53 +47,12 @@
 - `.../TBD Seoul/Product Pages_html/` — 상세페이지 `.dc.html` 소스 + `assets/`(폰트/로고) + `exports/<slug>/`(번호 매겨진 PNG, main.py가 실제 업로드하는 이미지)
 - NAS: `/volume1/docker/nicegui/` (Synology DS925+, `192.168.50.245`, SSH 계정 `jay`) — NiceGUI 대시보드 운영 환경
 
-## 3. 완료된 작업 (이번 세션, 시간순)
+## 3. 현재 상태
 
-1. UniFi 스위치 상세페이지 3개 신규 생성 (Pro Max 16/16 PoE/Flex 10 GbE) — `build_pages.py` 패턴 확립, 랙마운트 제품 이미지의 반사 중복 아티팩트 크롭, Playwright 기반 PNG export 파이프라인 구축 (Claude Design 없이 재현)
-2. 한글 줄바꿈(`word-break: keep-all`)과 "급전" 등 어색한 표현 전체 수정
-3. 네이버 배송/원산지 설정 수정: 택배사 CJGLS→ACE, 원산지 중국→미국, 반품/교환비 3천/6천→4만/8만원. `visitAddressId`는 **필드 자체를 빼야** "직접수령 불가능"으로 처리됨(0을 넣으면 거부)을 확인. `OUTOFSTOCK` statusType을 GET에서는 주지만 PUT에서는 거부하는 버그도 발견/수정
-4. **대시보드 전면 교체**: Streamlit(CSS 커스터마이징이 힘들다는 사용자 불만) → NiceGUI. `sync_engine.py`로 백엔드 로직 분리, `dashboard/` 패키지 신축
-5. 디자인 피드백 반영 2라운드: 페이지 배경≠카드 배경으로 깊이감 부여, 통계카드 높이 불균일 수정, NiceGUI 버튼 기본 파란색 이슈(Tailwind `!bg-[...]` 강제 클래스로 해결), 활성 메뉴를 검정→흰색 배경으로 변경
-6. NAS(Synology, `192.168.50.245`)에 실제 배포 → `https://my.tbd.kr` (Cloudflare Tunnel). 전용 SSH 키 설정, Synology SFTP 서브시스템 미작동 이슈(`scp -O` 사용), 홈디렉토리 권한 이슈 해결
-7. **보안 수정**: `naver_config.py`에 하드코딩되어 **public 레포에 평문 커밋**되어 있던 네이버 Client Secret 발견 → `.env`로 이전, 사용자가 재발급, 새 값 동작 확인 완료. **주의: git 히스토리 자체는 아직 정리 안 함 (재발급으로만 방어됨)**
-8. Switching 카테고리 6개 상세페이지 추가 생성 (Enterprise 8 PoE, Flex, Flex Utility, Flex Utility Pro, Pro 8 PoE, Pro XG 8 PoE). **중요**: 리서치 결과 "Flex Utility"/"Flex Utility Pro"는 스위치가 아니라 빈 방수 인클로저(액세서리)로 확인 → 정직하게 인클로저 스펙 + "스위치 별도구매" 명시로 작성
-9. 통관/관부가세 안내 문구 오류 수정 (29개 파일 전체 일괄 반영 + 템플릿 소스도 수정)
-10. 신규 6개 상품 실제 네이버 등록 완료. 과정에서 `PRODUCT_PAGES_DIR`이 존재하지 않는 옛 경로를 가리키던 버그 발견/수정, 재고 0 신규등록 거부 이슈 확인/처리
-11. NocoDB 동기화 중 검색어 "Flex"가 엉뚱한 상품에 매칭되는 버그 발견/수정
-12. 기존 20개 라이브 상품의 통관 이미지를 새 문구로 교체 (라이브/로컬 이미지 개수 검증 후 안전하게 위치 매칭)
-13. NocoDB Product 테이블의 `Product_Page` 필드를 상세페이지 보유 제품 전체(29개)에 "Detail"로 설정 (기존 20개 → 29개)
-14. 신규 3개 상품 네이버 스마트스토어 등록 완료 (Pro Max 16 / Pro Max 16 PoE / Flex XG = Flex 10 GbE). Flex XG는 NocoDB 재고 0이라 5개로 등록 후 `update_price_stock.py`로 즉시 품절 처리
-15. `sync_naver_ids_to_nocodb.py` `TARGET_PRODUCTS`에 신규 3개(Pro Max 16, Pro Max 16 PoE, Flex XG) + 기존에 누락되어 있던 UCG Industrial 추가 — 전체 29개 채널상품번호 NocoDB 반영 완료
-16. `update_price_stock.py` 전체 실행 — 29개 전 상품 가격/재고 네이버 동기화 완료
-17. **WiFi 카테고리 16개 제품 상세페이지 생성 및 네이버 등록 완료** (AC Pro, Building Bridge XG, Device Bridge, Device Bridge Switch, E7 Campus, U6 Enterprise, U6 Enterprise In-Wall, U6 In-Wall, U6 Mesh, U6 Mesh Pro, U6+, U7 Outdoor, U7 Pro Outdoor, U7 Pro Wall, U7 Pro XG Wall, U7 Pro XGS). WiFi 5/6/6E/7 전 세대 + 무선 브리지 + 옥외 메시 등 다양한 라인업 커버. 4개 배치로 나눠 순차 생성(`gen_wifi_batch1~4.py`), 이미지 자동 처리(`process_wifi_images.py`), PNG export(`export_wifi_pages.py`), 네이버 등록(채널상품번호 13686839735~13686840578), NocoDB 동기화 완료
-18. `sync_naver_ids_to_nocodb.py` `TARGET_PRODUCTS`에 16개 WiFi 제품 매핑 추가 — 전체 46개 채널상품번호 NocoDB 반영 완료
-19. `update_price_stock.py` 전체 실행 — 46개 전 상품 가격/재고 네이버 동기화 완료
-20. **Physical Security 카테고리 13개 제품 상세페이지 생성 및 네이버 등록 완료** (G6 Pro 360, AI PTZ Industrial, G5 Turret Ultra, G6 Dome, AI Theta, All-In-One Sensor, Glass Break Sensor, Motion Sensor, NVR Instant, CloudKey+, AI Horn Speaker, SuperLink Gateway, Floodlight). 카메라(6개, CCTV 카테고리), 센서(3개, AP 카테고리), 녹화/컨트롤(2개, AP 카테고리), 기타(2개, AP 카테고리)로 구성. 4개 배치로 나눠 순차 생성(`gen_ps_batch1~4.py`), 이미지 자동 처리(`process_ps_images.py`), PNG export(`export_ps_pages.py`), 네이버 등록(채널상품번호 13686870764~13686872710), NocoDB 동기화 완료. **카테고리 이슈**: 일부 제품이 도서 카테고리로 오인식되는 문제 발견 → AP 카테고리(50001623)로 통일하여 해결
-21. `sync_naver_ids_to_nocodb.py` `TARGET_PRODUCTS`에 13개 Physical Security 제품 매핑 추가 — 전체 59개 채널상품번호 NocoDB 반영 완료
-22. `update_price_stock.py` 전체 실행 — 59개 전 상품 가격/재고 네이버 동기화 완료
-23. `product_builder.py` 수정: 할인가=판매가일 때 할인 금액 0으로 `customerBenefit` 생성하던 버그 수정 (네이버 API가 거부), 무료배송일 때 `deliveryFeePayType` 필드를 빼도록 수정 (유료배송일 때만 필수)
-24. **Physical Security 13개 제품 히어로 이미지 크롭 문제 발견 및 수정**: 검증 결과 13개 제품 모두 원본(1500x1500)의 21-49%만 남기고 과도하게 잘림. 원인은 `crop_hero.py`가 반사가 없는 이미지에서 잘못된 분할점을 찾은 것. `fix_ps_hero_images.py`로 원본을 크롭 없이 복사 → PNG 재export → 네이버 13개 제품 전체 히어로 이미지 업데이트 완료 (`update_ps_hero_images.py`)
-25. **WiFi 카테고리 히어로 이미지 검증**: 네이버 등록된 34개 WiFi 제품 중 U6 Mesh Pro 1개만 높이 1494px로 다른 제품(평균 1829px)보다 작음 확인. 원본 1500x1500의 45%만 사용. assets 폴더에 원본 복사 → HTML/PNG 재생성 → 네이버 업데이트 완료
-26. **`crop_hero.py` 안전장치 추가**: 반사 감지 실패 케이스(score > 0.3 또는 split 높이 비율 < 50%)에서 원본 그대로 저장하도록 수정. 이제 반사가 없는 이미지가 잘못 크롭되지 않음
-27. **Door Access 카테고리 31개 제품 상세페이지 생성 및 네이버 등록 완료** (Reader Pro, Reader Flex, Access Ultra, Door Hub, Door Hub Mini, Enterprise Access Hub, Intercom Viewer, G6 Entry, Magnetic Lock, Access Button, Reader Junction Box, Reader Pro Junction Box, Reader Pro Angle Mount, Intercom Viewer Table Stand, Intercom Flush Mount, Intercom Surface Angle Mount, Intercom Wedge Mount, Intercom Sunshield, Gate Hub, Junction Utility, Door Lock Relay Cable, Door Closer, PoE Over 2-Wire Retrofit Extender, Retrofit Hub, Retrofit PSU 12V, Panic Bar, Access Rescue KeySwitch, Access Card 10-Pack, Pocket Keyfob 10-Pack, Gate Starter Kit, G3 Elevator Starter Kit). 출입통제 리더기/도어락/인터콤/액세서리 전체 라인업 커버. 10개는 Detail 버전(다이어그램 포함), 21개는 Simple 버전(히어로+Design+Tech Specs+공용 섹션만)으로 구성. 3개 배치로 나눠 순차 생성(`gen_door_access_batch1~3_simple.py`), 이미지 자동 처리(`process_door_access_images.py`), 히어로/다이어그램 이미지 표준화(`standardize_door_access_hero.py`, `standardize_door_access_diagram.py`), PNG export(`export_door_access_pages.py`), 네이버 등록(채널상품번호 13686915258~13686917736), NocoDB 동기화 완료
-28. `sync_naver_ids_to_nocodb.py` `TARGET_PRODUCTS`에 31개 Door Access 제품 매핑 추가 — 전체 90개 채널상품번호 NocoDB 반영 완료
-29. `update_price_stock.py` 전체 실행 — 90개 전 상품 가격/재고 네이버 동기화 완료
-30. **Integrations 카테고리 8개 제품 상세페이지 생성 완료** (Mobile Router Industrial, UNAS 2, Display Cast Lite, Mobile Router, 5G Max, Mobile Router Ultra, PoE Audio Port, LTE Backup Pro). 모바일 라우터/5G 장비/NAS/오디오 인터페이스 등 다양한 통합 솔루션. 2개 배치로 나눠 순차 생성(`gen_integrations_batch1~2.py`), 이미지 자동 처리(`process_integrations_images.py`), 히어로 이미지 반사 제거(`crop_integrations_heroes.py`), PNG export(`export_integrations_pages.py`) 완료
-31. **Integrations 6개 제품 네이버 등록 완료** (5G Max, LTE Backup Pro, Mobile Router, Mobile Router Ultra, PoE Audio Port, UNAS 2). 가격이 0원인 2개 제품(Display Cast Lite, Mobile Router Industrial)은 NocoDB 가격 계산 확인 필요로 보류. 채널상품번호 13686935032~13686935352
-32. `sync_naver_ids_to_nocodb.py` `TARGET_PRODUCTS`에 6개 Integrations 제품 매핑 추가 — 전체 96개 채널상품번호 NocoDB 반영 완료
-33. `update_price_stock.py` 전체 실행 — 96개 전 상품 가격/재고 네이버 동기화 완료
-34. **NocoDB 필드명 변경 및 가격 정책 정리**: 사용자 요청으로 네이버 판매가는 무조건 할인 없이 NocoDB `판매금액` 필드 값으로 판매. `update_price_stock.py`가 이미 `판매금액`을 사용하므로 Integrations 6개 제품 모두 정상 가격(888,000원 등)으로 등록되어 있음을 확인. `최종가격` 필드명을 `구매원가`로 변경 — 코드 6개 파일 수정(`sync_engine.py`, `app.py`, `export_prices_for_naver.py`, `add_ps_to_excel.py`, `nocodb_fix_fields.py`, `fix_integrations_prices.py`), `sync_engine.py`는 하위 호환성 지원(`구매원가` 또는 `최종가격` 둘 다 읽음). NocoDB UI에서 사용자가 직접 필드명 변경 완료
-35. **카테고리 자동 최적화 시스템 구축**: 상품명 기반으로 적합한 네이버 카테고리를 자동 선택하는 `product_keywords.py` 모듈 생성. NAS→저장장치>NAS(50001602), 모바일 라우터→네트워크장비>라우터(50001622) 등 제품 특성에 맞는 카테고리 매핑. `product_builder.py`에 통합되어 신규 상품 등록 시 자동 적용
-36. **검색 키워드 자동 생성 시스템 구축**: 카테고리별 맞춤 검색 키워드를 상품명에 자동 추가하는 기능 개발. WiFi(와이파이 끊김 해결, 메시 네트워크), Switching(PoE 급전, 네트워크 확장), Physical Security(실시간 모니터링, 야간촬영), Door Access(출입통제, 무인 출입) 등 유즈케이스 키워드 + 기술 키워드(WiFi7, PoE, AI, 메시 등) 자동 조합. 상품명 형식: `영문명 / 한글명 키워드1 키워드2...` (최대 10개). `product_builder.py`에 통합되어 신규 상품 자동 적용
-37. **기등록 상품 카테고리 일괄 변경**: `update_categories.py`로 6개 상품 카테고리 변경 완료 — UNAS 2(NAS 카테고리), Mobile Router/5G Max/Mobile Router Ultra/PoE Audio Port/LTE Backup Pro(라우터 카테고리). Door Access 31개는 디지털도어록 카테고리로 변경 시도했으나 KC 인증 정보 필수로 실패, 현재 네트워크장비>AP 유지 (실제로 UniFi 스마트 보안 장비에 적합)
-38. **기등록 상품 검색 키워드 일괄 추가**: `update_product_names_with_keywords.py`로 96개 상품 중 58개 성공적으로 업데이트. 38개는 네트워크 연결 문제로 중단 (재실행 필요). 상품명에 카테고리별 맞춤 키워드 추가되어 검색 유입 최적화 완료
-39. **Streamlit 대시보드 제거**: NiceGUI로 완전 전환 완료. `app.py` 삭제, `config.py`에서 Streamlit secrets 로직 제거, `.claude/launch.json`에서 Streamlit 설정 제거. 대시보드는 NiceGUI만 사용 (`https://my.tbd.kr`)
-40. **NocoDB 필드명 한글→영문 마이그레이션**: 한글 필드명 인코딩 문제로 대시보드에서 데이터가 0으로 표시되는 이슈 해결. 판매금액→`sale_price`, 구매원가→`purchase_cost`, 수익→`profit`로 변경. 5개 핵심 파일 수정 (`sync_engine.py`, `update_price_stock.py`, `export_prices_for_naver.py`, `add_ps_to_excel.py`, `nocodb_fix_fields.py`), NocoDB UI에서 수동으로 필드명 변경, NAS 배포 완료. `FIELD_MIGRATION.md` 마이그레이션 문서 작성
-41. **NAS SSH 설정 업데이트**: `sshpass` 설치, SSH 주소 `jay@192.168.50.245`, 비밀번호 인증 사용, docker-compose 전체 경로 `/usr/local/bin/docker-compose` 사용
+알려진 미해결 버그나 진행 중인 작업 없음.
 
-## 4. 현재 작업 상태
-
-이번 세션에서 진행한 작업은 **전부 완료 및 검증됨**. 알려진 미해결 버그나 진행 중인 작업 없음.
+- **Price_History 테이블**: 로컬/NAS 양쪽 다 `NOCODB_HISTORY_TABLE_ID=mi258r3q4g5wu69`로 연결 완료, `https://my.tbd.kr/inventory`에서 운영 중. 아직 실제 Sync를 통해 쌓인 이력은 0건(다음 Sync 버튼 클릭부터 자연히 쌓이기 시작함) — 그래서 "15일 이상 품절" 섹션은 지금 비어있고, 미판매 상품 전체가 "기록 이전부터 품절"로 표시되는 게 정상.
+- **자동 동기화 스케줄러**: NAS에서 가동 중. 매일 09:00 KST 전체 동기화 + 4시간마다 확인 필요 상품만 재조회. 스케줄 시각/주기를 바꾸려면 `sync_engine.py`의 `start_background_scheduler()` 안 `CronTrigger`/`IntervalTrigger` 파라미터만 수정하면 됨.
 
 **현재 수치**:
 - 네이버 스마트스토어 등록 상품: **96개**
@@ -97,8 +62,8 @@
   - Door Access: 31개
   - Integrations: 6개
   - 기타: 1개
-- 상세페이지(HTML) 보유: **66개**
-- NocoDB `Product_Page = Detail` 설정: **66개**
+- 상세페이지(HTML) 보유: **98개** (Naver 등록 96개 + 미등록 2개: Display Cast Lite, Mobile Router Industrial)
+- NocoDB `Product_Page` 설정: **96개** (Detail 75개 + Simple 21개, 등록 상품 전체 커버)
 - NocoDB `Naver_Product_No` 연동: **96개**
 - **NocoDB 필드명 (영문)**: `sale_price` (판매가), `purchase_cost` (구매 원가), `profit` (수익)
 - 검색 키워드 추가: **58개 완료, 38개 대기** (IP 재등록 후 재실행 필요)
@@ -106,15 +71,17 @@
 - **Git/GitHub**: 로컬 git 커밋만 사용, GitHub 푸시 안 함 (private 레포 전환)
 - **대시보드**: Streamlit 제거, NiceGUI만 사용 (`https://my.tbd.kr`)
 
-## 5. 다음 작업 계획 (우선순위 순은 아니며, 이전에 합의된 로드맵)
+## 4. 다음 작업 계획 (우선순위 순은 아니며, 이전에 합의된 로드맵)
 
 1. **검색 키워드 일괄 추가 완료**: 네이버 커머스API 센터에서 현재 IP 재등록 후 `update_product_names_with_keywords.py` 재실행 — 실패한 38개 상품 키워드 추가
 2. **대시보드 Phase 2**: `main.py`/`run_pipeline.py`/`update_price_stock.py`/`fix_delivery_settings.py`를 NiceGUI 대시보드의 "상품 등록" 페이지에서 버튼으로 실행 (dry-run/limit 안전장치 UI 포함)
 3. **대시보드 Phase 3**: 디자인 디테일 폴리싱 (호버 상태, 아바타칩 실사용 등)
 4. **대시보드 Phase 4**: 주문관리/배송관리 — 네이버 Pay-Order/Claims API 신규 연동 필요 (코드 전혀 없음, 그린필드). **착수 전 커머스API 앱에 주문/클레임 조회 권한이 실제로 있는지 확인 필수**
 5. NocoDB에 다른 카테고리(Gateway, Routing 등)에도 미등록(`Naver_Product_No` 없음) 상품이 더 있는지 확인 — 사용자가 원하면 계속 등록 확장
+6. **가격/재고 이력 기능 관찰**: NAS 배포는 완료됐으니, 앞으로 몇 차례 Sync를 돌려서 `Price_History`에 실제 이력이 잘 쌓이는지, `/inventory`의 "15일 이상 품절" 섹션이 시간이 지나며 의도대로 채워지는지 확인
+7. **자동 동기화 스케줄러 관찰**: 다음날 09:00 KST 전체 동기화가 실제로 발동하는지, 4시간마다 확인 필요 상품 재조회가 정상 도는지 `docker-compose logs`/Telegram 알림으로 며칠 지켜보기. 문제 있으면 `sync_engine.start_background_scheduler()`의 트리거 설정 확인
 
-## 6. 특이사항
+## 5. 특이사항
 
 ### 신규 상품 등록 파이프라인 (자동화 적용)
 
@@ -186,11 +153,11 @@ python3 update_product_names_with_keywords.py                        # 전체 �
   python3 -m py_compile <file>.py                     # 문법 체크
   python3 <script>.py --dry-run                       # 실행 전 항상 먼저
   python3 dashboard/app.py                             # NiceGUI 로컬 실행 (:8080)
-  streamlit run app.py                                 # Streamlit 로컬 실행 (:8501)
-  python3 product_pages/scripts/gen_batch{1,2}.py      # 상세페이지 생성
+  python3 product_pages/scripts/build_pages.py         # 새 상세페이지 생성 패턴
   python3 product_pages/scripts/export_sections.py <html> <outdir>  # 섹션별 PNG 검증용 export
   ssh tbd-nas                                          # NAS 접속
   ```
+
 ### NAS SSH 접속 및 배포
 
 **SSH 접속 정보**:
@@ -199,16 +166,25 @@ python3 update_product_names_with_keywords.py                        # 전체 �
 - Docker Compose 경로: `/usr/local/bin/docker-compose`
 
 **NAS 배포 업데이트 절차**:
-```bash
-# sync_engine.py를 NAS에 업로드
-scp -O sync_engine.py jay@192.168.50.245:/volume1/docker/nicegui/
+- NAS는 비밀번호 인증만 되므로 `scp -O`도 **sshpass 없이는 Permission denied**로 실패함 — 항상 `sshpass -p 'JJ2120jj!!'`를 붙여야 함.
+- `Dockerfile`/`docker-compose.yml`은 git에는 `dashboard/deploy/`에 있지만, NAS에는 `/volume1/docker/nicegui/` 루트에 그대로(중첩 없이) 올라가 있음 — `docker-compose.yml`의 `build: .`가 그 위치 기준.
+- **코드만 바뀐 경우**(`sync_engine.py`, `dashboard/` 등) → `docker-compose restart`로 충분.
+- **Dockerfile을 바꿔서 새 pip 패키지가 필요한 경우**(예: `apscheduler` 추가) → `restart`로는 새 패키지가 설치되지 않음, 반드시 **`docker-compose up -d --build`**로 이미지 재빌드 필요.
 
-# NAS 대시보드 재시작 (sshpass 사용)
+```bash
+# 파일 업로드 (sshpass 필수)
+sshpass -p 'JJ2120jj!!' scp -O -o StrictHostKeyChecking=no sync_engine.py config.py nocodb_client.py jay@192.168.50.245:/volume1/docker/nicegui/
+sshpass -p 'JJ2120jj!!' scp -O -o StrictHostKeyChecking=no -r dashboard jay@192.168.50.245:/volume1/docker/nicegui/
+# Dockerfile이 바뀌었다면 NAS 루트(중첩 아님)에 별도 업로드
+sshpass -p 'JJ2120jj!!' scp -O -o StrictHostKeyChecking=no dashboard/deploy/Dockerfile jay@192.168.50.245:/volume1/docker/nicegui/
+
+# 코드만 바뀐 경우 - 재시작
 sshpass -p 'JJ2120jj!!' ssh -o StrictHostKeyChecking=no jay@192.168.50.245 \
   "cd /volume1/docker/nicegui && echo 'JJ2120jj!!' | sudo -S /usr/local/bin/docker-compose restart"
 
-# 또는 전체 dashboard 폴더 업데이트
-scp -O -r dashboard sync_engine.py config.py nocodb_client.py jay@192.168.50.245:/volume1/docker/nicegui/
+# Dockerfile이 바뀐 경우 - 재빌드
+sshpass -p 'JJ2120jj!!' ssh -o StrictHostKeyChecking=no jay@192.168.50.245 \
+  "cd /volume1/docker/nicegui && echo 'JJ2120jj!!' | sudo -S /usr/local/bin/docker-compose up -d --build"
 ```
 
 **Synology Container Manager GUI**:

@@ -24,3 +24,6 @@ Product Images/
 # 에이전트/도구 메타데이터
 .agents/
 .claude/
+
+# 실행 로그 (루트에 다시 쌓이지 않도록 - 필요한 로그는 archive/logs/에 수동 보관)
+*.log
