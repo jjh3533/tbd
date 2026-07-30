@@ -24,6 +24,13 @@
 NocoDB 필드:
     - sale_price: 네이버 판매가
     - In_Stock: 재고 여부 (True/False)
+
+색상(화이트/블랙) 옵션 상품:
+    create_color_variant_rows.py로 만든 "{화이트 SKU} Black" 로우가 있고 거기에
+    sale_price가 채워져 있으면(구매처 ID 입력 후 스크래핑 완료), 네이버의 "화이트"/
+    "블랙" 옵션 조합에 각각 다른 price(추가금액)/stockQuantity를 반영한다. Black
+    로우에 아직 sale_price가 없으면(구매처 ID 미입력) 기존처럼 모든 옵션에
+    균일하게 적용하고 콘솔에 안내만 출력한다.
 """
 import argparse
 import json
@@ -58,8 +65,21 @@ def put_channel_product(token: str, channel_no: int, body: dict):
     return resp.json() if resp.text else {}
 
 
-def apply_price_stock(body: dict, new_price: int, new_stock: int) -> dict:
-    """GET으로 받아온 전체 body에서 salePrice/stockQuantity만 바꿔치기."""
+# 옵션 조합의 optionName1에 실제로 쓰이는 색상 라벨 (product_builder.py의
+# 옵션값(콤마구분) 컬럼 관례와 동일하게 한글 라벨을 그대로 키로 사용).
+WHITE_LABEL = "화이트"
+BLACK_LABEL = "블랙"
+
+
+def apply_price_stock(body: dict, new_price: int, new_stock: int, option_overrides: dict | None = None) -> dict:
+    """GET으로 받아온 전체 body에서 salePrice/stockQuantity만 바꿔치기.
+
+    option_overrides: {"화이트": (price_addon, stock), "블랙": (price_addon, stock)}
+    형태로 넘기면, optionCombinations 중 해당 라벨의 옵션은 새 price(추가금액)/
+    stockQuantity를 각각 다르게 설정한다 (구매처마다 화이트/블랙 가격이 다른
+    경우). 넘기지 않으면 기존처럼 모든 옵션에 new_price/new_stock을 균일하게
+    적용한다 (옵션이 아예 없는 단일 상품, 또는 아직 짝이 되는 Black/White
+    로우가 없는 옵션 상품)."""
     origin = body.get("originProduct")
     if origin is None:
         raise RuntimeError(f"originProduct 키를 찾을 수 없음. 응답 구조 확인 필요: {list(body.keys())}")
@@ -77,7 +97,13 @@ def apply_price_stock(body: dict, new_price: int, new_stock: int) -> dict:
     if combinations:
         # 옵션형 상품(U7 Pro XG 등)은 상위 stockQuantity가 아니라 옵션별 재고 합산으로 관리됨.
         for combo in combinations:
-            combo["stockQuantity"] = new_stock
+            label = combo.get("optionName1")
+            if option_overrides and label in option_overrides:
+                price_addon, stock = option_overrides[label]
+                combo["price"] = price_addon
+                combo["stockQuantity"] = stock
+            else:
+                combo["stockQuantity"] = new_stock
     else:
         origin["stockQuantity"] = new_stock
 
@@ -93,6 +119,7 @@ def main():
     table = NocoDBTable(config.NOCODB_URL, config.NOCODB_API_TOKEN, config.NOCODB_TABLE_ID)
     records = table.all()
     find = build_finder(records)
+    records_by_sku = {r["fields"].get("SKU", "").strip(): r for r in records}
 
     token = None
     if not args.dry_run:
@@ -109,6 +136,7 @@ def main():
             continue
 
         fields = rec["fields"]
+        white_sku = fields.get("SKU", "").strip()
         channel_no = fields.get("Naver_Product_No")
         if not channel_no:
             print(f"[건너뜀] '{product_name}' - Naver_Product_No 없음 (아직 미등록)")
@@ -123,8 +151,31 @@ def main():
         in_stock = fields.get("In_Stock")
         new_stock = DEFAULT_STOCK_IN if in_stock else DEFAULT_STOCK_OUT
 
+        # 화이트/블랙 색상 옵션 짝: create_color_variant_rows.py가 만든
+        # "{화이트 SKU} Black" 로우가 있고 거기에 sale_price가 채워져 있으면
+        # (=구매처 ID가 입력되어 스크래핑된 상태), 옵션별로 다른 가격/재고를 반영한다.
+        option_overrides = None
+        black_rec = records_by_sku.get(f"{white_sku} Black")
+        if black_rec:
+            black_fields = black_rec["fields"]
+            black_price = black_fields.get("sale_price")
+            if black_price:
+                black_stock = DEFAULT_STOCK_IN if black_fields.get("In_Stock") else DEFAULT_STOCK_OUT
+                option_overrides = {
+                    WHITE_LABEL: (0, new_stock),
+                    BLACK_LABEL: (int(black_price) - new_price, black_stock),
+                }
+            else:
+                print(f"  [참고] '{white_sku} Black' 로우는 있지만 sale_price가 없음"
+                      " (구매처 ID 미입력) - 옵션 균일 적용으로 진행")
+
         print(f"\n=== {product_name} (channelProductNo={channel_no}) ===")
-        print(f"  판매가 -> {new_price:,}원 / 재고 -> {new_stock}")
+        if option_overrides:
+            print(f"  화이트 판매가 -> {new_price:,}원 / 재고 -> {new_stock}")
+            black_addon, black_stock = option_overrides[BLACK_LABEL]
+            print(f"  블랙 추가금액 -> {black_addon:+,}원 / 재고 -> {black_stock}")
+        else:
+            print(f"  판매가 -> {new_price:,}원 / 재고 -> {new_stock}")
 
         if args.dry_run:
             processed += 1
@@ -132,7 +183,7 @@ def main():
 
         try:
             current = get_channel_product(token, int(channel_no))
-            updated_body = apply_price_stock(current, new_price, new_stock)
+            updated_body = apply_price_stock(current, new_price, new_stock, option_overrides)
             put_channel_product(token, int(channel_no), updated_body)
             print("  [완료]")
         except Exception as e:  # noqa: BLE001

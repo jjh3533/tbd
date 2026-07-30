@@ -27,7 +27,8 @@
 | `update_product_names_with_keywords.py` | 기등록 상품명에 검색 키워드 일괄 추가 |
 | `run_pipeline.py` | main.py → sync_naver_ids_to_nocodb.py → update_price_stock.py 순차 실행 |
 | `sync_naver_ids_to_nocodb.py` | `TARGET_PRODUCTS` 매핑, 네이버 채널상품번호를 NocoDB에 반영 |
-| `update_price_stock.py` | NocoDB → 네이버 가격/재고 동기화 (영문 필드명 `sale_price` 사용) |
+| `update_price_stock.py` | NocoDB → 네이버 가격/재고 동기화 (영문 필드명 `sale_price` 사용). 화이트/블랙 색상 옵션 상품은 `{SKU} Black` 짝 로우가 있으면 옵션별로 다른 가격/재고 반영 |
+| `create_color_variant_rows.py` | 화이트 기준 로우에서 `{SKU} Black`/`{Model Number}-B` 블랙 변형 로우를 생성하는 스크립트 (Category/Weight_KG/MSRP_USD/Naver_Product_No는 화이트와 동일하게 복사, 구매처 ID는 비워둠) |
 | `fix_delivery_settings.py` | 이미 등록된 상품의 배송사/배송비/원산지 일괄 수정 |
 | `update_live_customs_image.py` | 라이브 상세페이지의 통관 안내 섹션 이미지만 교체 |
 | `rename_fields_to_english.py` | NocoDB 필드명을 한글에서 영문으로 변경하는 스크립트 |
@@ -53,6 +54,7 @@
 
 - **Price_History 테이블**: 로컬/NAS 양쪽 다 `NOCODB_HISTORY_TABLE_ID=mi258r3q4g5wu69`로 연결 완료, `https://my.tbd.kr/inventory`에서 운영 중. 아직 실제 Sync를 통해 쌓인 이력은 0건(다음 Sync 버튼 클릭부터 자연히 쌓이기 시작함) — 그래서 "15일 이상 품절" 섹션은 지금 비어있고, 미판매 상품 전체가 "기록 이전부터 품절"로 표시되는 게 정상.
 - **자동 동기화 스케줄러**: NAS에서 가동 중. 매일 09:00 KST 전체 동기화 + 4시간마다 확인 필요 상품만 재조회. 스케줄 시각/주기를 바꾸려면 `sync_engine.py`의 `start_background_scheduler()` 안 `CronTrigger`/`IntervalTrigger` 파라미터만 수정하면 됨.
+- **화이트/블랙 색상 옵션 관리**: 구매처마다 화이트/블랙 가격이 다른 35개 제품에 대해 `{화이트 SKU} Black` NocoDB 로우 생성 완료 (Category/Weight_KG/MSRP_USD/Naver_Product_No는 화이트와 동일, ADORAMA_ID/ASIN/BH_ID는 비어있음). **다음 할 일**: 사용자가 각 Black 로우에 구매처 ID를 채워넣으면, 다음 Sync부터 자체 가격이 잡히고 `update_price_stock.py`가 네이버 "화이트"/"블랙" 옵션에 각각 다른 가격(추가금액)/재고를 반영함(ID 미입력 상태면 기존처럼 균일 적용 + 콘솔 안내). `UniFi Reader`/`UniFi G3 Reader Fingerprint`/`UniFi Retrofit Reader Fingerprint`는 화이트 자체가 NocoDB에 없어 이번엔 제외함.
 
 **현재 수치**:
 - 네이버 스마트스토어 등록 상품: **96개**
@@ -80,6 +82,7 @@
 5. NocoDB에 다른 카테고리(Gateway, Routing 등)에도 미등록(`Naver_Product_No` 없음) 상품이 더 있는지 확인 — 사용자가 원하면 계속 등록 확장
 6. **가격/재고 이력 기능 관찰**: NAS 배포는 완료됐으니, 앞으로 몇 차례 Sync를 돌려서 `Price_History`에 실제 이력이 잘 쌓이는지, `/inventory`의 "15일 이상 품절" 섹션이 시간이 지나며 의도대로 채워지는지 확인
 7. **자동 동기화 스케줄러 관찰**: 다음날 09:00 KST 전체 동기화가 실제로 발동하는지, 4시간마다 확인 필요 상품 재조회가 정상 도는지 `docker-compose logs`/Telegram 알림으로 며칠 지켜보기. 문제 있으면 `sync_engine.start_background_scheduler()`의 트리거 설정 확인
+8. **화이트/블랙 색상 옵션 마무리**: 사용자가 35개 Black 로우에 ADORAMA_ID/ASIN/BH_ID를 채워넣으면, Sync 후 `update_price_stock.py --dry-run`으로 옵션별 가격/재고가 의도대로 갈리는지 확인. `UniFi Reader`/`UniFi G3 Reader Fingerprint`/`UniFi Retrofit Reader Fingerprint`는 화이트 자체를 나중에 등록하게 되면 그때 Black 로우도 같이 생성
 
 ## 5. 특이사항
 
