@@ -28,7 +28,11 @@ from auth import get_bearer_token
 from image_uploader import upload_with_retry
 
 API_BASE = "https://api.commerce.naver.com/external/v2/products/channel-products"
-GD = "/Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Pages_html"
+# 맥 두 대(다른 macOS 계정)에서 같은 구글 드라이브 계정을 쓰므로, 홈 디렉토리만
+# os.path.expanduser로 자동 치환 (naver_config.py의 PRODUCT_PAGES_DIR와 동일 패턴).
+GD = os.path.expanduser(
+    "~/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Pages_html"
+)
 EXPORTS_DIR = f"{GD}/exports"
 LOG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "registered_log.json")
 

@@ -3,6 +3,10 @@
 .env.*
 !.env.example
 
+# 기기별 로컬 설정 오버라이드 (naver_config.py 맨 아래에서 있으면 import) - 두 맥
+# 간에 공유하면 안 되는 값이 생기면 여기 채워 넣고 커밋하지 않기 위함
+naver_config_local.py
+
 # Streamlit
 .streamlit/secrets.toml
 

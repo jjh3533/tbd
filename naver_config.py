@@ -66,8 +66,13 @@ CATEGORY_API_URL = "https://api.commerce.naver.com/external/v1/categories"
 MAX_OPTIONAL_IMAGES = 4
 
 # --- 상품 이미지 / 상세페이지 원본 폴더 (구글드라이브 동기화 폴더) ---
-PRODUCT_IMAGES_DIR = "/Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Images"
-PRODUCT_PAGES_DIR = "/Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Pages_html/exports"
+# 맥 두 대(다른 macOS 계정)에서 같은 구글 드라이브 계정을 쓰므로, 홈 디렉토리만
+# os.path.expanduser로 자동 치환해 어느 기기에서 실행하든 그대로 동작하게 함.
+_GOOGLE_DRIVE_TBD_ROOT = os.path.expanduser(
+    "~/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul"
+)
+PRODUCT_IMAGES_DIR = f"{_GOOGLE_DRIVE_TBD_ROOT}/Product Images"
+PRODUCT_PAGES_DIR = f"{_GOOGLE_DRIVE_TBD_ROOT}/Product Pages_html/exports"
 
 try:
     from naver_config_local import *  # noqa  # 개인 설정으로 위 값들을 덮어쓰고 싶을 때 사용
