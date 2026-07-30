@@ -54,7 +54,7 @@
 
 - **Price_History 테이블**: 로컬/NAS 양쪽 다 `NOCODB_HISTORY_TABLE_ID=mi258r3q4g5wu69`로 연결 완료, `https://my.tbd.kr/inventory`에서 운영 중. 아직 실제 Sync를 통해 쌓인 이력은 0건(다음 Sync 버튼 클릭부터 자연히 쌓이기 시작함) — 그래서 "15일 이상 품절" 섹션은 지금 비어있고, 미판매 상품 전체가 "기록 이전부터 품절"로 표시되는 게 정상.
 - **자동 동기화 스케줄러**: NAS에서 가동 중. 매일 09:00 KST 전체 동기화 + 4시간마다 확인 필요 상품만 재조회. 스케줄 시각/주기를 바꾸려면 `sync_engine.py`의 `start_background_scheduler()` 안 `CronTrigger`/`IntervalTrigger` 파라미터만 수정하면 됨.
-- **화이트/블랙 색상 옵션 관리**: 구매처마다 화이트/블랙 가격이 다른 35개 제품에 대해 `{화이트 SKU} Black` NocoDB 로우 생성 완료 (Category/Weight_KG/MSRP_USD/Naver_Product_No는 화이트와 동일, ADORAMA_ID/ASIN/BH_ID는 비어있음 → 27개는 B&H 코드 입력 완료, 실제 B&H 상품명과 대조 검증까지 마침). **다음 할 일**: 사용자가 각 Black 로우에 나머지 구매처 ID를 채워넣으면, 다음 Sync부터 자체 가격이 잡히고 `update_price_stock.py`가 네이버 "화이트"/"블랙" 옵션에 각각 다른 가격(추가금액)/재고를 반영함(ID 미입력 상태면 기존처럼 균일 적용 + 콘솔 안내). `UniFi Reader`/`UniFi G3 Reader Fingerprint`/`UniFi Retrofit Reader Fingerprint`는 화이트 자체가 NocoDB에 없어 이번엔 제외함.
+- **화이트/블랙 색상 옵션 관리**: 구매처마다 화이트/블랙 가격이 다른 35개 제품에 대해 `{화이트 SKU} Black` NocoDB 로우 생성 완료, `Product_Page="Clone"` 태깅 완료. 27개는 B&H 코드 입력 + 실제 B&H 상품명 대조 검증까지 마침. **네이버 반영 완료**: `update_price_stock.py` 전체 실행 결과, 색상 옵션이 필요한 15개 상품 중 **14개**가 실제로 네이버에 "색상: 화이트/블랙" 옵션으로 반영됨(1개는 기존 옵션 갱신, 13개는 이번에 옵션 신규 생성). 나머지 1개(`UniFi Reader Pro`)는 화이트/블랙 둘 다 현재 품절이라 네이버가 옵션 신규 생성 자체를 거부(`NoZeroStock` 검증)해서 이번 라운드는 보류 - 다음 Sync에서 둘 중 하나라도 재고가 생기면 자동으로 재시도됨. `UniFi Reader`/`UniFi G3 Reader Fingerprint`/`UniFi Retrofit Reader Fingerprint`는 화이트 자체가 NocoDB에 없어 이번엔 제외함.
 - **NocoDB `Product_Page = "Clone"` 컨벤션**: 색상 옵션 클론 로우(위 35개 Black 로우)는 독립된 상세페이지/네이버 등록이 필요 없는, 화이트 로우의 옵션일 뿐이라는 뜻으로 사용자가 `Product_Page` 필드에 `Clone` 값을 도입함(`None`/`Simple`/`Detail`에 이어 4번째 옵션). `create_color_variant_rows.py`가 새로 만드는 로우에는 이 값을 자동으로 채움 - **앞으로 상품 목록을 다룰 때(대시보드 카운트, 상세페이지 생성 대상 파악 등) `Product_Page == "Clone"`인 로우는 "실제 등록 상품"이 아니라 "다른 로우의 색상 옵션"이라는 점을 감안할 것.**
 
 **현재 수치**:
@@ -83,7 +83,7 @@
 5. NocoDB에 다른 카테고리(Gateway, Routing 등)에도 미등록(`Naver_Product_No` 없음) 상품이 더 있는지 확인 — 사용자가 원하면 계속 등록 확장
 6. **가격/재고 이력 기능 관찰**: NAS 배포는 완료됐으니, 앞으로 몇 차례 Sync를 돌려서 `Price_History`에 실제 이력이 잘 쌓이는지, `/inventory`의 "15일 이상 품절" 섹션이 시간이 지나며 의도대로 채워지는지 확인
 7. **자동 동기화 스케줄러 관찰**: 다음날 09:00 KST 전체 동기화가 실제로 발동하는지, 4시간마다 확인 필요 상품 재조회가 정상 도는지 `docker-compose logs`/Telegram 알림으로 며칠 지켜보기. 문제 있으면 `sync_engine.start_background_scheduler()`의 트리거 설정 확인
-8. **화이트/블랙 색상 옵션 마무리**: B&H 코드는 27/35 입력 + 실제 상품명 대조 검증 완료(불일치 없음, `UniFi Access Button Black` 1855250-REG만 "(Black)" 표기가 없어 직접 확인 권장). 나머지 ADORAMA_ID/ASIN 및 남은 BH_ID를 마저 채워넣고, Sync 후 `update_price_stock.py --dry-run`으로 옵션별 가격/재고가 의도대로 갈리는지 확인. `UniFi Reader`/`UniFi G3 Reader Fingerprint`/`UniFi Retrofit Reader Fingerprint`는 화이트 자체를 나중에 등록하게 되면 그때 Black 로우도 같이 생성
+8. **화이트/블랙 색상 옵션 마무리**: 네이버 반영은 14/15 완료(위 "현재 상태" 참고). 남은 8개 Black 로우(BH_ID 없음)와 나머지 ADORAMA_ID/ASIN을 마저 채워넣어 구매처 커버리지 확대. `UniFi Reader Pro`는 재고 생기면 자동 재시도되는지 며칠 후 확인. `UniFi Access Button Black`(1855250-REG)은 B&H 제목에 "(Black)" 표기가 없어 실제 색상이 맞는지 직접 확인 권장. `UniFi Reader`/`UniFi G3 Reader Fingerprint`/`UniFi Retrofit Reader Fingerprint`는 화이트 자체를 나중에 등록하게 되면 그때 Black 로우도 같이 생성
 
 ## 5. 특이사항
 

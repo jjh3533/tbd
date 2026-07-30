@@ -71,15 +71,40 @@ WHITE_LABEL = "화이트"
 BLACK_LABEL = "블랙"
 
 
+def build_new_color_option_info(white_addon: int, white_stock: int, black_addon: int, black_stock: int) -> dict:
+    """옵션 구조가 아예 없는 단일가 상품에 화이트/블랙 색상 옵션을 처음 추가할
+    때 쓰는 전체 optionInfo 블록. 이미 수동으로 옵션이 설정돼 있던 U7 Pro XG의
+    라이브 구조를 그대로 참고해 필드를 구성했다(누락되면 네이버가 거부하는
+    필드가 있을 수 있어, 실제로 동작이 확인된 형태를 그대로 씀)."""
+    return {
+        "simpleOptionSortType": "CREATE",
+        "optionSimple": [],
+        "optionCustom": [],
+        "optionCombinationSortType": "CREATE",
+        "optionCombinationGroupNames": {"optionGroupName1": "색상"},
+        "optionCombinations": [
+            {"optionName1": WHITE_LABEL, "stockQuantity": white_stock, "price": white_addon, "usable": True},
+            {"optionName1": BLACK_LABEL, "stockQuantity": black_stock, "price": black_addon, "usable": True},
+        ],
+        "standardOptionGroups": [],
+        "optionStandards": [],
+        "useStockManagement": True,
+        "optionDeliveryAttributes": [],
+    }
+
+
 def apply_price_stock(body: dict, new_price: int, new_stock: int, option_overrides: dict | None = None) -> dict:
     """GET으로 받아온 전체 body에서 salePrice/stockQuantity만 바꿔치기.
 
     option_overrides: {"화이트": (price_addon, stock), "블랙": (price_addon, stock)}
-    형태로 넘기면, optionCombinations 중 해당 라벨의 옵션은 새 price(추가금액)/
-    stockQuantity를 각각 다르게 설정한다 (구매처마다 화이트/블랙 가격이 다른
-    경우). 넘기지 않으면 기존처럼 모든 옵션에 new_price/new_stock을 균일하게
-    적용한다 (옵션이 아예 없는 단일 상품, 또는 아직 짝이 되는 Black/White
-    로우가 없는 옵션 상품)."""
+    형태로 넘기면:
+    - 이미 옵션 조합(화이트/블랙)이 있는 상품은 그 옵션들의 price(추가금액)/
+      stockQuantity를 각각 다르게 갱신한다.
+    - 옵션 자체가 아직 없는 단일가 상품이면, build_new_color_option_info()로
+      화이트/블랙 옵션 구조를 새로 추가한다(고객 페이지에 "색상" 선택지가
+      새로 생김).
+    option_overrides를 넘기지 않으면 기존처럼 모든 옵션(또는 단일 상품)에
+    new_price/new_stock을 균일하게 적용한다."""
     origin = body.get("originProduct")
     if origin is None:
         raise RuntimeError(f"originProduct 키를 찾을 수 없음. 응답 구조 확인 필요: {list(body.keys())}")
@@ -92,8 +117,10 @@ def apply_price_stock(body: dict, new_price: int, new_stock: int, option_overrid
 
     origin["salePrice"] = new_price
 
-    option_info = (origin.get("detailAttribute") or {}).get("optionInfo")
+    detail_attr = origin.setdefault("detailAttribute", {})
+    option_info = detail_attr.get("optionInfo")
     combinations = (option_info or {}).get("optionCombinations")
+
     if combinations:
         # 옵션형 상품(U7 Pro XG 등)은 상위 stockQuantity가 아니라 옵션별 재고 합산으로 관리됨.
         for combo in combinations:
@@ -104,6 +131,28 @@ def apply_price_stock(body: dict, new_price: int, new_stock: int, option_overrid
                 combo["stockQuantity"] = stock
             else:
                 combo["stockQuantity"] = new_stock
+    elif option_overrides:
+        white_addon, white_stock = option_overrides.get(WHITE_LABEL, (0, new_stock))
+        black_addon, black_stock = option_overrides.get(BLACK_LABEL, (0, new_stock))
+
+        # 네이버는 옵션을 신규 생성할 때 "옵션가 0원 + 재고 1개 이상 + 사용함"인
+        # 옵션이 최소 1개 있어야 한다(NoZeroStock 검증). 화이트를 0원 기준으로
+        # 두는 게 원칙이지만, 화이트 재고가 0이면 그 조건을 못 만족하므로
+        # 재고가 있는 색상을 0원 기준으로 삼고 나머지 색상의 추가금액을 그
+        # 기준 대비로 재계산한다(최종 판매가=salePrice+추가금액은 어느 쪽을
+        # 기준 삼든 동일하게 나옴).
+        if white_stock <= 0 and black_stock > 0:
+            new_price = new_price + black_addon
+            white_addon, black_addon = white_addon - black_addon, 0
+
+        if white_stock <= 0 and black_stock <= 0:
+            # 화이트/블랙 둘 다 품절이면 옵션 신규 생성 자체가 거부되므로,
+            # 재고가 생길 때까지는 기존처럼 단일가/단일재고로 반영하고
+            # 다음 Sync 이후 재시도한다(자동으로 다시 시도됨, 별도 조치 불필요).
+            origin["stockQuantity"] = new_stock
+        else:
+            origin["salePrice"] = new_price
+            detail_attr["optionInfo"] = build_new_color_option_info(white_addon, white_stock, black_addon, black_stock)
     else:
         origin["stockQuantity"] = new_stock
 
