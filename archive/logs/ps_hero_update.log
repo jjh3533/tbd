@@ -1,0 +1,55 @@
+13개 제품의 히어로 이미지 교체 시작 (dry_run=False)
+
+=== UniFi G6 Pro 360 / 유니파이 UniFi G6 Pro 360 (channelProductNo=13686870764) ===
+  새 히어로: /Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Pages_html/exports/g6-pro-360/01-hero.png
+  [오류] 이미지 업로드 실패 (/Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Pages_html/exports/g6-pro-360/01-hero.png): [Errno 2] No such file or directory: 'U'
+
+=== UniFi AI PTZ Industrial / 유니파이 UniFi AI PTZ Industrial (channelProductNo=13686870801) ===
+  새 히어로: /Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Pages_html/exports/ai-ptz-industrial/01-hero.png
+  [오류] 이미지 업로드 실패 (/Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Pages_html/exports/ai-ptz-industrial/01-hero.png): [Errno 2] No such file or directory: 'U'
+
+=== UniFi G5 Turret Ultra / 유니파이 UniFi G5 Turret Ultra (channelProductNo=13686870844) ===
+  새 히어로: /Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Pages_html/exports/g5-turret-ultra/01-hero.png
+  [오류] 이미지 업로드 실패 (/Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Pages_html/exports/g5-turret-ultra/01-hero.png): [Errno 2] No such file or directory: 'U'
+
+=== UniFi G6 Dome / 유니파이 UniFi G6 Dome (channelProductNo=13686870868) ===
+  새 히어로: /Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Pages_html/exports/g6-dome/01-hero.png
+  [오류] 이미지 업로드 실패 (/Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Pages_html/exports/g6-dome/01-hero.png): [Errno 2] No such file or directory: 'U'
+
+=== UniFi AI Theta / 유니파이 UniFi AI Theta (channelProductNo=13686870915) ===
+  새 히어로: /Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Pages_html/exports/ai-theta/01-hero.png
+  [오류] 이미지 업로드 실패 (/Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Pages_html/exports/ai-theta/01-hero.png): [Errno 2] No such file or directory: 'U'
+
+=== UniFi All-In-One Sensor / 유니파이 UniFi All-In-One Sensor (channelProductNo=13686872584) ===
+  새 히어로: /Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Pages_html/exports/all-in-one-sensor/01-hero.png
+  [오류] 이미지 업로드 실패 (/Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Pages_html/exports/all-in-one-sensor/01-hero.png): [Errno 2] No such file or directory: 'U'
+
+=== UniFi Glass Break Sensor / 유니파이 UniFi Glass Break Sensor (channelProductNo=13686872593) ===
+  새 히어로: /Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Pages_html/exports/glass-break-sensor/01-hero.png
+  [오류] 이미지 업로드 실패 (/Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Pages_html/exports/glass-break-sensor/01-hero.png): [Errno 2] No such file or directory: 'U'
+
+=== UniFi Motion Sensor / 유니파이 UniFi Motion Sensor (channelProductNo=13686872605) ===
+  새 히어로: /Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Pages_html/exports/motion-sensor/01-hero.png
+  [오류] 이미지 업로드 실패 (/Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Pages_html/exports/motion-sensor/01-hero.png): [Errno 2] No such file or directory: 'U'
+
+=== UniFi Network Video Recorder Instant / 유니파이 UniFi Network Video Recorder Instant (channelProductNo=13686872630) ===
+  새 히어로: /Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Pages_html/exports/nvr-instant/01-hero.png
+  [오류] 이미지 업로드 실패 (/Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Pages_html/exports/nvr-instant/01-hero.png): [Errno 2] No such file or directory: 'U'
+
+=== UniFi CloudKey+ / 유니파이 UniFi CloudKey+ (channelProductNo=13686872672) ===
+  새 히어로: /Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Pages_html/exports/cloudkey-plus/01-hero.png
+  [오류] 이미지 업로드 실패 (/Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Pages_html/exports/cloudkey-plus/01-hero.png): [Errno 2] No such file or directory: 'U'
+
+=== UniFi AI Horn Speaker / 유니파이 UniFi AI Horn Speaker (channelProductNo=13686872686) ===
+  새 히어로: /Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Pages_html/exports/ai-horn-speaker/01-hero.png
+  [오류] 이미지 업로드 실패 (/Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Pages_html/exports/ai-horn-speaker/01-hero.png): [Errno 2] No such file or directory: 'U'
+
+=== UniFi SuperLink Gateway / 유니파이 UniFi SuperLink Gateway (channelProductNo=13686872710) ===
+  새 히어로: /Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Pages_html/exports/superlink-gateway/01-hero.png
+  [오류] 이미지 업로드 실패 (/Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Pages_html/exports/superlink-gateway/01-hero.png): [Errno 2] No such file or directory: 'U'
+
+=== UniFi Floodlight / 유니파이 UniFi Floodlight (channelProductNo=13686871209) ===
+  새 히어로: /Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Pages_html/exports/floodlight/01-hero.png
+  [오류] 이미지 업로드 실패 (/Users/cheil/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul/Product Pages_html/exports/floodlight/01-hero.png): [Errno 2] No such file or directory: 'U'
+
+총 13개 처리 완료
