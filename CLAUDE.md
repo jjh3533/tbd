@@ -27,7 +27,7 @@
 | `update_product_names_with_keywords.py` | 기등록 상품명에 검색 키워드 일괄 추가 |
 | `run_pipeline.py` | main.py → sync_naver_ids_to_nocodb.py → update_price_stock.py 순차 실행 |
 | `sync_naver_ids_to_nocodb.py` | `TARGET_PRODUCTS` 매핑, 네이버 채널상품번호를 NocoDB에 반영 |
-| `update_price_stock.py` | NocoDB → 네이버 가격/재고 동기화 (영문 필드명 `sale_price` 사용). 화이트/블랙 색상 옵션 상품은 `{SKU} Black` 짝 로우가 있으면 옵션별로 다른 가격/재고 반영 |
+| `update_price_stock.py` | NocoDB → 네이버 가격/재고 동기화 (영문 필드명 `sale_price` 사용). `{SKU} Black` 짝 로우가 있으면 화이트/블랙 옵션별로 다른 가격/재고 반영 - 옵션이 이미 있으면 갱신, 없으면 신규 생성 |
 | `create_color_variant_rows.py` | 화이트 기준 로우에서 `{SKU} Black`/`{Model Number}-B` 블랙 변형 로우를 생성하는 스크립트 (Category/Weight_KG/MSRP_USD/Naver_Product_No는 화이트와 동일하게 복사, 구매처 ID는 비워둠) |
 | `fix_delivery_settings.py` | 이미 등록된 상품의 배송사/배송비/원산지 일괄 수정 |
 | `update_live_customs_image.py` | 라이브 상세페이지의 통관 안내 섹션 이미지만 교체 |
@@ -54,8 +54,7 @@
 
 - **Price_History 테이블**: 로컬/NAS 양쪽 다 `NOCODB_HISTORY_TABLE_ID=mi258r3q4g5wu69`로 연결 완료, `https://my.tbd.kr/inventory`에서 운영 중. 아직 실제 Sync를 통해 쌓인 이력은 0건(다음 Sync 버튼 클릭부터 자연히 쌓이기 시작함) — 그래서 "15일 이상 품절" 섹션은 지금 비어있고, 미판매 상품 전체가 "기록 이전부터 품절"로 표시되는 게 정상.
 - **자동 동기화 스케줄러**: NAS에서 가동 중. 매일 09:00 KST 전체 동기화 + 4시간마다 확인 필요 상품만 재조회. 스케줄 시각/주기를 바꾸려면 `sync_engine.py`의 `start_background_scheduler()` 안 `CronTrigger`/`IntervalTrigger` 파라미터만 수정하면 됨.
-- **화이트/블랙 색상 옵션 관리**: 구매처마다 화이트/블랙 가격이 다른 35개 제품에 대해 `{화이트 SKU} Black` NocoDB 로우 생성 완료, `Product_Page="Clone"` 태깅 완료. 27개는 B&H 코드 입력 + 실제 B&H 상품명 대조 검증까지 마침. **네이버 반영 완료**: `update_price_stock.py` 전체 실행 결과, 색상 옵션이 필요한 15개 상품 중 **14개**가 실제로 네이버에 "색상: 화이트/블랙" 옵션으로 반영됨(1개는 기존 옵션 갱신, 13개는 이번에 옵션 신규 생성). 나머지 1개(`UniFi Reader Pro`)는 화이트/블랙 둘 다 현재 품절이라 네이버가 옵션 신규 생성 자체를 거부(`NoZeroStock` 검증)해서 이번 라운드는 보류 - 다음 Sync에서 둘 중 하나라도 재고가 생기면 자동으로 재시도됨. `UniFi Reader`/`UniFi G3 Reader Fingerprint`/`UniFi Retrofit Reader Fingerprint`는 화이트 자체가 NocoDB에 없어 이번엔 제외함.
-- **NocoDB `Product_Page = "Clone"` 컨벤션**: 색상 옵션 클론 로우(위 35개 Black 로우)는 독립된 상세페이지/네이버 등록이 필요 없는, 화이트 로우의 옵션일 뿐이라는 뜻으로 사용자가 `Product_Page` 필드에 `Clone` 값을 도입함(`None`/`Simple`/`Detail`에 이어 4번째 옵션). `create_color_variant_rows.py`가 새로 만드는 로우에는 이 값을 자동으로 채움 - **앞으로 상품 목록을 다룰 때(대시보드 카운트, 상세페이지 생성 대상 파악 등) `Product_Page == "Clone"`인 로우는 "실제 등록 상품"이 아니라 "다른 로우의 색상 옵션"이라는 점을 감안할 것.**
+- **화이트/블랙 색상 옵션 관리**: 구매처마다 화이트/블랙 가격이 다른 35개 제품에 대해 NocoDB에 `{화이트 SKU} Black` 로우를 만들어 색상별로 가격/재고를 따로 추적(Category/Weight_KG/MSRP_USD/Naver_Product_No는 화이트와 동일 복사). 이 클론 로우는 `Product_Page="Clone"`으로 태깅됨(사용자가 도입한 컨벤션, `None`/`Simple`/`Detail`에 이어 4번째 옵션 - `create_color_variant_rows.py`가 자동으로 채움) — **`Product_Page == "Clone"`인 로우는 독립된 상세페이지/등록이 필요 없는 "다른 로우의 색상 옵션"일 뿐이므로, 앞으로 대시보드 카운트나 상세페이지 생성 대상을 다룰 때 이 점을 감안할 것.** `update_price_stock.py`는 Black 로우에 `sale_price`가 채워지면(구매처 ID 스크래핑 완료) 네이버에 "색상"(화이트/블랙) 옵션으로 반영함 - 이미 옵션이 있으면 갱신, 없으면 신규 생성(화이트 재고가 0이면 재고 있는 쪽을 0원 기준으로 자동 전환, 둘 다 품절이면 네이버가 옵션 생성 자체를 거부해 다음 Sync까지 보류). **현황**: 27/35 로우에 B&H 코드 입력 + 실제 B&H 상품명 대조 검증 완료(불일치 없음), 색상 옵션이 필요한 15개 상품 중 14개 네이버 반영 완료(`UniFi Reader Pro`만 화이트/블랙 둘 다 품절이라 보류 중). `UniFi Reader`/`UniFi G3 Reader Fingerprint`/`UniFi Retrofit Reader Fingerprint`는 화이트 자체가 NocoDB에 없어 이번 작업에서 제외함.
 
 **현재 수치**:
 - 네이버 스마트스토어 등록 상품: **96개**
@@ -83,7 +82,7 @@
 5. NocoDB에 다른 카테고리(Gateway, Routing 등)에도 미등록(`Naver_Product_No` 없음) 상품이 더 있는지 확인 — 사용자가 원하면 계속 등록 확장
 6. **가격/재고 이력 기능 관찰**: NAS 배포는 완료됐으니, 앞으로 몇 차례 Sync를 돌려서 `Price_History`에 실제 이력이 잘 쌓이는지, `/inventory`의 "15일 이상 품절" 섹션이 시간이 지나며 의도대로 채워지는지 확인
 7. **자동 동기화 스케줄러 관찰**: 다음날 09:00 KST 전체 동기화가 실제로 발동하는지, 4시간마다 확인 필요 상품 재조회가 정상 도는지 `docker-compose logs`/Telegram 알림으로 며칠 지켜보기. 문제 있으면 `sync_engine.start_background_scheduler()`의 트리거 설정 확인
-8. **화이트/블랙 색상 옵션 마무리**: 네이버 반영은 14/15 완료(위 "현재 상태" 참고). 남은 8개 Black 로우(BH_ID 없음)와 나머지 ADORAMA_ID/ASIN을 마저 채워넣어 구매처 커버리지 확대. `UniFi Reader Pro`는 재고 생기면 자동 재시도되는지 며칠 후 확인. `UniFi Access Button Black`(1855250-REG)은 B&H 제목에 "(Black)" 표기가 없어 실제 색상이 맞는지 직접 확인 권장. `UniFi Reader`/`UniFi G3 Reader Fingerprint`/`UniFi Retrofit Reader Fingerprint`는 화이트 자체를 나중에 등록하게 되면 그때 Black 로우도 같이 생성
+8. **화이트/블랙 색상 옵션 커버리지 확대**: 남은 8개 Black 로우(B&H 코드 없음)와 나머지 ADORAMA_ID/ASIN을 마저 채워넣기. `UniFi Reader Pro`는 재고가 생기면 다음 Sync에서 옵션이 자동으로 만들어지는지 며칠 후 확인. `UniFi Access Button Black`(1855250-REG)은 B&H 제목에 "(Black)" 표기가 없어 실제 색상이 맞는지 직접 확인 권장. `UniFi Reader`/`UniFi G3 Reader Fingerprint`/`UniFi Retrofit Reader Fingerprint`는 화이트 자체를 나중에 등록하게 되면 그때 Black 로우도 같이 생성
 
 ## 5. 특이사항
 
