@@ -20,6 +20,10 @@
     GET/PUT 엔드포인트(/external/v2/products/channel-products/{channelProductNo})는
     커머스API 공식 GitHub 기술지원 저장소의 문의글을 근거로 추정한 경로다.
     실제 호출 시 404/405가 뜨면 에러 메시지를 공유해달라 - 경로를 바로 수정하겠다.
+
+NocoDB 필드:
+    - sale_price: 네이버 판매가
+    - In_Stock: 재고 여부 (True/False)
 """
 import argparse
 import json
@@ -110,9 +114,9 @@ def main():
             print(f"[건너뜀] '{product_name}' - Naver_Product_No 없음 (아직 미등록)")
             continue
 
-        new_price = fields.get("판매금액")
+        new_price = fields.get("sale_price")
         if not new_price:
-            print(f"[건너뜀] '{product_name}' - NocoDB '판매금액' 값 없음")
+            print(f"[건너뜀] '{product_name}' - NocoDB 'sale_price' 값 없음")
             continue
         new_price = int(new_price)
 

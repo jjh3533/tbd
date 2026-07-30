@@ -1,5 +1,5 @@
 """
-NocoDB의 "판매금액"(및 재고 상태)을 조회해서, 스마트스토어 상품등록 자동화 스크립트가
+NocoDB의 "sale_price"(및 재고 상태)을 조회해서, 스마트스토어 상품등록 자동화 스크립트가
 쓸 수 있는 CSV로 저장합니다.
 
 주의: 이 테이블의 "SKU" 필드에는 실제로는 짧은 코드가 아니라 상품명 전체
@@ -10,7 +10,7 @@ NocoDB의 "판매금액"(및 재고 상태)을 조회해서, 스마트스토어 
 사용법:
     python export_prices_for_naver.py
 
-결과: /Users/cheil/naver/nocodb_prices.csv 에 상품명, 판매금액, 최종가격, 수익, In_Stock 저장
+결과: /Users/cheil/naver/nocodb_prices.csv 에 상품명, sale_price, purchase_cost, profit, In_Stock 저장
 """
 import csv
 from pathlib import Path
@@ -82,9 +82,9 @@ def main():
         rows.append({
             "영문상품명": excel_name,
             "NocoDB_SKU명": fields.get("SKU"),
-            "판매금액": fields.get("판매금액", 0),
-            "최종가격": fields.get("최종가격", 0),
-            "수익": fields.get("수익", 0),
+            "sale_price": fields.get("sale_price", 0),
+            "purchase_cost": fields.get("purchase_cost", 0),
+            "profit": fields.get("profit", 0),
             "In_Stock": fields.get("In_Stock", False),
             "Naver_Product_No": fields.get("Naver_Product_No", ""),
         })
@@ -92,7 +92,7 @@ def main():
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     with open(OUTPUT_PATH, "w", newline="", encoding="utf-8-sig") as f:
         writer = csv.DictWriter(f, fieldnames=[
-            "영문상품명", "NocoDB_SKU명", "판매금액", "최종가격", "수익", "In_Stock", "Naver_Product_No",
+            "영문상품명", "NocoDB_SKU명", "sale_price", "purchase_cost", "profit", "In_Stock", "Naver_Product_No",
         ])
         writer.writeheader()
         writer.writerows(rows)

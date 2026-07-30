@@ -733,7 +733,7 @@ def process_single_record(r, current_rate, retailers=RETAILER_NAMES):
       )
     else:
       updated_record = table.get(record_id)
-      new_sell_price = updated_record["fields"].get("판매금액", 0)
+      new_sell_price = updated_record["fields"].get("sale_price", 0)
       available_sources = ", ".join(valid_retailers)
       status_change = (
           "IN_STOCK",
@@ -979,7 +979,7 @@ def status_counts(records):
 
 def build_products_table_html(records, theme_name, show_category=True):
   """Adorama / Amazon / B&H 가격, Best Price(클릭 시 최저가 판매처로 이동),
-  판매가격/최종가격/수익까지 보여주는 Site Manager 스타일 테이블의 HTML을
+  Sale Price/Purchase Cost/Profit까지 보여주는 Site Manager 스타일 테이블의 HTML을
   문자열로 만들어 반환합니다 (렌더링은 호출부에서: Streamlit이면
   st.markdown(html, unsafe_allow_html=True), NiceGUI면 ui.html(html)).
 
@@ -995,9 +995,9 @@ def build_products_table_html(records, theme_name, show_category=True):
     columns.append("Category")
   columns += [
       "Naver ID", "UniFi Store ($)", "B&H ($)", "Adorama ($)", "Amazon ($)",
-      "Best Price ($)", "Status", "판매가격", "최종가격", "수익",
+      "Best Price ($)", "Status", "Sale Price", "Purchase Cost", "Profit",
   ]
-  final_price_col = "최종가격"
+  final_price_col = "Purchase Cost"
 
   rows_html = []
   for r in records:
@@ -1070,9 +1070,9 @@ def build_products_table_html(records, theme_name, show_category=True):
         "Amazon ($)": fmt_usd(amazon_usd),
         "Best Price ($)": fmt_usd(best_usd),
         "Status": status_html,
-        "판매가격": fmt_krw(f.get("판매금액", 0)),
-        "최종가격": fmt_krw(f.get("최종가격", 0)),
-        "수익": fmt_krw(f.get("수익", 0)),
+        "Sale Price": fmt_krw(f.get("sale_price", 0)),
+        "Purchase Cost": fmt_krw(f.get("purchase_cost", 0)),
+        "Profit": fmt_krw(f.get("profit", 0)),
     }
     cell_links = {
         "Naver ID": naver_url,

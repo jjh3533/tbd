@@ -58,7 +58,7 @@ def main():
             continue
 
         sku = fields.get("SKU", "")
-        final_price = fields.get("최종가격", 0)
+        final_price = fields.get("purchase_cost", 0)
         stock = fields.get("In_Stock", 0)
 
         # 이미지 폴더명은 SKU 기반

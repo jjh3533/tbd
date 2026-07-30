@@ -107,11 +107,11 @@ def main():
 
     columns = get_columns()
 
-    print("\n=== 4. 판매금액 생성 ===")
-    if find_column(columns, "판매금액"):
+    print("\n=== 4. sale_price 생성 ===")
+    if find_column(columns, "sale_price"):
         print("  이미 존재함, 건너뜀")
     else:
-        create_formula("판매금액", (
+        create_formula("sale_price", (
             "ROUNDUP(("
             "({MSRP_USD} * 1.0158 * {Exchange_Rate}) "
             "+ IF({MSRP_USD} > 200, ({MSRP_USD} * 1.0158 * {Exchange_Rate}) * 0.188, 0) "
@@ -121,11 +121,11 @@ def main():
 
     columns = get_columns()
 
-    print("\n=== 5. 최종가격 생성 ===")
-    if find_column(columns, "최종가격"):
+    print("\n=== 5. purchase_cost 생성 ===")
+    if find_column(columns, "purchase_cost"):
         print("  이미 존재함, 건너뜀")
     else:
-        create_formula("최종가격", (
+        create_formula("purchase_cost", (
             "IF({In_Stock}, ROUNDUP("
             "({Best_USD} * 1.0158 * {Exchange_Rate}) "
             "+ IF({Best_USD} > 200, ({Best_USD} * 1.0158 * {Exchange_Rate}) * 0.188, 0) "
@@ -135,11 +135,11 @@ def main():
 
     columns = get_columns()
 
-    print("\n=== 6. 수익 생성 ===")
-    if find_column(columns, "수익"):
+    print("\n=== 6. profit 생성 ===")
+    if find_column(columns, "profit"):
         print("  이미 존재함, 건너뜀")
     else:
-        create_formula("수익", "IF({In_Stock}, {판매금액} - {최종가격}, 0)")
+        create_formula("profit", "IF({In_Stock}, {sale_price} - {purchase_cost}, 0)")
 
     print("\n완료! NocoDB에서 새로고침해서 확인해보세요.")
 
