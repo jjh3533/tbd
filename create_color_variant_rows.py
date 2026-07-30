@@ -16,6 +16,8 @@
     Naver_Product_No = 화이트와 동일 (같은 네이버 상품의 옵션이므로 channelProductNo 공유)
     ADORAMA_ID/ASIN/BH_ID = 비워둠 (사용자가 직접 조사해서 채워 넣을 예정)
     In_Stock       = False (다음 Sync 전까지는 알 수 없음)
+    Product_Page   = "Clone" (사용자가 도입한 컨벤션 - 독립된 상세페이지/등록이
+                     필요 없는, 화이트 로우의 옵션일 뿐인 클론 로우 표시)
 
 이미 "{화이트 SKU} Black" 로우가 있으면 건너뛴다 (재실행 안전).
 
@@ -80,6 +82,10 @@ def black_fields_for(white_fields: dict) -> dict:
         "MSRP_USD": white_fields.get("MSRP_USD"),
         "Naver_Product_No": white_fields.get("Naver_Product_No"),
         "In_Stock": False,
+        # 사용자가 NocoDB Product_Page 필드에 수동으로 도입한 컨벤션: 색상 옵션
+        # 클론 로우(독립된 상세페이지/등록이 필요 없는, 화이트 로우의 옵션일 뿐인
+        # 로우)는 "Clone"으로 표시. 대시보드/등록 스크립트가 이 값으로 구분 가능.
+        "Product_Page": "Clone",
     }
 
 
