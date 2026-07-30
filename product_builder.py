@@ -8,6 +8,11 @@
 detail_attribute 항목을 보강할 것.
 """
 import naver_config as config
+from product_keywords import (
+    build_optimized_product_name,
+    get_leaf_category_id,
+    infer_category_from_name,
+)
 
 
 def build_option_info(option_name: str, option_values: list[str], base_stock: int):
@@ -44,7 +49,17 @@ def build_product_payload(row: dict, image_urls: dict) -> dict:
     """
     eng_name = str(row["영문상품명"]).strip()
     kor_name = str(row["한글상품명"]).strip()
-    full_name = f"{eng_name} / {kor_name}" if kor_name else eng_name
+
+    # 카테고리 추론 (엑셀에 Category 컬럼이 있으면 사용, 없으면 상품명으로 추론)
+    category = row.get("Category") or infer_category_from_name(eng_name)
+
+    # leafCategoryId 자동 선택 (엑셀에 있으면 우선 사용, 없으면 자동 선택)
+    leaf_category_id = str(row.get("leafCategoryId") or "").strip()
+    if not leaf_category_id:
+        leaf_category_id = get_leaf_category_id(eng_name, category)
+
+    # 검색 최적화된 상품명 생성
+    full_name = build_optimized_product_name(eng_name, kor_name, category)
 
     sale_price = int(row["판매가"])
     discount_price = row.get("할인가")
@@ -77,7 +92,7 @@ def build_product_payload(row: dict, image_urls: dict) -> dict:
     origin_product = {
         "statusType": "SALE",  # 등록 즉시 판매 시작. 검수 후 시작하려면 WAIT
         "saleType": "NEW",
-        "leafCategoryId": str(row["leafCategoryId"]),
+        "leafCategoryId": leaf_category_id,
         "name": full_name,
         "images": {
             "representativeImage": {"url": image_urls["representative"]},

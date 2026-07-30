@@ -38,10 +38,12 @@ from image_uploader import (
 from product_builder import build_product_payload
 
 REQUIRED_COLUMNS = [
-    "영문상품명", "한글상품명", "카테고리(대분류>중분류)", "leafCategoryId",
-    "판매가", "제품이미지_폴더명", "상세페이지_폴더명",
+    "영문상품명", "한글상품명", "판매가", "제품이미지_폴더명", "상세페이지_폴더명",
     "재고수량", "배송비타입",
 ]
+
+# 선택 컬럼 (없으면 자동 추론)
+OPTIONAL_COLUMNS = ["Category", "leafCategoryId", "카테고리(대분류>중분류)"]
 
 LOG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "registered_log.json")
 
