@@ -42,11 +42,24 @@ def crop_hero(src_path: str, dst_path: str, padding: int = 12):
     alpha = np.array(img.split()[-1])
     top, bottom = find_content_bbox(alpha)
     split, score = find_reflection_split(alpha, top, bottom)
+
+    # 안전장치: score가 높거나(0.3 이상) split이 원본의 50% 미만이면
+    # 반사 감지 실패로 판단하고 원본 그대로 복사
+    height = bottom - top
+    height_ratio = (split - top) / height if height > 0 else 1.0
+
+    if score is None or score > 0.3 or height_ratio < 0.5:
+        # 반사 없는 이미지로 판단 - 원본 그대로 저장
+        img.save(dst_path)
+        return {"top": int(top), "bottom": int(bottom), "split": None,
+                "score": round(float(score), 4) if score else None,
+                "out_size": img.size, "cropped": False}
+
     crop_bottom = min(split + padding, bottom)
     cropped = img.crop((0, max(top - padding, 0), img.width, crop_bottom))
     cropped.save(dst_path)
     return {"top": int(top), "bottom": int(bottom), "split": int(split),
-            "score": round(float(score), 4), "out_size": cropped.size}
+            "score": round(float(score), 4), "out_size": cropped.size, "cropped": True}
 
 
 if __name__ == "__main__":

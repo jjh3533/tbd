@@ -40,7 +40,11 @@ async def _run_sync(log: ui.log, retailers, only_needs_check=False):
   count = await loop.run_in_executor(
       None, run_tbd_tracker, adapter, retailers, only_needs_check
   )
-  ui.notify(f"⚡ 동기화 완료 ({count}건 갱신)", type="positive")
+  try:
+    ui.notify(f"⚡ 동기화 완료 ({count}건 갱신)", type="positive")
+  except RuntimeError:
+    # 사용자가 이미 페이지를 떠난 경우 무시 (로그엔 이미 완료 메시지가 있음)
+    pass
 
 
 @contextmanager
@@ -102,7 +106,7 @@ def frame(active_path: str):
       ui.html('<div class="tbd-nav-label">메뉴</div>')
       nav_items = [("📊 메인 대시보드", "/")] + [
           (f"　{c}", _category_href(c)) for c in CATEGORIES
-      ] + [("➕ 상품 등록", "/register")]
+      ] + [("➕ 상품 등록", "/register"), ("📦 재고/이력 관리", "/inventory")]
       for label, href in nav_items:
         active_cls = "tbd-nav-link active" if href == active_path else "tbd-nav-link"
         ui.html(f'<a class="{active_cls}" href="{href}">{label}</a>')

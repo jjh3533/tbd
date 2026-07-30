@@ -13,8 +13,15 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from nicegui import ui
 
+import sync_engine
+
 # 각 페이지 모듈을 import해야 @ui.page 데코레이터가 등록된다.
-from dashboard.pages import home, category, register  # noqa: F401
+from dashboard.pages import home, category, register, inventory  # noqa: F401
+
+# 매일 09:00 KST 전체 동기화 + 4시간마다 확인 필요 상품만 재조회하는 백그라운드
+# 스케줄러. reload=False라 이 모듈은 프로세스당 한 번만 실행되므로, 중복
+# 스케줄러가 뜰 걱정 없이 여기서 바로 시작한다.
+sync_engine.start_background_scheduler()
 
 ui.run(
     title="UniFi Supply Center",

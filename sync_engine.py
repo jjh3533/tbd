@@ -9,6 +9,7 @@ app.py(Streamlit)와 dashboard/(NiceGUI)가 동일하게 import해서 쓴다 - �
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timezone
 from functools import lru_cache
 from html import escape as html_escape
 import json
@@ -17,8 +18,12 @@ import threading
 import time
 from pathlib import Path
 
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 from bs4 import BeautifulSoup
 from nocodb_client import NocoDBTable
+import pytz
 import requests
 import yfinance as yf
 
@@ -26,12 +31,20 @@ from config import (
     NOCODB_URL,
     NOCODB_API_TOKEN,
     NOCODB_TABLE_ID,
+    NOCODB_HISTORY_TABLE_ID,
     SCRAPEDO_TOKEN,
     TELEGRAM_TOKEN,
     TELEGRAM_CHAT_ID,
 )
 
 table = NocoDBTable(NOCODB_URL, NOCODB_API_TOKEN, NOCODB_TABLE_ID)
+# 가격/재고 변동 이력(EAV 스타일) 테이블. NOCODB_HISTORY_TABLE_ID가 설정 안
+# 돼 있으면(마이그레이션 전 로컬 환경 등) None으로 두고, _log_change가 그냥
+# 건너뜁니다 - 메인 동기화 기능은 이 테이블 없이도 항상 동작해야 합니다.
+history_table = (
+    NocoDBTable(NOCODB_URL, NOCODB_API_TOKEN, NOCODB_HISTORY_TABLE_ID)
+    if NOCODB_HISTORY_TABLE_ID else None
+)
 
 # UniFi Store 카테고리 (What's New 제외, NocoDB Category 필드와 동일)
 CATEGORIES = [
@@ -526,6 +539,25 @@ _RETAILER_STOCK_FIELD = {
 }
 
 
+def _log_change(sku, naver_id, field_name, old_value, new_value):
+  """Price_History에 변화 1건을 기록합니다. history_table이 없거나(마이그레이션
+  전) API 호출이 실패해도, 기존 table.update() 실패 무시 패턴과 동일하게
+  메인 동기화를 절대 막지 않습니다."""
+  if history_table is None:
+    return
+  try:
+    history_table.create({
+        "SKU": sku,
+        "Naver_Product_No": str(naver_id) if naver_id else "",
+        "Field_Name": field_name,
+        "Old_Value": "" if old_value is None else str(old_value),
+        "New_Value": "" if new_value is None else str(new_value),
+        "Changed_At": datetime.now(timezone.utc).isoformat(),
+    })
+  except Exception:
+    pass
+
+
 def _stale_retailer_data(name, product_id, fields):
   """이번 라운드에 다시 조회하지 않는 리테일러의 데이터를, NocoDB에 마지막으로
   저장된 값(가격 + 사이트별 재고 체크박스)으로 흉내냅니다. 개별 리테일러만
@@ -699,6 +731,19 @@ def process_single_record(r, current_rate, retailers=RETAILER_NAMES):
   ):
     update_data["BH_USD"] = bh_price
     update_data["BH_In_Stock"] = bool(bh_data and bh_data.get("in_stock"))
+
+  # 실제로 값이 바뀐 것만 Price_History에 영구 기록 (추가 크롤링 없이, 이번
+  # 라운드에 이미 조회한 값을 버리지 않고 쌓는 것이 목적). 재조회 안 한
+  # 리테일러의 가격은 update_data에 아예 안 들어있으므로 자동으로 제외됨.
+  if curr_stock != prev_stock:
+    _log_change(sku, naver_id, "In_Stock", prev_stock, curr_stock)
+  for _name, _field in _RETAILER_PRICE_FIELD.items():
+    if _field not in update_data:
+      continue
+    _old_price = fields.get(_field, 0.0) or 0.0
+    _new_price = update_data[_field]
+    if _old_price != _new_price:
+      _log_change(sku, naver_id, _field, _old_price, _new_price)
 
   try:
     table.update(record_id, update_data)
@@ -1137,3 +1182,163 @@ def build_products_table_html(records, theme_name, show_category=True):
     </div>
   </div>
   """
+
+
+def get_long_oos_products(records, min_days=15):
+  """현재 In_Stock=False인 상품 중, Price_History에 기록된 In_Stock 전이
+  이력을 근거로 min_days일 이상 품절 상태인 것만 골라 반환합니다.
+
+  Price_History 도입 이전부터 이미 품절이었던 상품은 "언제 품절이 시작됐는지"
+  알 방법이 없으므로(과거 이력이 없음), 별도 리스트로 분리해서 반환합니다 -
+  호출부(대시보드)가 이 상품들을 "기록 이전부터 품절"로 눈에 띄게 표시할 수
+  있게 하기 위함입니다.
+
+  반환: (long_oos, unknown_since) 튜플.
+  - long_oos: {"sku", "naver_id", "category", "days_oos"} 딕셔너리 리스트,
+    품절일수 내림차순 정렬.
+  - unknown_since: {"sku", "naver_id", "category"} 딕셔너리 리스트 (품절
+    시작 시점 불명)."""
+  if history_table is None:
+    return [], []
+
+  try:
+    history = history_table.all()
+  except Exception:
+    return [], []
+
+  # SKU별로 가장 최근에 In_Stock이 False로 바뀐 시점을 찾습니다.
+  last_oos_start = {}
+  for h in history:
+    hf = h["fields"]
+    if hf.get("Field_Name") != "In_Stock" or str(hf.get("New_Value")) != "False":
+      continue
+    sku = hf.get("SKU")
+    changed_at = hf.get("Changed_At")
+    if not sku or not changed_at:
+      continue
+    try:
+      dt = datetime.fromisoformat(str(changed_at).replace("Z", "+00:00"))
+    except ValueError:
+      continue
+    if dt.tzinfo is None:
+      dt = pytz.UTC.localize(dt)
+    if sku not in last_oos_start or dt > last_oos_start[sku]:
+      last_oos_start[sku] = dt
+
+  now = datetime.now(pytz.UTC)
+  long_oos, unknown_since = [], []
+  for r in records:
+    f = r["fields"]
+    if f.get("In_Stock"):
+      continue
+    sku = f.get("SKU", "무명 상품")
+    entry = {
+        "sku": sku,
+        "naver_id": f.get("Naver_Product_No", "-"),
+        "category": f.get("Category") or "미분류",
+    }
+    start = last_oos_start.get(sku)
+    if start is None:
+      unknown_since.append(entry)
+      continue
+    days_oos = (now - start).days
+    if days_oos >= min_days:
+      long_oos.append({**entry, "days_oos": days_oos})
+
+  long_oos.sort(key=lambda e: e["days_oos"], reverse=True)
+  return long_oos, unknown_since
+
+
+def get_price_history(limit=50):
+  """Price_History에서 Changed_At 기준 최신순으로 최근 limit건을 반환합니다
+  (대시보드 '최근 변동' 피드용). Changed_At은 표시용으로 KST 문자열 변환."""
+  if history_table is None:
+    return []
+
+  try:
+    history = history_table.all()
+  except Exception:
+    return []
+
+  history.sort(key=lambda h: h["fields"].get("Changed_At") or "", reverse=True)
+
+  result = []
+  for h in history[:limit]:
+    hf = h["fields"]
+    changed_at = hf.get("Changed_At")
+    result.append({
+        "sku": hf.get("SKU", "-"),
+        "naver_id": hf.get("Naver_Product_No", "-"),
+        "field_name": hf.get("Field_Name", "-"),
+        "old_value": hf.get("Old_Value", "-"),
+        "new_value": hf.get("New_Value", "-"),
+        "changed_at_kst": (
+            NocoDBTable._convert_timestamp_to_kst(changed_at) if changed_at else "-"
+        ),
+    })
+  return result
+
+
+# ==========================================
+# 자동 동기화 스케줄러 (매일 09:00 KST 전체 / 4시간마다 확인 필요만)
+# ==========================================
+_KST_TZ = pytz.timezone("Asia/Seoul")
+_sync_lock = threading.Lock()
+_scheduler = None
+
+
+class _HeadlessLogAdapter:
+  """대시보드 UI 없이(스케줄러/cron에서) run_tbd_tracker를 돌릴 때 쓰는
+  log_container 대역 - .write(msg)를 그냥 print로 흘려보내 docker-compose
+  logs에서 보이게 합니다."""
+
+  def write(self, msg) -> None:
+    print(msg, flush=True)
+
+
+def _run_scheduled_sync(only_needs_check: bool) -> None:
+  """스케줄러가 호출하는 실제 작업. 겹쳐 도는 걸 막기 위해 락을 non-blocking으로
+  잡고, 이미 다른 동기화(수동 버튼이든 스케줄이든)가 진행 중이면 이번 실행은
+  건너뜁니다 - 못 돈 회차는 다음 스케줄에서 자연히 다시 시도됩니다."""
+  if not _sync_lock.acquire(blocking=False):
+    print(
+        f"⏭️ 이미 동기화가 진행 중이라 이번 회차는 건너뜁니다"
+        f" (only_needs_check={only_needs_check})",
+        flush=True,
+    )
+    return
+  try:
+    run_tbd_tracker(_HeadlessLogAdapter(), RETAILER_NAMES, only_needs_check=only_needs_check)
+  finally:
+    _sync_lock.release()
+
+
+def start_background_scheduler():
+  """앱 프로세스 시작 시 1회 호출 - 매일 09:00 KST 전체 동기화 +
+  4시간마다 확인 필요 상품만 재조회하는 백그라운드 스케줄러를 띄웁니다.
+  이미 떠 있으면 다시 만들지 않고 기존 인스턴스를 그대로 반환합니다
+  (NiceGUI reload 등으로 이 함수가 중복 호출되는 사고를 방지)."""
+  global _scheduler
+  if _scheduler is not None:
+    return _scheduler
+
+  scheduler = BackgroundScheduler(timezone=_KST_TZ)
+  scheduler.add_job(
+      _run_scheduled_sync,
+      trigger=CronTrigger(hour=9, minute=0, timezone=_KST_TZ),
+      kwargs={"only_needs_check": False},
+      id="daily_full_sync",
+      max_instances=1,
+      coalesce=True,
+  )
+  scheduler.add_job(
+      _run_scheduled_sync,
+      trigger=IntervalTrigger(hours=4),
+      kwargs={"only_needs_check": True},
+      id="needs_check_sync",
+      max_instances=1,
+      coalesce=True,
+  )
+  scheduler.start()
+  _scheduler = scheduler
+  return scheduler
