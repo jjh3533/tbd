@@ -788,14 +788,19 @@ def process_single_record(r, current_rate, retailers=RETAILER_NAMES):
   return log_line, status_change
 
 
-def run_tbd_tracker(log_container, retailers=RETAILER_NAMES, only_needs_check=False):
+def run_tbd_tracker(log_container, retailers=RETAILER_NAMES, only_needs_check=False, cancel_event=None):
   """retailers: 이번 라운드에 재조회할 리테일러 이름 집합/튜플. 기본값은 3곳
   전체(전체 Sync 버튼). 개별 Sync 버튼은 {"Adorama"} 처럼 1곳만 넘겨줍니다.
   only_needs_check=True면 Needs_Check=True인 상품만 골라 재조회합니다
   ("확인 필요만 Sync" 버튼).
 
   log_container: .write(msg) 메서드만 있으면 되는 아무 객체 (Streamlit
-  st.empty()든, NiceGUI ui.log든 상관없음 - duck typing)."""
+  st.empty()든, NiceGUI ui.log든 상관없음 - duck typing).
+
+  cancel_event: threading.Event를 넘기면, 매 결과가 들어올 때마다 확인해서
+  set()돼 있으면 남은 작업을 더 기다리지 않고 조기 종료합니다. 이미 실행
+  중인(네트워크 요청이 나간) 항목은 끝까지 진행되지만(스레드를 강제로 죽일
+  수는 없음), 아직 시작 안 한 항목은 스레드풀에서 그대로 취소됩니다."""
   retailers_label = (
       " / ".join(retailers) if len(retailers) < len(RETAILER_NAMES)
       else "Adorama / Amazon / B&H Triple-Channel"
@@ -824,12 +829,18 @@ def run_tbd_tracker(log_container, retailers=RETAILER_NAMES, only_needs_check=Fa
   # 바깥쪽 풀은 그저 "동시에 대기줄에 들어갈 수 있는 상품 개수"이고, 실제
   # 네트워크 동시 요청 한도는 위 세마포어들이 지킵니다. 10개면 상품 10개가
   # 동시에 세마포어 대기줄에 들어가 충분히 파이프라인을 채웁니다.
-  with ThreadPoolExecutor(max_workers=10) as executor:
+  executor = ThreadPoolExecutor(max_workers=10)
+  cancelled = False
+  try:
     futures = [
         executor.submit(process_single_record, r, current_rate, retailers)
         for r in records
     ]
     for future in as_completed(futures):
+      if cancel_event is not None and cancel_event.is_set():
+        cancelled = True
+        log_container.write("⏹️ 중지 요청 - 이미 시작된 항목만 마저 반영하고 나머지는 건너뜁니다.")
+        break
       log_line, res = future.result()
       log_container.write(log_line)
       if res:
@@ -841,11 +852,16 @@ def run_tbd_tracker(log_container, retailers=RETAILER_NAMES, only_needs_check=Fa
         elif st_type == "CHECK":
           check_needed_count += 1
         detail_messages.append(msg)
+  finally:
+    # 취소된 경우 아직 시작 안 한 항목은 그대로 취소하고(cancel_futures),
+    # 이미 네트워크 요청이 나간 항목들이 끝나길 기다리지 않습니다(wait=False)
+    # - 어차피 스레드를 강제로 죽일 수는 없어 백그라운드에서 알아서 끝납니다.
+    executor.shutdown(wait=not cancelled, cancel_futures=cancelled)
 
   changed_total = out_of_stock_count + back_in_stock_count
 
   summary_header = [
-      "📊 **[UI.com Supply Monitor] Sync Report**",
+      "📊 **[UI.com Supply Monitor] Sync Report**" + (" (중간에 중지됨)" if cancelled else ""),
       f"• **Synced Retailers**: {' / '.join(retailers)}",
       f"• **Monitored Items**: {total_count} units",
       f"• **Status Shift**: {changed_total} (🔴 Out of Stock {out_of_stock_count}"
@@ -866,8 +882,11 @@ def run_tbd_tracker(log_container, retailers=RETAILER_NAMES, only_needs_check=Fa
         + "\n\n✨ All inventory & price levels optimal."
     )
 
-  send_telegram_msg(final_msg)
-  log_container.write("🎉 Fast Parallel Sync Complete!")
+  if cancelled:
+    log_container.write("⏹️ Sync 중지됨")
+  else:
+    send_telegram_msg(final_msg)
+    log_container.write("🎉 Fast Parallel Sync Complete!")
   return updated_count
 
 
@@ -1371,10 +1390,17 @@ def get_latest_price_deltas():
 
 
 # ==========================================
-# 자동 동기화 스케줄러 (매일 09:00 KST 전체 / 4시간마다 확인 필요만)
+# 자동 동기화 스케줄러 (매일 09:00 KST 전체 / 4시간마다 확인 필요만) +
+# 수동 Sync 버튼과 공유하는 "겹쳐 돌기 방지 + 중지" 상태
 # ==========================================
 _KST_TZ = pytz.timezone("Asia/Seoul")
 _sync_lock = threading.Lock()
+_sync_cancel_event = threading.Event()
+# 대시보드가 폴링해서 스피너/버튼 비활성화/중지 버튼을 그리는 데 쓰는 전역
+# 상태. 여러 브라우저 탭에서 봐도 항상 "지금 뭐가 도는지"가 일치해야 하므로
+# (수동 버튼 여러 개를 동시에 눌러서 겹쳐 도는 사고를 겪은 뒤 도입) 클라이언트별
+# 상태가 아니라 프로세스 전역 상태로 관리합니다.
+_sync_status = {"running": False, "label": None}
 _scheduler = None
 
 
@@ -1387,21 +1413,56 @@ class _HeadlessLogAdapter:
     print(msg, flush=True)
 
 
-def _run_scheduled_sync(only_needs_check: bool) -> None:
-  """스케줄러가 호출하는 실제 작업. 겹쳐 도는 걸 막기 위해 락을 non-blocking으로
-  잡고, 이미 다른 동기화(수동 버튼이든 스케줄이든)가 진행 중이면 이번 실행은
-  건너뜁니다 - 못 돈 회차는 다음 스케줄에서 자연히 다시 시도됩니다."""
+def is_sync_running() -> bool:
+  return _sync_status["running"]
+
+
+def get_sync_label():
+  return _sync_status["label"]
+
+
+def request_sync_cancel() -> None:
+  """대시보드의 "중지" 버튼이 호출. 이미 시작된 네트워크 요청은 강제로 죽일
+  수 없어 끝까지 실행되지만, run_tbd_tracker의 결과 처리 루프가 이 시점
+  이후로는 남은 항목을 더 기다리지 않고 조기 종료합니다."""
+  _sync_cancel_event.set()
+
+
+def run_sync_guarded(log_container, retailers=RETAILER_NAMES, only_needs_check=False, label=None):
+  """수동 Sync 버튼과 스케줄러가 공통으로 쓰는 진입점. 겹쳐 도는 걸 막기
+  위해 락을 non-blocking으로 잡고, 이미 다른 동기화(수동 버튼이든 스케줄이든)
+  가 진행 중이면 이번 실행은 건너뜁니다. 실행 중에는 is_sync_running()이
+  True를 반환해 대시보드가 버튼을 비활성화/스피너 표시를 할 수 있고,
+  request_sync_cancel()로 중지를 요청할 수 있습니다."""
   if not _sync_lock.acquire(blocking=False):
-    print(
-        f"⏭️ 이미 동기화가 진행 중이라 이번 회차는 건너뜁니다"
-        f" (only_needs_check={only_needs_check})",
-        flush=True,
-    )
-    return
+    log_container.write("⏭️ 이미 다른 동기화가 진행 중입니다 - 끝난 뒤 다시 시도해주세요.")
+    return 0
+
+  _sync_cancel_event.clear()
+  _sync_status["running"] = True
+  _sync_status["label"] = label or (
+      " / ".join(retailers) if len(retailers) < len(RETAILER_NAMES) else "전체"
+  )
   try:
-    run_tbd_tracker(_HeadlessLogAdapter(), RETAILER_NAMES, only_needs_check=only_needs_check)
+    return run_tbd_tracker(
+        log_container, retailers, only_needs_check=only_needs_check,
+        cancel_event=_sync_cancel_event,
+    )
   finally:
+    _sync_status["running"] = False
+    _sync_status["label"] = None
+    _sync_cancel_event.clear()
     _sync_lock.release()
+
+
+def _run_scheduled_sync(only_needs_check: bool) -> None:
+  """스케줄러가 호출하는 실제 작업 - run_sync_guarded를 그대로 재사용해
+  수동 버튼과 동일한 겹침 방지/상태 관리를 받습니다. 이미 다른 동기화가
+  진행 중이면 이번 회차는 건너뛰고 다음 스케줄에서 자연히 다시 시도됩니다."""
+  run_sync_guarded(
+      _HeadlessLogAdapter(), RETAILER_NAMES, only_needs_check=only_needs_check,
+      label=f"자동 스케줄({'확인 필요만' if only_needs_check else '전체'})",
+  )
 
 
 def start_background_scheduler():

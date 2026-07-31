@@ -9,7 +9,8 @@ from contextlib import contextmanager
 
 from nicegui import app, ui
 
-from sync_engine import CATEGORIES, RETAILER_NAMES, run_tbd_tracker
+import sync_engine
+from sync_engine import CATEGORIES, RETAILER_NAMES
 from dashboard import theme
 from dashboard.components import NiceGuiLogAdapter
 
@@ -29,16 +30,20 @@ def _category_href(name: str) -> str:
   return f"/category/{category_slug(name)}"
 
 
-async def _run_sync(log: ui.log, retailers, only_needs_check=False):
+async def _run_sync(log: ui.log, retailers, only_needs_check=False, label=None):
   """run_tbd_tracker는 (스레드풀로 상품들을 병렬 처리하긴 해도) 그 자체가
   블로킹 함수라, NiceGUI의 단일 이벤트루프 안에서 그냥 호출하면 동기화가
   끝날 때까지 서버 전체가 멈춘다. run_in_executor로 별도 스레드에 던져서
-  이벤트루프는 계속 다른 요청을 처리할 수 있게 한다."""
+  이벤트루프는 계속 다른 요청을 처리할 수 있게 한다.
+
+  run_sync_guarded를 통해 실행하므로, 이미 다른 동기화(수동/스케줄 무관)가
+  진행 중이면 이번 호출은 바로 건너뛰어지고 로그에 안내만 남는다 - 여러 Sync
+  버튼을 동시에 눌러서 겹쳐 도는 사고를 방지하기 위함."""
   log.clear()
   adapter = NiceGuiLogAdapter(log)
   loop = asyncio.get_event_loop()
   count = await loop.run_in_executor(
-      None, run_tbd_tracker, adapter, retailers, only_needs_check
+      None, sync_engine.run_sync_guarded, adapter, retailers, only_needs_check, label
   )
   try:
     ui.notify(f"⚡ 동기화 완료 ({count}건 갱신)", type="positive")
@@ -77,31 +82,62 @@ def frame(active_path: str):
       # 원인) Tailwind의 강제 important 유틸리티(!bg-[...])로 덮어써야 함.
       _black_btn = f"!bg-[{theme.BLACK_BTN_BG}] !text-[{theme.BLACK_BTN_TEXT}]"
 
-      ui.button(
-          "⚡ Sync All Retailers",
-          on_click=lambda: (
-              sync_log.style("display:block"),
-              asyncio.create_task(_run_sync(sync_log, RETAILER_NAMES)),
-          ),
-      ).props("unelevated rounded").classes(f"w-full {_black_btn}")
+      # 진행 중 표시(스피너+라벨) + 중지 버튼. 여러 Sync 버튼을 동시에 눌러서
+      # 겹쳐 도는 사고를 겪은 뒤 도입 - sync_status_row는 평소엔 숨겨져 있다가
+      # 아래 타이머가 sync_engine.is_sync_running()을 감시해서 보여줌/숨김.
+      with ui.row().classes("w-full items-center gap-2 mb-2").style("display:none") as sync_status_row:
+        ui.spinner(size="sm")
+        sync_status_label = ui.label("동기화 중...").classes("text-xs flex-1")
+        ui.button(
+            "⏹️ 중지", on_click=lambda: sync_engine.request_sync_cancel(),
+        ).props("unelevated rounded size=sm color=negative")
 
-      ui.button(
+      _sync_buttons = []
+
+      def _sync_button(text, on_click, extra_classes=""):
+        btn = ui.button(text, on_click=on_click).props("unelevated rounded").classes(
+            f"{extra_classes} {_black_btn}"
+        )
+        _sync_buttons.append(btn)
+        return btn
+
+      def _start_sync(retailers, only_needs_check=False, label=None):
+        sync_log.style("display:block")
+        for btn in _sync_buttons:
+          btn.disable()
+        asyncio.create_task(_run_sync(sync_log, retailers, only_needs_check, label))
+
+      _sync_button(
+          "⚡ Sync All Retailers",
+          lambda: _start_sync(RETAILER_NAMES),
+          "w-full",
+      )
+      _sync_button(
           "🔍 Sync 확인 필요만",
-          on_click=lambda: (
-              sync_log.style("display:block"),
-              asyncio.create_task(_run_sync(sync_log, RETAILER_NAMES, only_needs_check=True)),
-          ),
-      ).props("unelevated rounded").classes(f"w-full mt-2 {_black_btn}")
+          lambda: _start_sync(RETAILER_NAMES, only_needs_check=True),
+          "w-full mt-2",
+      )
 
       with ui.row().classes("w-full gap-1 no-wrap mt-2 mb-2"):
         for retailer in RETAILER_NAMES:
-          ui.button(
+          _sync_button(
               retailer,
-              on_click=lambda r=retailer: (
-                  sync_log.style("display:block"),
-                  asyncio.create_task(_run_sync(sync_log, (r,))),
-              ),
-          ).props("unelevated rounded size=sm").classes(f"flex-1 {_black_btn}")
+              lambda r=retailer: _start_sync((r,)),
+              "flex-1",
+          ).props("size=sm")
+
+      def _poll_sync_status():
+        running = sync_engine.is_sync_running()
+        sync_status_row.style(f"display:{'flex' if running else 'none'}")
+        if running:
+          sync_status_label.set_text(f"{sync_engine.get_sync_label()} 동기화 중...")
+          for btn in _sync_buttons:
+            btn.disable()
+        else:
+          for btn in _sync_buttons:
+            btn.enable()
+
+      ui.timer(1.0, _poll_sync_status)
 
       ui.html('<div class="tbd-nav-label">메뉴</div>')
       nav_items = [("📊 메인 대시보드", "/")] + [
