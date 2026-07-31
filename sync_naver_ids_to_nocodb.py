@@ -123,6 +123,11 @@ TARGET_PRODUCTS = {
     "UMR-Ultra": "UniFi Mobile Router Ultra",
     "UPL-Port": "UniFi PoE Audio Port",
     "UNAS-2": "UniFi UNAS 2",
+    # WiFi/Physical Security 미등록 4개 신규 등록 (2026-08-01 추가)
+    "UniFi WiFi BaseStation XG": "UniFi WiFi BaseStation XG",
+    "UniFi G5 Dome Ultra": "UniFi G5 Dome Ultra",
+    "UniFi AirWire": "UniFi AirWire",
+    "UniFi G5 Pro": "UniFi G5 Pro",
 }
 
 

@@ -38,7 +38,7 @@
 | `category_lookup.py`/`notice_lookup.py`/`origin_lookup.py`/`address_lookup.py` | 네이버 API 조회용 1회성 스크립트 |
 | `product_pages/scripts/` | 상세페이지 생성기 - 재사용 가능한 공용 도구만 남음: `build_pages.py`(신규 생성 패턴), `crop_hero.py`(히어로 이미지 반사 크롭), `export_sections.py`(섹션별 PNG 검증용 export). 카테고리별 1회성 배치 스크립트는 `archive/product_pages_scripts/`로 이동함 |
 | `archive/` | 이미 끝난 1회성 조사/디버그/검증/수정 스크립트 + 더 이상 안 쓰는 데이터/로그 보관 (삭제 아님, 필요하면 재사용 가능 - `archive/README.md` 참고) |
-| `naver_상품등록_템플릿.xlsx` | 등록용 엑셀 (126행: Switching 29 + WiFi 16 + Physical Security 13 + Door Access 31 + Integrations 8 + 기타 29) |
+| `naver_상품등록_템플릿.xlsx` | 등록용 엑셀 (130행: Switching 29 + WiFi 18 + Physical Security 15 + Door Access 31 + Integrations 8 + 기타 29) |
 | `registered_log.json` | 등록된 상품들의 전체 API payload 로컬 로그 |
 | `product_slug_map.json` | `sync_engine.py`가 UI Store 상품 URL을 만들 때 쓰는 name↔slug 매핑 (크롤링 프로젝트 때 생성). **NAS 배포 시 반드시 같이 올려야 함** - 없어도 에러 없이 조용히 링크가 안 만들어져서 놓치기 쉬움 |
 | `.env`/`.env.example` | 시크릿 (NocoDB/Scrape.do/Telegram/NAVER_CLIENT_ID·SECRET) |
@@ -51,28 +51,27 @@
 
 ## 3. 현재 상태
 
-알려진 미해결 버그나 진행 중인 작업 없음.
+알려진 미해결 버그나 진행 중인 작업 없음. 세부 경위는 `HISTORY.md` 참고 (항목 42~57).
 
-- **Price_History 테이블**: 로컬/NAS 양쪽 다 `NOCODB_HISTORY_TABLE_ID=mi258r3q4g5wu69`로 연결 완료, `https://my.tbd.kr/inventory`에서 운영 중. 아직 실제 Sync를 통해 쌓인 이력은 0건(다음 Sync 버튼 클릭부터 자연히 쌓이기 시작함) — 그래서 "15일 이상 품절" 섹션은 지금 비어있고, 미판매 상품 전체가 "기록 이전부터 품절"로 표시되는 게 정상.
-- **자동 동기화 스케줄러**: NAS에서 가동 중. 매일 09:00 KST 전체 동기화 + 4시간마다 확인 필요 상품만 재조회. 스케줄 시각/주기를 바꾸려면 `sync_engine.py`의 `start_background_scheduler()` 안 `CronTrigger`/`IntervalTrigger` 파라미터만 수정하면 됨.
-- **Sync 겹침 방지 + 중지 버튼**: 대시보드의 수동 Sync 버튼(전체/개별 리테일러/확인필요)을 여러 개 동시에 눌러서 겹쳐 돌다가 Scrape.do 크레딧이 대량 낭비된 사고 이후 도입. `sync_engine.run_sync_guarded()`가 수동 버튼과 자동 스케줄러 모두의 공통 진입점 - `_sync_lock`으로 겹침 자체를 막고(이미 진행 중이면 새 요청은 거절), `_sync_status`(전역, 클라이언트 무관)로 지금 뭐가 도는지 노출, `_sync_cancel_event`로 중지 요청을 받음. 대시보드는 1초 간격 `ui.timer`로 `is_sync_running()`을 폴링해 스피너+라벨+"⏹️ 중지" 버튼을 보여주고 모든 Sync 버튼을 비활성화함. 중지는 "이미 시작된 요청은 끝까지 실행되지만(스레드 강제 종료 불가) 아직 시작 안 한 항목은 즉시 취소"하는 방식(`ThreadPoolExecutor.shutdown(cancel_futures=True)`).
-- **SKU 없는 레코드에도 안전**: NocoDB에서 편집 중 생기는 빈 레코드(SKU=None)를 대시보드가 만나면 `_normalize_store_name()`이 `None.replace()`를 호출해 500 에러가 나던 버그를 실제로 겪고 수정. `build_products_table_html`의 `sku = f.get("SKU") or "-"`와 `_normalize_store_name`의 None 가드로 방어 - NocoDB에 빈 레코드가 있어도(편집 중이든 실수든) 대시보드는 안 죽음.
-- **화이트/블랙 색상 옵션 관리**: 구매처마다 화이트/블랙 가격이 다른 35개 제품에 대해 NocoDB에 `{화이트 SKU} Black` 로우를 만들어 색상별로 가격/재고를 따로 추적(Category/Weight_KG/MSRP_USD/Naver_Product_No는 화이트와 동일 복사). 이 클론 로우는 `Product_Page="Clone"`으로 태깅됨(사용자가 도입한 컨벤션, `None`/`Simple`/`Detail`에 이어 4번째 옵션 - `create_color_variant_rows.py`가 자동으로 채움) — **`Product_Page == "Clone"`인 로우는 독립된 상세페이지/등록이 필요 없는 "다른 로우의 색상 옵션"일 뿐이므로, 앞으로 대시보드 카운트나 상세페이지 생성 대상을 다룰 때 이 점을 감안할 것.** `update_price_stock.py`는 Black 로우에 `sale_price`가 채워지면(구매처 ID 스크래핑 완료) 네이버에 "색상"(화이트/블랙) 옵션으로 반영함 - 이미 옵션이 있으면 갱신, 없으면 신규 생성(화이트 재고가 0이면 재고 있는 쪽을 0원 기준으로 자동 전환, 둘 다 품절이면 네이버가 옵션 생성 자체를 거부해 다음 Sync까지 보류). **현황**: 27/35 로우에 B&H 코드 입력 + 실제 B&H 상품명 대조 검증 완료(불일치 없음), 색상 옵션이 필요한 15개 상품 중 14개 네이버 반영 완료(`UniFi Reader Pro`만 화이트/블랙 둘 다 품절이라 보류 중). `UniFi Reader`/`UniFi G3 Reader Fingerprint`/`UniFi Retrofit Reader Fingerprint`는 화이트 자체가 NocoDB에 없어 이번 작업에서 제외함.
-- **ASIN 커버리지 확대**: `search_amazon_candidates.py`로 ASIN 없던 166개(화이트 131 + 블랙 35) 전체를 상품명+모델명 기반 아마존 검색(Scrape.do Amazon Search 플러그인)해 59개에서 후보를 찾아 CSV로 제안, 사용자가 직접 검토(9개는 오탐으로 걸러냄) 후 55개를 최종 확정 - 중복 후보는 저렴한 쪽으로 선택해 NocoDB ASIN 필드에 반영 완료. ASIN 보유 상품이 84개(화이트 73 + 블랙 11)로 늘어남. 검토 결과 원본은 `archive/data/asin_candidates.csv`에 보관.
-- **대시보드 카운트는 `Product_Page == "Clone"` 제외 기준**: `sync_engine.exclude_clone_rows()`를 `home.py`/`category.py`/`needs_check.py`에서 사용, "판매 가능/품절/확인 필요"/카테고리별 개수/전체 상품 표가 전부 실제 등록 상품(96개) 기준으로 나옴 — 예전엔 Clone 로우까지 같이 세서 네이버 실제 판매중 개수와 어긋났었음(예: 82 vs 실제 73). `/inventory`처럼 색상별 추적 자체가 목적인 곳은 이 필터를 안 쓰고 원본 그대로 사용.
-- **대시보드 메뉴/표 개선**: `CATEGORIES`에서 상품이 아예 없는 Advanced Hosting/Accessories 제거(6개만 남음). 신규 `/needs-check` 페이지(사이드바 "⚠️ 확인 필요")로 Needs_Check=True 상품만 모아보기 가능. 상품 표에서 $0(가격 정보 없음) 셀은 회색으로 표시(Best Price 포함 - 예전엔 빨강으로 "비싸다"와 구분이 안 됐음). `Price_History` 기반으로 B&H/Adorama/Amazon 가격이 지난 기록과 달라졌으면 가격 옆에 ▲(빨강, 상승)/▼(초록, 하락) 표시(`get_latest_price_deltas()`). UniFi Store($) 컬럼은 `store.ui.com` 실제 제품 페이지로 링크(`product_slug_map.json` 매칭, 이름 표기가 살짝 다른 4개는 정규화 매칭으로 보강해 160/160 전부 연결). **배포 누락 발견/수정**: 로컬에서는 다 됐는데 실제 `my.tbd.kr`에서는 이 링크가 하나도 안 떴음 - `product_slug_map.json`이 NAS에 한 번도 업로드된 적이 없어서 조용히 빈 매핑으로 처리되고 있었음. 업로드 + 재시작으로 NAS에서도 160/160 확인 완료.
+- **Price_History**: `NOCODB_HISTORY_TABLE_ID=mi258r3q4g5wu69`로 로컬/NAS 연결 완료, `/inventory`에서 운영 중. 이력이 막 쌓이기 시작한 단계라 "15일 이상 품절" 섹션은 아직 비어있음(정상, Sync가 쌓일수록 채워짐).
+- **자동 동기화 스케줄러**: NAS에서 가동 중(매일 09:00 KST 전체 + 4시간마다 확인 필요만). 트리거는 `sync_engine.start_background_scheduler()`의 `CronTrigger`/`IntervalTrigger`.
+- **Sync 겹침 방지**: `sync_engine.run_sync_guarded()`가 수동 버튼/스케줄러 공통 진입점(`_sync_lock`/`_sync_status`/`_sync_cancel_event`). 대시보드에 진행중 스피너+"⏹️ 중지" 버튼 있음, Sync 중엔 모든 버튼 비활성화.
+- **화이트/블랙 색상 옵션**: 35개 Black 클론 로우 운영 중(`Product_Page="Clone"` 태깅, `create_color_variant_rows.py`가 생성). 27/35 B&H 코드 입력 완료, 색상 옵션이 필요한 15개 중 14개 네이버 반영 완료(`UniFi Reader Pro`만 화이트/블랙 둘 다 품절이라 보류). **`Product_Page == "Clone"` 로우는 독립된 상세페이지/등록이 필요 없는 "다른 로우의 색상 옵션"** — 대시보드 카운트나 상세페이지 생성 대상을 다룰 때 항상 감안할 것.
+- **대시보드 카운트**: `sync_engine.exclude_clone_rows()`로 Clone 로우를 제외한 실제 등록 상품(100개) 기준으로 집계(`home.py`/`category.py`/`needs_check.py`). `/inventory`처럼 색상별 추적이 목적인 곳만 원본 그대로 사용.
+- **ASIN 커버리지**: 84개 보유(화이트 73 + 블랙 11). 검토 원본은 `archive/data/asin_candidates.csv`.
+- **UniFi Store 링크**: `product_slug_map.json` 매칭으로 160/160 전부 연결(로컬/NAS 양쪽). 이 파일은 NAS 배포 시 누락되기 쉬우니 코드 배포할 때 항상 같이 올릴 것.
 
 **현재 수치**:
-- 네이버 스마트스토어 등록 상품: **96개**
+- 네이버 스마트스토어 등록 상품: **100개**
   - Switching: 29개
-  - WiFi: 16개
-  - Physical Security: 13개
+  - WiFi: 18개
+  - Physical Security: 15개
   - Door Access: 31개
   - Integrations: 6개
   - 기타: 1개
-- 상세페이지(HTML) 보유: **98개** (Naver 등록 96개 + 미등록 2개: Display Cast Lite, Mobile Router Industrial)
-- NocoDB `Product_Page` 설정: **96개** (Detail 75개 + Simple 21개, 등록 상품 전체 커버) + **Clone 35개** (색상 옵션 클론 로우, 별도 상세페이지 불필요)
-- NocoDB `Naver_Product_No` 연동: **96개**
+- 상세페이지(HTML) 보유: **102개** (Naver 등록 100개 + 미등록 2개: Display Cast Lite, Mobile Router Industrial)
+- NocoDB `Product_Page` 설정: **100개** (Detail 79개 + Simple 21개, 등록 상품 전체 커버) + **Clone 35개** (색상 옵션 클론 로우, 별도 상세페이지 불필요)
+- NocoDB `Naver_Product_No` 연동: **100개**
 - **NocoDB 필드명 (영문)**: `sale_price` (판매가), `purchase_cost` (구매 원가), `profit` (수익)
 - 검색 키워드 추가: **58개 완료, 38개 대기** (IP 재등록 후 재실행 필요)
 - 카테고리 최적화: **6개 완료** (NAS, 모바일 라우터 제품군)

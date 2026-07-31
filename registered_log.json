@@ -11179,5 +11179,465 @@
       "naverShoppingRegistration": true,
       "channelProductDisplayStatusType": "ON"
     }
+  },
+  "UniFi WiFi BaseStation XG": {
+    "originProductNo": 13629861017,
+    "smartstoreChannelProductNo": 13690097375,
+    "originProduct": {
+      "statusType": "SALE",
+      "saleType": "NEW",
+      "leafCategoryId": "50001623",
+      "name": "UniFi WiFi BaseStation XG / 유니파이 와이파이 베이스스테이션 XG 와이파이 무선AP 와이파이 끊김 해결 메시 네트워크",
+      "detailContent": "<img src=\"https://shop-phinf.pstatic.net/20260801_263/1785510030417KEbmy_PNG/7626614732322758_769070025.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260801_272/1785510030521q13Ku_PNG/7626614836950005_1557278804.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260801_91/1785510030630sOV51_PNG/7626614945893844_69143057.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260801_171/1785510030726sg0ty_PNG/7626615038435426_2018564171.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_80/1785311462415zyem2_PNG/29827209352550106_538479879.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260801_297/1785510030846Ap3v6_PNG/7626615161034918_2044005197.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_23/1785311496120nnFvN_PNG/45355663283759630_1431548075.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_267/1785311306334uJLt2_PNG/4595237485118990_2036387614.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_216/1785311306423ULPDW_PNG/4595237575378327_1425490103.png\" style=\"width:860px;display:block;\" />",
+      "images": {
+        "representativeImage": {
+          "url": "https://shop-phinf.pstatic.net/20260801_217/1785510029487Gtb6f_PNG/110684895291974710_1719976387.png"
+        },
+        "optionalImages": [
+          {
+            "url": "https://shop-phinf.pstatic.net/20260801_145/1785510029770lpRLK_PNG/15848390299405372_125657730.png"
+          },
+          {
+            "url": "https://shop-phinf.pstatic.net/20260801_158/1785510029874RjCP3_PNG/15848390405118799_1063919257.png"
+          },
+          {
+            "url": "https://shop-phinf.pstatic.net/20260801_241/17855100299744YHMO_PNG/15848390505202316_472452969.png"
+          },
+          {
+            "url": "https://shop-phinf.pstatic.net/20260801_167/17855100300723jQad_PNG/15848390601338219_758992560.png"
+          }
+        ]
+      },
+      "salePrice": 3311000,
+      "stockQuantity": 1,
+      "deliveryInfo": {
+        "deliveryType": "DELIVERY",
+        "deliveryAttributeType": "NORMAL",
+        "deliveryCompany": "ACE",
+        "deliveryBundleGroupUsable": true,
+        "deliveryBundleGroupId": 57357067,
+        "deliveryFee": {
+          "deliveryFeeType": "FREE",
+          "baseFee": 0
+        },
+        "claimDeliveryInfo": {
+          "returnDeliveryCompanyPriorityType": "PRIMARY",
+          "returnDeliveryFee": 40000,
+          "exchangeDeliveryFee": 80000,
+          "shippingAddressId": 200519179,
+          "returnAddressId": 200519180,
+          "freeReturnInsuranceYn": false
+        },
+        "installationFee": false
+      },
+      "detailAttribute": {
+        "afterServiceInfo": {
+          "afterServiceTelephoneNumber": "010-5938-3577",
+          "afterServiceGuideContent": "제품 문의 및 A/S는 스마트스토어 문의하기를 이용해주세요."
+        },
+        "purchaseQuantityInfo": {},
+        "originAreaInfo": {
+          "originAreaCode": "0204000",
+          "importer": "TBD Seoul/티비디서울",
+          "content": "미국산(TBD Seoul/티비디서울)",
+          "plural": false
+        },
+        "sellerCodeInfo": {},
+        "optionInfo": {
+          "simpleOptionSortType": "CREATE",
+          "optionSimple": [],
+          "optionCustom": [],
+          "optionCombinationSortType": "CREATE",
+          "standardOptionGroups": [],
+          "optionStandards": [],
+          "useStockManagement": true,
+          "optionDeliveryAttributes": []
+        },
+        "purchaseReviewInfo": {
+          "purchaseReviewExposure": true
+        },
+        "isbnInfo": {},
+        "taxType": "TAX",
+        "certificationTargetExcludeContent": {},
+        "sellerCommentUsable": false,
+        "minorPurchasable": true,
+        "productInfoProvidedNotice": {
+          "productInfoProvidedNoticeType": "OFFICE_APPLIANCES",
+          "officeAppliances": {
+            "returnCostReason": "1",
+            "noRefundReason": "1",
+            "qualityAssuranceStandard": "1",
+            "compensationProcedure": "1",
+            "troubleShootingContents": "1",
+            "itemName": "유니파이 와이파이 베이스스테이션 XG",
+            "modelName": "UniFi WiFi BaseStation XG",
+            "certificationType": "상세페이지 참조",
+            "ratedVoltage": "상세페이지 참조",
+            "powerConsumption": "상세페이지 참조",
+            "energyEfficiencyRating": "상세페이지 참조",
+            "releaseDateText": "상세페이지 참조",
+            "manufacturer": "Ubiquiti Inc.",
+            "size": "상세페이지 참조",
+            "weight": "상세페이지 참조",
+            "specification": "상세페이지 참조",
+            "warrantyPolicy": "1년 (제조사 정책에 따름, 상세페이지 참조)",
+            "afterServiceDirector": "010-5938-3577"
+          }
+        },
+        "itselfProductionProductYn": false,
+        "seoInfo": {}
+      },
+      "customerBenefit": {}
+    },
+    "smartstoreChannelProduct": {
+      "storeKeepExclusiveProduct": false,
+      "naverShoppingRegistration": true,
+      "channelProductDisplayStatusType": "ON"
+    }
+  },
+  "UniFi G5 Dome Ultra": {
+    "originProductNo": 13629861046,
+    "smartstoreChannelProductNo": 13690097405,
+    "originProduct": {
+      "statusType": "SALE",
+      "saleType": "NEW",
+      "leafCategoryId": "50002707",
+      "name": "UniFi G5 Dome Ultra / 유니파이 UniFi G5 Dome Ultra CCTV IP카메라 실시간 모니터링 야간촬영",
+      "detailContent": "<img src=\"https://shop-phinf.pstatic.net/20260801_75/1785510033083r2uT7_PNG/30025780015607335_1820274798.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260801_278/1785510033294EnFnt_PNG/30025780236445084_849967448.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260801_61/17855100333792gU8Q_PNG/30025780324587434_754089019.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260801_184/1785510033497vAbTi_PNG/30025780441480134_149911830.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_189/17853258180707nVsQ_PNG/36047954804631839_976178336.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260801_167/1785510033608eqwVN_PNG/30025780551791354_181713770.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_14/1785325818354Hl5V5_PNG/36047955086159645_345235619.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_24/1785325818437tiTMq_PNG/36047955173747617_1946742656.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_85/1785314807519fkY1o_PNG/21092054635763455_893374614.png\" style=\"width:860px;display:block;\" />",
+      "images": {
+        "representativeImage": {
+          "url": "https://shop-phinf.pstatic.net/20260801_143/1785510031629Sczyo_PNG/30025778560916228_1334044231.png"
+        },
+        "optionalImages": [
+          {
+            "url": "https://shop-phinf.pstatic.net/20260801_151/1785510032223HbyrC_PNG/7626616507902418_1410265146.png"
+          },
+          {
+            "url": "https://shop-phinf.pstatic.net/20260801_5/1785510032383p8App_PNG/7626616675206461_267659355.png"
+          },
+          {
+            "url": "https://shop-phinf.pstatic.net/20260801_145/1785510032524xz6Mq_PNG/7626616822632241_333684020.png"
+          },
+          {
+            "url": "https://shop-phinf.pstatic.net/20260801_221/1785510032689LkU5H_PNG/7626616992134272_110081041.png"
+          }
+        ]
+      },
+      "salePrice": 249000,
+      "stockQuantity": 1,
+      "deliveryInfo": {
+        "deliveryType": "DELIVERY",
+        "deliveryAttributeType": "NORMAL",
+        "deliveryCompany": "ACE",
+        "deliveryBundleGroupUsable": true,
+        "deliveryBundleGroupId": 57357067,
+        "deliveryFee": {
+          "deliveryFeeType": "FREE",
+          "baseFee": 0
+        },
+        "claimDeliveryInfo": {
+          "returnDeliveryCompanyPriorityType": "PRIMARY",
+          "returnDeliveryFee": 40000,
+          "exchangeDeliveryFee": 80000,
+          "shippingAddressId": 200519179,
+          "returnAddressId": 200519180,
+          "freeReturnInsuranceYn": false
+        },
+        "installationFee": false
+      },
+      "detailAttribute": {
+        "afterServiceInfo": {
+          "afterServiceTelephoneNumber": "010-5938-3577",
+          "afterServiceGuideContent": "제품 문의 및 A/S는 스마트스토어 문의하기를 이용해주세요."
+        },
+        "purchaseQuantityInfo": {},
+        "originAreaInfo": {
+          "originAreaCode": "0204000",
+          "importer": "TBD Seoul/티비디서울",
+          "content": "미국산(TBD Seoul/티비디서울)",
+          "plural": false
+        },
+        "sellerCodeInfo": {},
+        "optionInfo": {
+          "simpleOptionSortType": "CREATE",
+          "optionSimple": [],
+          "optionCustom": [],
+          "optionCombinationSortType": "CREATE",
+          "standardOptionGroups": [],
+          "optionStandards": [],
+          "useStockManagement": true,
+          "optionDeliveryAttributes": []
+        },
+        "purchaseReviewInfo": {
+          "purchaseReviewExposure": true
+        },
+        "isbnInfo": {},
+        "taxType": "TAX",
+        "certificationTargetExcludeContent": {},
+        "sellerCommentUsable": false,
+        "minorPurchasable": true,
+        "productInfoProvidedNotice": {
+          "productInfoProvidedNoticeType": "OFFICE_APPLIANCES",
+          "officeAppliances": {
+            "returnCostReason": "1",
+            "noRefundReason": "1",
+            "qualityAssuranceStandard": "1",
+            "compensationProcedure": "1",
+            "troubleShootingContents": "1",
+            "itemName": "유니파이 UniFi G5 Dome Ultra",
+            "modelName": "UniFi G5 Dome Ultra",
+            "certificationType": "상세페이지 참조",
+            "ratedVoltage": "상세페이지 참조",
+            "powerConsumption": "상세페이지 참조",
+            "energyEfficiencyRating": "상세페이지 참조",
+            "releaseDateText": "상세페이지 참조",
+            "manufacturer": "Ubiquiti Inc.",
+            "size": "상세페이지 참조",
+            "weight": "상세페이지 참조",
+            "specification": "상세페이지 참조",
+            "warrantyPolicy": "1년 (제조사 정책에 따름, 상세페이지 참조)",
+            "afterServiceDirector": "010-5938-3577"
+          }
+        },
+        "itselfProductionProductYn": false,
+        "seoInfo": {}
+      },
+      "customerBenefit": {}
+    },
+    "smartstoreChannelProduct": {
+      "storeKeepExclusiveProduct": false,
+      "naverShoppingRegistration": true,
+      "channelProductDisplayStatusType": "ON"
+    }
+  },
+  "UniFi AirWire": {
+    "originProductNo": 13629861057,
+    "smartstoreChannelProductNo": 13690097416,
+    "originProduct": {
+      "statusType": "SALE",
+      "saleType": "NEW",
+      "leafCategoryId": "50001623",
+      "name": "UniFi AirWire / 유니파이 에어와이어 와이파이 무선AP 와이파이 끊김 해결 메시 네트워크",
+      "detailContent": "<img src=\"https://shop-phinf.pstatic.net/20260801_275/17855100362434lWhG_PNG/33000603169998987_1739554448.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260801_77/1785510036371g9tTz_PNG/33000603303088347_274552890.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260801_154/1785510036503YuwIc_PNG/33000603429489186_1218546093.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260801_187/1785510036603RxEJo_PNG/33000603535729252_2145085296.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260801_123/1785510036716Go1WG_PNG/33000603655047255_492744514.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260801_113/1785510036830c3lBF_PNG/33000603764733011_179757581.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_115/1785332697294OukVX_PNG/29848444238224356_670112356.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_52/1785311411005d7eLi_PNG/119444219087557849_74841758.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_104/1785325699356NIzJe_PNG/4609630505821127_398225477.png\" style=\"width:860px;display:block;\" />",
+      "images": {
+        "representativeImage": {
+          "url": "https://shop-phinf.pstatic.net/20260801_30/178551003431129iP8_PNG/30025781243148862_1769973100.png"
+        },
+        "optionalImages": [
+          {
+            "url": "https://shop-phinf.pstatic.net/20260801_22/1785510035220KVoRQ_PNG/15848395690452524_81389983.png"
+          },
+          {
+            "url": "https://shop-phinf.pstatic.net/20260801_52/1785510035417A7TIR_PNG/15848395895037283_1223830704.png"
+          },
+          {
+            "url": "https://shop-phinf.pstatic.net/20260801_218/1785510035709SUyA9_PNG/15848396195194466_654264975.png"
+          },
+          {
+            "url": "https://shop-phinf.pstatic.net/20260801_54/1785510035866W7HWs_PNG/15848396361038381_1658194793.png"
+          }
+        ]
+      },
+      "salePrice": 444200,
+      "stockQuantity": 1,
+      "deliveryInfo": {
+        "deliveryType": "DELIVERY",
+        "deliveryAttributeType": "NORMAL",
+        "deliveryCompany": "ACE",
+        "deliveryBundleGroupUsable": true,
+        "deliveryBundleGroupId": 57357067,
+        "deliveryFee": {
+          "deliveryFeeType": "FREE",
+          "baseFee": 0
+        },
+        "claimDeliveryInfo": {
+          "returnDeliveryCompanyPriorityType": "PRIMARY",
+          "returnDeliveryFee": 40000,
+          "exchangeDeliveryFee": 80000,
+          "shippingAddressId": 200519179,
+          "returnAddressId": 200519180,
+          "freeReturnInsuranceYn": false
+        },
+        "installationFee": false
+      },
+      "detailAttribute": {
+        "afterServiceInfo": {
+          "afterServiceTelephoneNumber": "010-5938-3577",
+          "afterServiceGuideContent": "제품 문의 및 A/S는 스마트스토어 문의하기를 이용해주세요."
+        },
+        "purchaseQuantityInfo": {},
+        "originAreaInfo": {
+          "originAreaCode": "0204000",
+          "importer": "TBD Seoul/티비디서울",
+          "content": "미국산(TBD Seoul/티비디서울)",
+          "plural": false
+        },
+        "sellerCodeInfo": {},
+        "optionInfo": {
+          "simpleOptionSortType": "CREATE",
+          "optionSimple": [],
+          "optionCustom": [],
+          "optionCombinationSortType": "CREATE",
+          "standardOptionGroups": [],
+          "optionStandards": [],
+          "useStockManagement": true,
+          "optionDeliveryAttributes": []
+        },
+        "purchaseReviewInfo": {
+          "purchaseReviewExposure": true
+        },
+        "isbnInfo": {},
+        "taxType": "TAX",
+        "certificationTargetExcludeContent": {},
+        "sellerCommentUsable": false,
+        "minorPurchasable": true,
+        "productInfoProvidedNotice": {
+          "productInfoProvidedNoticeType": "OFFICE_APPLIANCES",
+          "officeAppliances": {
+            "returnCostReason": "1",
+            "noRefundReason": "1",
+            "qualityAssuranceStandard": "1",
+            "compensationProcedure": "1",
+            "troubleShootingContents": "1",
+            "itemName": "유니파이 에어와이어",
+            "modelName": "UniFi AirWire",
+            "certificationType": "상세페이지 참조",
+            "ratedVoltage": "상세페이지 참조",
+            "powerConsumption": "상세페이지 참조",
+            "energyEfficiencyRating": "상세페이지 참조",
+            "releaseDateText": "상세페이지 참조",
+            "manufacturer": "Ubiquiti Inc.",
+            "size": "상세페이지 참조",
+            "weight": "상세페이지 참조",
+            "specification": "상세페이지 참조",
+            "warrantyPolicy": "1년 (제조사 정책에 따름, 상세페이지 참조)",
+            "afterServiceDirector": "010-5938-3577"
+          }
+        },
+        "itselfProductionProductYn": false,
+        "seoInfo": {}
+      },
+      "customerBenefit": {}
+    },
+    "smartstoreChannelProduct": {
+      "storeKeepExclusiveProduct": false,
+      "naverShoppingRegistration": true,
+      "channelProductDisplayStatusType": "ON"
+    }
+  },
+  "UniFi G5 Pro": {
+    "originProductNo": 13629861093,
+    "smartstoreChannelProductNo": 13690097430,
+    "originProduct": {
+      "statusType": "SALE",
+      "saleType": "NEW",
+      "leafCategoryId": "50002707",
+      "name": "UniFi G5 Pro / 유니파이 UniFi G5 Pro CCTV IP카메라 실시간 모니터링 야간촬영",
+      "detailContent": "<img src=\"https://shop-phinf.pstatic.net/20260801_96/1785510038784nNW8r_PNG/33000605707877889_880315144.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260801_60/1785510038910ihBeQ_PNG/33000605844532627_1610040479.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260801_133/17855100390249zaKY_PNG/33000605955307707_706380125.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260801_219/1785510039141dX88h_PNG/33000606074921540_1442445599.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_192/1785311306030vyMou_PNG/4595237182461483_860963707.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260801_101/1785510039266qLXn6_PNG/33000606197763442_1760749669.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_201/1785325811877u7F1Y_PNG/7442396186801986_1136664904.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_183/1785317943317jKCJs_PNG/28541915467723599_546845338.png\" style=\"width:860px;display:block;\" /><img src=\"https://shop-phinf.pstatic.net/20260729_98/1785325808911C1C27_PNG/39974541875136197_1702467857.png\" style=\"width:860px;display:block;\" />",
+      "images": {
+        "representativeImage": {
+          "url": "https://shop-phinf.pstatic.net/20260801_297/1785510037409cY2qN_PNG/30025784350644013_1703407857.png"
+        },
+        "optionalImages": [
+          {
+            "url": "https://shop-phinf.pstatic.net/20260801_300/1785510037857BhVqq_PNG/40158770782297559_93588662.png"
+          },
+          {
+            "url": "https://shop-phinf.pstatic.net/20260801_21/1785510037993o1I8j_PNG/40158770930726793_457636914.png"
+          },
+          {
+            "url": "https://shop-phinf.pstatic.net/20260801_193/1785510038161tOB8I_PNG/40158771082869667_1749711583.png"
+          },
+          {
+            "url": "https://shop-phinf.pstatic.net/20260801_180/1785510038325TXDmD_PNG/40158771250741835_1652432404.png"
+          }
+        ]
+      },
+      "salePrice": 836300,
+      "stockQuantity": 1,
+      "deliveryInfo": {
+        "deliveryType": "DELIVERY",
+        "deliveryAttributeType": "NORMAL",
+        "deliveryCompany": "ACE",
+        "deliveryBundleGroupUsable": true,
+        "deliveryBundleGroupId": 57357067,
+        "deliveryFee": {
+          "deliveryFeeType": "FREE",
+          "baseFee": 0
+        },
+        "claimDeliveryInfo": {
+          "returnDeliveryCompanyPriorityType": "PRIMARY",
+          "returnDeliveryFee": 40000,
+          "exchangeDeliveryFee": 80000,
+          "shippingAddressId": 200519179,
+          "returnAddressId": 200519180,
+          "freeReturnInsuranceYn": false
+        },
+        "installationFee": false
+      },
+      "detailAttribute": {
+        "afterServiceInfo": {
+          "afterServiceTelephoneNumber": "010-5938-3577",
+          "afterServiceGuideContent": "제품 문의 및 A/S는 스마트스토어 문의하기를 이용해주세요."
+        },
+        "purchaseQuantityInfo": {},
+        "originAreaInfo": {
+          "originAreaCode": "0204000",
+          "importer": "TBD Seoul/티비디서울",
+          "content": "미국산(TBD Seoul/티비디서울)",
+          "plural": false
+        },
+        "sellerCodeInfo": {},
+        "optionInfo": {
+          "simpleOptionSortType": "CREATE",
+          "optionSimple": [],
+          "optionCustom": [],
+          "optionCombinationSortType": "CREATE",
+          "standardOptionGroups": [],
+          "optionStandards": [],
+          "useStockManagement": true,
+          "optionDeliveryAttributes": []
+        },
+        "purchaseReviewInfo": {
+          "purchaseReviewExposure": true
+        },
+        "isbnInfo": {},
+        "taxType": "TAX",
+        "certificationTargetExcludeContent": {},
+        "sellerCommentUsable": false,
+        "minorPurchasable": true,
+        "productInfoProvidedNotice": {
+          "productInfoProvidedNoticeType": "OFFICE_APPLIANCES",
+          "officeAppliances": {
+            "returnCostReason": "1",
+            "noRefundReason": "1",
+            "qualityAssuranceStandard": "1",
+            "compensationProcedure": "1",
+            "troubleShootingContents": "1",
+            "itemName": "유니파이 UniFi G5 Pro",
+            "modelName": "UniFi G5 Pro",
+            "certificationType": "상세페이지 참조",
+            "ratedVoltage": "상세페이지 참조",
+            "powerConsumption": "상세페이지 참조",
+            "energyEfficiencyRating": "상세페이지 참조",
+            "releaseDateText": "상세페이지 참조",
+            "manufacturer": "Ubiquiti Inc.",
+            "size": "상세페이지 참조",
+            "weight": "상세페이지 참조",
+            "specification": "상세페이지 참조",
+            "warrantyPolicy": "1년 (제조사 정책에 따름, 상세페이지 참조)",
+            "afterServiceDirector": "010-5938-3577"
+          }
+        },
+        "itselfProductionProductYn": false,
+        "seoInfo": {}
+      },
+      "customerBenefit": {}
+    },
+    "smartstoreChannelProduct": {
+      "storeKeepExclusiveProduct": false,
+      "naverShoppingRegistration": true,
+      "channelProductDisplayStatusType": "ON"
+    }
   }
 }
