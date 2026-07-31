@@ -965,7 +965,10 @@ _PRODUCT_SLUG_MAP_FILE = Path(__file__).parent / "product_slug_map.json"
 def _normalize_store_name(name):
   """product_slug_map.json의 "name"과 NocoDB SKU 표기가 살짝 다른 경우(슬래시
   vs 하이픈, "(10-Pack)"/"2-Pack" 같은 수량 표기 유무)를 완화해서 다시 매칭하기
-  위한 정규화."""
+  위한 정규화. SKU가 비어있는(None) 레코드가 있어도 대시보드가 죽지 않도록
+  빈 문자열로 방어."""
+  if not name:
+    return ""
   name = name.replace("/", "-")
   name = re.sub(r"\s*\(\d+-Pack\)\s*$", "", name)
   name = re.sub(r"\s+\d+-Pack\s*$", "", name)
@@ -1116,7 +1119,7 @@ def build_products_table_html(records, theme_name, show_category=True, price_del
   rows_html = []
   for r in records:
     f = r["fields"]
-    sku = f.get("SKU", "-")
+    sku = f.get("SKU") or "-"
     category = f.get("Category") or "미분류"
     is_active = bool(f.get("In_Stock"))
     msrp = f.get("MSRP_USD", 0.0) or 0.0
