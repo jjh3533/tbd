@@ -106,7 +106,11 @@ def frame(active_path: str):
       ui.html('<div class="tbd-nav-label">메뉴</div>')
       nav_items = [("📊 메인 대시보드", "/")] + [
           (f"　{c}", _category_href(c)) for c in CATEGORIES
-      ] + [("➕ 상품 등록", "/register"), ("📦 재고/이력 관리", "/inventory")]
+      ] + [
+          ("➕ 상품 등록", "/register"),
+          ("📦 재고/이력 관리", "/inventory"),
+          ("⚠️ 확인 필요", "/needs-check"),
+      ]
       for label, href in nav_items:
         active_cls = "tbd-nav-link active" if href == active_path else "tbd-nav-link"
         ui.html(f'<a class="{active_cls}" href="{href}">{label}</a>')

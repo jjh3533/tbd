@@ -15,7 +15,7 @@
 | 파일 | 역할 |
 |---|---|
 | `sync_engine.py` | 스크래핑/동기화/포맷팅 로직 - 프레임워크 독립 모듈. `start_background_scheduler()`로 매일 09:00 KST 전체 동기화 + 4시간마다 확인 필요 상품만 재조회하는 자동화도 포함 |
-| `dashboard/` | NiceGUI 대시보드 (`theme.py`, `layout.py`, `components.py`, `app.py`, `pages/{home,category,register,inventory}.py`, `deploy/{Dockerfile,docker-compose.yml}`) |
+| `dashboard/` | NiceGUI 대시보드 (`theme.py`, `layout.py`, `components.py`, `app.py`, `pages/{home,category,register,inventory,needs_check}.py`, `deploy/{Dockerfile,docker-compose.yml}`) |
 | `config.py` | 공용 시크릿 로더 (`.env`), NocoDB/Scrape.do/Telegram 값 |
 | `naver_config.py` | 네이버 커머스API 설정 (CLIENT_ID/SECRET은 `.env`에서) |
 | `nocodb_client.py` | NocoDB REST v2용 Airtable 호환 어댑터 |
@@ -55,6 +55,8 @@
 - **Price_History 테이블**: 로컬/NAS 양쪽 다 `NOCODB_HISTORY_TABLE_ID=mi258r3q4g5wu69`로 연결 완료, `https://my.tbd.kr/inventory`에서 운영 중. 아직 실제 Sync를 통해 쌓인 이력은 0건(다음 Sync 버튼 클릭부터 자연히 쌓이기 시작함) — 그래서 "15일 이상 품절" 섹션은 지금 비어있고, 미판매 상품 전체가 "기록 이전부터 품절"로 표시되는 게 정상.
 - **자동 동기화 스케줄러**: NAS에서 가동 중. 매일 09:00 KST 전체 동기화 + 4시간마다 확인 필요 상품만 재조회. 스케줄 시각/주기를 바꾸려면 `sync_engine.py`의 `start_background_scheduler()` 안 `CronTrigger`/`IntervalTrigger` 파라미터만 수정하면 됨.
 - **화이트/블랙 색상 옵션 관리**: 구매처마다 화이트/블랙 가격이 다른 35개 제품에 대해 NocoDB에 `{화이트 SKU} Black` 로우를 만들어 색상별로 가격/재고를 따로 추적(Category/Weight_KG/MSRP_USD/Naver_Product_No는 화이트와 동일 복사). 이 클론 로우는 `Product_Page="Clone"`으로 태깅됨(사용자가 도입한 컨벤션, `None`/`Simple`/`Detail`에 이어 4번째 옵션 - `create_color_variant_rows.py`가 자동으로 채움) — **`Product_Page == "Clone"`인 로우는 독립된 상세페이지/등록이 필요 없는 "다른 로우의 색상 옵션"일 뿐이므로, 앞으로 대시보드 카운트나 상세페이지 생성 대상을 다룰 때 이 점을 감안할 것.** `update_price_stock.py`는 Black 로우에 `sale_price`가 채워지면(구매처 ID 스크래핑 완료) 네이버에 "색상"(화이트/블랙) 옵션으로 반영함 - 이미 옵션이 있으면 갱신, 없으면 신규 생성(화이트 재고가 0이면 재고 있는 쪽을 0원 기준으로 자동 전환, 둘 다 품절이면 네이버가 옵션 생성 자체를 거부해 다음 Sync까지 보류). **현황**: 27/35 로우에 B&H 코드 입력 + 실제 B&H 상품명 대조 검증 완료(불일치 없음), 색상 옵션이 필요한 15개 상품 중 14개 네이버 반영 완료(`UniFi Reader Pro`만 화이트/블랙 둘 다 품절이라 보류 중). `UniFi Reader`/`UniFi G3 Reader Fingerprint`/`UniFi Retrofit Reader Fingerprint`는 화이트 자체가 NocoDB에 없어 이번 작업에서 제외함.
+- **대시보드 카운트는 `Product_Page == "Clone"` 제외 기준**: `sync_engine.exclude_clone_rows()`를 `home.py`/`category.py`/`needs_check.py`에서 사용, "판매 가능/품절/확인 필요"/카테고리별 개수/전체 상품 표가 전부 실제 등록 상품(96개) 기준으로 나옴 — 예전엔 Clone 로우까지 같이 세서 네이버 실제 판매중 개수와 어긋났었음(예: 82 vs 실제 73). `/inventory`처럼 색상별 추적 자체가 목적인 곳은 이 필터를 안 쓰고 원본 그대로 사용.
+- **대시보드 메뉴/표 개선**: `CATEGORIES`에서 상품이 아예 없는 Advanced Hosting/Accessories 제거(6개만 남음). 신규 `/needs-check` 페이지(사이드바 "⚠️ 확인 필요")로 Needs_Check=True 상품만 모아보기 가능. 상품 표에서 $0(가격 정보 없음) 셀은 회색으로 표시(Best Price 포함 - 예전엔 빨강으로 "비싸다"와 구분이 안 됐음). `Price_History` 기반으로 B&H/Adorama/Amazon 가격이 지난 기록과 달라졌으면 가격 옆에 ▲(빨강, 상승)/▼(초록, 하락) 표시(`get_latest_price_deltas()`). UniFi Store($) 컬럼은 `store.ui.com` 실제 제품 페이지로 링크(`product_slug_map.json` 매칭, 이름 표기가 살짝 다른 4개는 정규화 매칭으로 보강해 160/160 전부 연결).
 
 **현재 수치**:
 - 네이버 스마트스토어 등록 상품: **96개**

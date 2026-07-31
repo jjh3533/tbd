@@ -54,8 +54,6 @@ CATEGORIES = [
     "Physical Security",
     "Door Access",
     "Integrations",
-    "Advanced Hosting",
-    "Accessories",
 ]
 
 # ==========================================
@@ -945,22 +943,35 @@ def _bh_url(bh_id):
 _PRODUCT_SLUG_MAP_FILE = Path(__file__).parent / "product_slug_map.json"
 
 
+def _normalize_store_name(name):
+  """product_slug_map.json의 "name"과 NocoDB SKU 표기가 살짝 다른 경우(슬래시
+  vs 하이픈, "(10-Pack)"/"2-Pack" 같은 수량 표기 유무)를 완화해서 다시 매칭하기
+  위한 정규화."""
+  name = name.replace("/", "-")
+  name = re.sub(r"\s*\(\d+-Pack\)\s*$", "", name)
+  name = re.sub(r"\s+\d+-Pack\s*$", "", name)
+  return name.strip()
+
+
 @lru_cache(maxsize=1)
 def _load_unifi_store_slug_map():
   if not _PRODUCT_SLUG_MAP_FILE.exists():
-    return {}
+    return {}, {}
   try:
     records = json.loads(_PRODUCT_SLUG_MAP_FILE.read_text(encoding="utf-8"))
-    return {
+    exact = {
         r["name"]: r["techspecs_slug"]
         for r in records if r.get("name") and r.get("techspecs_slug")
     }
+    normalized = {_normalize_store_name(name): slug for name, slug in exact.items()}
+    return exact, normalized
   except Exception:
-    return {}
+    return {}, {}
 
 
 def _unifi_store_url(product_name):
-  slug = _load_unifi_store_slug_map().get(product_name)
+  exact, normalized = _load_unifi_store_slug_map()
+  slug = exact.get(product_name) or normalized.get(_normalize_store_name(product_name))
   if not slug:
     return None
   return f"https://store.ui.com/us/en/products/{slug}"
@@ -1006,6 +1017,17 @@ def sort_records_by_name(records):
   return sorted(records, key=lambda r: str(r["fields"].get("SKU") or "").lower())
 
 
+def exclude_clone_rows(records):
+  """`Product_Page == "Clone"`인 로우(색상 옵션 클론 - 화이트 로우의 옵션일 뿐,
+  독립된 네이버 상품이 아님)를 제외합니다. 대시보드의 "상품 개수/판매 가능/
+  품절" 같은 카운트와 목록은 실제 등록 상품 기준이어야 하는데, 이 로우들을
+  그대로 포함하면 화이트+블랙이 옵션 하나로 묶인 네이버 상품 1개가 NocoDB
+  로우 2개로 잡혀 중복 카운트됩니다. 반대로 재고/가격 이력처럼 색상별 추적
+  자체가 목적인 곳(`get_long_oos_products`/`get_price_history`)에서는 이
+  필터를 쓰지 않고 원본 레코드를 그대로 사용해야 합니다."""
+  return [r for r in records if r["fields"].get("Product_Page") != "Clone"]
+
+
 def status_counts(records):
   """판매 가능 / 품절 / 확인 필요 3분류 카운트. build_products_table_html의 Status
   뱃지 우선순위(확인 필요 > 판매가능/품절)와 동일한 기준으로 집계해, 카드 숫자와
@@ -1022,16 +1044,44 @@ def status_counts(records):
   return active, out_of_stock, needs_check
 
 
-def build_products_table_html(records, theme_name, show_category=True):
+def _price_arrow_html(delta, t):
+  """price_deltas에서 찾은 (이전값, 새값) 쌍으로 오름/내림 화살표 span을
+  만듭니다. 값을 못 만들거나 변동이 없으면 빈 문자열."""
+  if not delta:
+    return ""
+  old_v, new_v = delta
+  try:
+    old_f, new_f = float(old_v), float(new_v)
+  except (TypeError, ValueError):
+    return ""
+  if new_f > old_f:
+    return (
+        f' <span style="color:{t["danger"]};font-size:10px;"'
+        f' title="이전 ${old_f:,.2f}에서 상승">▲</span>'
+    )
+  if new_f < old_f:
+    return (
+        f' <span style="color:{t["success"]};font-size:10px;"'
+        f' title="이전 ${old_f:,.2f}에서 하락">▼</span>'
+    )
+  return ""
+
+
+def build_products_table_html(records, theme_name, show_category=True, price_deltas=None):
   """Adorama / Amazon / B&H 가격, Best Price(클릭 시 최저가 판매처로 이동),
   Sale Price/Purchase Cost/Profit까지 보여주는 Site Manager 스타일 테이블의 HTML을
   문자열로 만들어 반환합니다 (렌더링은 호출부에서: Streamlit이면
   st.markdown(html, unsafe_allow_html=True), NiceGUI면 ui.html(html)).
 
+  price_deltas: get_latest_price_deltas()가 반환하는 {(SKU, 필드명): (이전값,
+  새값)} 딕셔너리를 넘기면, B&H/Adorama/Amazon 가격 옆에 오름/내림 화살표를
+  표시합니다. 넘기지 않으면(기본값) 화살표 없이 기존과 동일하게 렌더링합니다.
+
   records가 비어있으면 None을 반환합니다 - 호출부가 "등록된 상품이 없습니다"
   같은 안내를 프레임워크에 맞는 방식으로 보여주면 됩니다."""
   if not records:
     return None
+  price_deltas = price_deltas or {}
 
   t = THEMES[theme_name]
 
@@ -1068,15 +1118,17 @@ def build_products_table_html(records, theme_name, show_category=True):
         best_price_url = url
         break
 
-    if best_usd <= 0:
-      color_key = _COLOR_KEY_BAD
-    elif round(best_usd, 2) < round(msrp, 2):
-      color_key = _COLOR_KEY_GOOD
-    elif round(best_usd, 2) == round(msrp, 2):
-      color_key = _COLOR_KEY_SAME
-    else:
-      color_key = _COLOR_KEY_BAD
-    best_color = t[color_key]
+    # 가격 정보가 아예 없는 경우(0달러)는 "비싸다(빨강)"가 아니라 "데이터
+    # 없음(회색)"으로 표시 - 아래 다른 $0 셀들과 같은 규칙.
+    best_is_zero = best_usd <= 0
+    if not best_is_zero:
+      if round(best_usd, 2) < round(msrp, 2):
+        color_key = _COLOR_KEY_GOOD
+      elif round(best_usd, 2) == round(msrp, 2):
+        color_key = _COLOR_KEY_SAME
+      else:
+        color_key = _COLOR_KEY_BAD
+      best_color = t[color_key]
 
     needs_check = bool(f.get("Needs_Check"))
     check_note = f.get("Check_Note") or ""
@@ -1110,9 +1162,9 @@ def build_products_table_html(records, theme_name, show_category=True):
         "Category": cat_html,
         "Naver ID": html_escape(str(f.get("Naver_Product_No", "-"))),
         "UniFi Store ($)": fmt_usd(msrp),
-        "B&H ($)": fmt_usd(bh_usd),
-        "Adorama ($)": fmt_usd(adorama_usd),
-        "Amazon ($)": fmt_usd(amazon_usd),
+        "B&H ($)": fmt_usd(bh_usd) + _price_arrow_html(price_deltas.get((sku, "BH_USD")), t),
+        "Adorama ($)": fmt_usd(adorama_usd) + _price_arrow_html(price_deltas.get((sku, "Adorama_USD")), t),
+        "Amazon ($)": fmt_usd(amazon_usd) + _price_arrow_html(price_deltas.get((sku, "Amazon_USD")), t),
         "Best Price ($)": fmt_usd(best_usd),
         "Status": status_html,
         "Sale Price": fmt_krw(f.get("sale_price", 0)),
@@ -1126,6 +1178,14 @@ def build_products_table_html(records, theme_name, show_category=True):
         "Adorama ($)": adorama_url,
         "Amazon ($)": amazon_url,
         "Best Price ($)": best_price_url,
+    }
+    # $0(가격 정보 없음)인 칸을 회색으로 표시하기 위한 컬럼->실제 값 매핑.
+    zero_check_values = {
+        "UniFi Store ($)": msrp,
+        "B&H ($)": bh_usd,
+        "Adorama ($)": adorama_usd,
+        "Amazon ($)": amazon_usd,
+        "Best Price ($)": best_usd,
     }
 
     tds = []
@@ -1146,7 +1206,7 @@ def build_products_table_html(records, theme_name, show_category=True):
         classes.append("uic-divider")
       if col == final_price_col:
         classes.append("uic-final-price")
-      if col == "Best Price ($)":
+      if col == "Best Price ($)" and not best_is_zero:
         style = (
             f' style="color:{best_color};'
             f' background-color:{_rgba_from_hex(best_color, 0.14)};'
@@ -1157,6 +1217,8 @@ def build_products_table_html(records, theme_name, show_category=True):
             f' style="color:{_rgba_from_hex(t["text_secondary"], 0.45)};" '
             f'title="확인 필요 - 마지막으로 확인된 값"'
         )
+      elif col in zero_check_values and zero_check_values[col] <= 0:
+        style = f' style="color:{_rgba_from_hex(t["text_secondary"], 0.6)};"'
 
       cls_attr = f' class="{" ".join(classes)}"' if classes else ""
       tds.append(f"<td{cls_attr}{style}>{value}</td>")
@@ -1277,6 +1339,35 @@ def get_price_history(limit=50):
         ),
     })
   return result
+
+
+def get_latest_price_deltas():
+  """SKU + 리테일러 가격 필드(Adorama_USD/Amazon_USD/BH_USD)별로 가장 최근
+  Price_History 변동 1건의 (이전값, 새값)을 반환합니다. 대시보드 표에서 가격
+  옆에 오름/내림 화살표를 표시하는 데 씁니다. In_Stock 변동은 대상이 아니라
+  제외합니다."""
+  if history_table is None:
+    return {}
+
+  try:
+    history = history_table.all()
+  except Exception:
+    return {}
+
+  price_fields = set(_RETAILER_PRICE_FIELD.values())
+  latest = {}
+  for h in history:
+    hf = h["fields"]
+    sku = hf.get("SKU")
+    field = hf.get("Field_Name")
+    changed_at = hf.get("Changed_At") or ""
+    if not sku or field not in price_fields:
+      continue
+    key = (sku, field)
+    if key not in latest or changed_at > latest[key][0]:
+      latest[key] = (changed_at, hf.get("Old_Value"), hf.get("New_Value"))
+
+  return {key: (old, new) for key, (_, old, new) in latest.items()}
 
 
 # ==========================================

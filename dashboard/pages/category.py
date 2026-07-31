@@ -8,6 +8,8 @@ from nicegui import ui
 from sync_engine import (
     CATEGORIES,
     build_products_table_html,
+    exclude_clone_rows,
+    get_latest_price_deltas,
     safe_fetch_records,
     sort_records_by_name,
     status_counts,
@@ -35,7 +37,7 @@ def category_page(slug: str) -> None:
 
     components.topbar(category)
 
-    records = safe_fetch_records(on_error=lambda msg: ui.notify(msg, type="negative"))
+    records = exclude_clone_rows(safe_fetch_records(on_error=lambda msg: ui.notify(msg, type="negative")))
     cat_records = [r for r in records if r["fields"].get("Category") == category]
     cat_records = sort_records_by_name(cat_records)
     active, out_stock, needs_check = status_counts(cat_records)
@@ -50,7 +52,10 @@ def category_page(slug: str) -> None:
       with ui.column().classes("flex-1 min-w-0"):
         components.stat_card("확인 필요", needs_check, "warning")
 
-    table_html = build_products_table_html(cat_records, _theme_name(), show_category=False)
+    price_deltas = get_latest_price_deltas()
+    table_html = build_products_table_html(
+        cat_records, _theme_name(), show_category=False, price_deltas=price_deltas
+    )
     if table_html is None:
       ui.label("등록된 상품이 없습니다.").classes("text-tbd-text-secondary")
     else:

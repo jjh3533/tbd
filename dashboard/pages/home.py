@@ -6,7 +6,9 @@ from nicegui import ui
 from sync_engine import (
     CATEGORIES,
     build_products_table_html,
+    exclude_clone_rows,
     get_current_exchange_rate,
+    get_latest_price_deltas,
     get_scrapedo_usage,
     safe_fetch_records,
     sort_records_by_category_then_name,
@@ -40,7 +42,7 @@ def home_page() -> None:
         else:
           ui.label("조회 실패").classes("text-2xl font-bold")
 
-    records = safe_fetch_records(on_error=lambda msg: ui.notify(msg, type="negative"))
+    records = exclude_clone_rows(safe_fetch_records(on_error=lambda msg: ui.notify(msg, type="negative")))
 
     total = len(records)
     active_count, out_stock, check_needed = status_counts(records)
@@ -72,7 +74,10 @@ def home_page() -> None:
 
     ui.label("전체 상품").classes("text-lg font-bold mb-3")
     sorted_records = sort_records_by_category_then_name(records)
-    table_html = build_products_table_html(sorted_records, _theme_name(), show_category=True)
+    price_deltas = get_latest_price_deltas()
+    table_html = build_products_table_html(
+        sorted_records, _theme_name(), show_category=True, price_deltas=price_deltas
+    )
     if table_html is None:
       ui.label("등록된 상품이 없습니다.").classes("text-tbd-text-secondary")
     else:
