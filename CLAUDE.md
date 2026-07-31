@@ -7,7 +7,7 @@
 
 - **목적/종류**: "TBD Seoul" — 미국에서 Ubiquiti UniFi 네트워크 장비를 병행수입(해외직구)해서 네이버 스마트스토어에 재판매하는 1인 사업의 자동화 시스템. 가격 모니터링, 상품 등록, 상세페이지 생성, 대시보드로 구성.
 - **기술 스택**: Python 3 (로컬 Mac은 3.14, NAS Docker는 3.11), NiceGUI(대시보드), NocoDB(DB, Airtable에서 이전), requests/BeautifulSoup4(스크래핑), yfinance(환율), APScheduler(자동 동기화 스케줄러), Playwright(헤드리스 크롬 - 상세페이지 HTML→PNG 렌더링), openpyxl(엑셀 템플릿), 네이버 커머스API, Docker + Synology Container Manager, Cloudflare Tunnel
-- **디렉토리**: `~/tbd` (git 저장소, GitHub `jjh3533/tbd` — **private 레포**, 로컬 git만 사용, GitHub 푸시 안 함). **맥 두 대에서 사용** (`/Users/cheil/tbd`, `/Users/jay/tbd` — macOS 계정명만 다름). 코드에 홈 디렉토리를 직접 하드코딩하지 말고 `os.path.expanduser("~/...")`로 작성할 것 (`naver_config.py`의 `PRODUCT_IMAGES_DIR`/`PRODUCT_PAGES_DIR` 참고) — 두 기기 모두 같은 구글 드라이브 계정(`jjh3533@gmail.com`)을 쓰므로 이 방식이면 기기별 설정 없이 그대로 동작함
+- **디렉토리**: `/Users/cheil/Desktop/dev/tbd` (git 저장소, GitHub `jjh3533/tbd` — **private 레포**, 로컬 git만 사용, GitHub 푸시 안 함). 2026-07-31에 `~/tbd`에서 이 위치로 이동함. **맥 두 대에서 사용** — 다른 한 대(`jay` 계정)는 아직 `/Users/jay/tbd`에 있을 수 있음, 두 기기 경로를 맞추려면 그쪽도 동일하게 옮길 것. 코드에 홈 디렉토리를 직접 하드코딩하지 말고 `os.path.expanduser("~/...")`로 작성할 것 (`naver_config.py`의 `PRODUCT_IMAGES_DIR`/`PRODUCT_PAGES_DIR` 참고) — 두 기기 모두 같은 구글 드라이브 계정(`jjh3533@gmail.com`)을 쓰므로 이 방식이면 기기별 설정 없이 그대로 동작함
 
 ## 2. 프로젝트 구조
 
