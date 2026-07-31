@@ -39,7 +39,7 @@
 | `archive/` | 이미 끝난 1회성 조사/디버그/검증/수정 스크립트 + 더 이상 안 쓰는 데이터/로그 보관 (삭제 아님, 필요하면 재사용 가능 - `archive/README.md` 참고) |
 | `naver_상품등록_템플릿.xlsx` | 등록용 엑셀 (126행: Switching 29 + WiFi 16 + Physical Security 13 + Door Access 31 + Integrations 8 + 기타 29) |
 | `registered_log.json` | 등록된 상품들의 전체 API payload 로컬 로그 |
-| `product_slug_map.json` | `sync_engine.py`가 UI Store 상품 URL을 만들 때 쓰는 name↔slug 매핑 (크롤링 프로젝트 때 생성) |
+| `product_slug_map.json` | `sync_engine.py`가 UI Store 상품 URL을 만들 때 쓰는 name↔slug 매핑 (크롤링 프로젝트 때 생성). **NAS 배포 시 반드시 같이 올려야 함** - 없어도 에러 없이 조용히 링크가 안 만들어져서 놓치기 쉬움 |
 | `.env`/`.env.example` | 시크릿 (NocoDB/Scrape.do/Telegram/NAVER_CLIENT_ID·SECRET) |
 | `.claude/launch.json` | `tbd-dashboard-nicegui`(NiceGUI :8080) |
 
@@ -56,7 +56,7 @@
 - **자동 동기화 스케줄러**: NAS에서 가동 중. 매일 09:00 KST 전체 동기화 + 4시간마다 확인 필요 상품만 재조회. 스케줄 시각/주기를 바꾸려면 `sync_engine.py`의 `start_background_scheduler()` 안 `CronTrigger`/`IntervalTrigger` 파라미터만 수정하면 됨.
 - **화이트/블랙 색상 옵션 관리**: 구매처마다 화이트/블랙 가격이 다른 35개 제품에 대해 NocoDB에 `{화이트 SKU} Black` 로우를 만들어 색상별로 가격/재고를 따로 추적(Category/Weight_KG/MSRP_USD/Naver_Product_No는 화이트와 동일 복사). 이 클론 로우는 `Product_Page="Clone"`으로 태깅됨(사용자가 도입한 컨벤션, `None`/`Simple`/`Detail`에 이어 4번째 옵션 - `create_color_variant_rows.py`가 자동으로 채움) — **`Product_Page == "Clone"`인 로우는 독립된 상세페이지/등록이 필요 없는 "다른 로우의 색상 옵션"일 뿐이므로, 앞으로 대시보드 카운트나 상세페이지 생성 대상을 다룰 때 이 점을 감안할 것.** `update_price_stock.py`는 Black 로우에 `sale_price`가 채워지면(구매처 ID 스크래핑 완료) 네이버에 "색상"(화이트/블랙) 옵션으로 반영함 - 이미 옵션이 있으면 갱신, 없으면 신규 생성(화이트 재고가 0이면 재고 있는 쪽을 0원 기준으로 자동 전환, 둘 다 품절이면 네이버가 옵션 생성 자체를 거부해 다음 Sync까지 보류). **현황**: 27/35 로우에 B&H 코드 입력 + 실제 B&H 상품명 대조 검증 완료(불일치 없음), 색상 옵션이 필요한 15개 상품 중 14개 네이버 반영 완료(`UniFi Reader Pro`만 화이트/블랙 둘 다 품절이라 보류 중). `UniFi Reader`/`UniFi G3 Reader Fingerprint`/`UniFi Retrofit Reader Fingerprint`는 화이트 자체가 NocoDB에 없어 이번 작업에서 제외함.
 - **대시보드 카운트는 `Product_Page == "Clone"` 제외 기준**: `sync_engine.exclude_clone_rows()`를 `home.py`/`category.py`/`needs_check.py`에서 사용, "판매 가능/품절/확인 필요"/카테고리별 개수/전체 상품 표가 전부 실제 등록 상품(96개) 기준으로 나옴 — 예전엔 Clone 로우까지 같이 세서 네이버 실제 판매중 개수와 어긋났었음(예: 82 vs 실제 73). `/inventory`처럼 색상별 추적 자체가 목적인 곳은 이 필터를 안 쓰고 원본 그대로 사용.
-- **대시보드 메뉴/표 개선**: `CATEGORIES`에서 상품이 아예 없는 Advanced Hosting/Accessories 제거(6개만 남음). 신규 `/needs-check` 페이지(사이드바 "⚠️ 확인 필요")로 Needs_Check=True 상품만 모아보기 가능. 상품 표에서 $0(가격 정보 없음) 셀은 회색으로 표시(Best Price 포함 - 예전엔 빨강으로 "비싸다"와 구분이 안 됐음). `Price_History` 기반으로 B&H/Adorama/Amazon 가격이 지난 기록과 달라졌으면 가격 옆에 ▲(빨강, 상승)/▼(초록, 하락) 표시(`get_latest_price_deltas()`). UniFi Store($) 컬럼은 `store.ui.com` 실제 제품 페이지로 링크(`product_slug_map.json` 매칭, 이름 표기가 살짝 다른 4개는 정규화 매칭으로 보강해 160/160 전부 연결).
+- **대시보드 메뉴/표 개선**: `CATEGORIES`에서 상품이 아예 없는 Advanced Hosting/Accessories 제거(6개만 남음). 신규 `/needs-check` 페이지(사이드바 "⚠️ 확인 필요")로 Needs_Check=True 상품만 모아보기 가능. 상품 표에서 $0(가격 정보 없음) 셀은 회색으로 표시(Best Price 포함 - 예전엔 빨강으로 "비싸다"와 구분이 안 됐음). `Price_History` 기반으로 B&H/Adorama/Amazon 가격이 지난 기록과 달라졌으면 가격 옆에 ▲(빨강, 상승)/▼(초록, 하락) 표시(`get_latest_price_deltas()`). UniFi Store($) 컬럼은 `store.ui.com` 실제 제품 페이지로 링크(`product_slug_map.json` 매칭, 이름 표기가 살짝 다른 4개는 정규화 매칭으로 보강해 160/160 전부 연결). **배포 누락 발견/수정**: 로컬에서는 다 됐는데 실제 `my.tbd.kr`에서는 이 링크가 하나도 안 떴음 - `product_slug_map.json`이 NAS에 한 번도 업로드된 적이 없어서 조용히 빈 매핑으로 처리되고 있었음. 업로드 + 재시작으로 NAS에서도 160/160 확인 완료.
 
 **현재 수치**:
 - 네이버 스마트스토어 등록 상품: **96개**
@@ -175,10 +175,11 @@ python3 update_product_names_with_keywords.py                        # 전체 �
 - `Dockerfile`/`docker-compose.yml`은 git에는 `dashboard/deploy/`에 있지만, NAS에는 `/volume1/docker/nicegui/` 루트에 그대로(중첩 없이) 올라가 있음 — `docker-compose.yml`의 `build: .`가 그 위치 기준.
 - **코드만 바뀐 경우**(`sync_engine.py`, `dashboard/` 등) → `docker-compose restart`로 충분.
 - **Dockerfile을 바꿔서 새 pip 패키지가 필요한 경우**(예: `apscheduler` 추가) → `restart`로는 새 패키지가 설치되지 않음, 반드시 **`docker-compose up -d --build`**로 이미지 재빌드 필요.
+- **`.py`가 아닌 데이터 파일도 빠뜨리지 말 것**: `sync_engine.py`가 디스크에서 직접 읽는 파일(`product_slug_map.json` 등)은 로컬에는 있어도 NAS에 배포한 적 없으면 조용히 빈 값으로 처리됨(에러 없음 - 예: UniFi Store 링크가 로컬에선 되는데 NAS에선 전부 안 뜨는 버그로 실제 발견됨). 코드 배포할 때 이런 데이터 파일도 같이 올라갔는지 확인할 것.
 
 ```bash
 # 파일 업로드 (sshpass 필수)
-sshpass -p 'JJ2120jj!!' scp -O -o StrictHostKeyChecking=no sync_engine.py config.py nocodb_client.py jay@192.168.50.245:/volume1/docker/nicegui/
+sshpass -p 'JJ2120jj!!' scp -O -o StrictHostKeyChecking=no sync_engine.py config.py nocodb_client.py product_slug_map.json jay@192.168.50.245:/volume1/docker/nicegui/
 sshpass -p 'JJ2120jj!!' scp -O -o StrictHostKeyChecking=no -r dashboard jay@192.168.50.245:/volume1/docker/nicegui/
 # Dockerfile이 바뀌었다면 NAS 루트(중첩 아님)에 별도 업로드
 sshpass -p 'JJ2120jj!!' scp -O -o StrictHostKeyChecking=no dashboard/deploy/Dockerfile jay@192.168.50.245:/volume1/docker/nicegui/
