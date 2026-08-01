@@ -17,68 +17,21 @@
 """
 import argparse
 import csv
-import re
 import time
 
-import requests
-
-import config
 import sync_engine as se
+from retailer_search import search_amazon
 
-SEARCH_URL = "https://api.scrape.do/plugin/amazon/search"
 OUTPUT_CSV = "asin_candidates.csv"
-MAX_CANDIDATES_PER_PRODUCT = 2
-
-
-def _title_for_matching(title: str) -> str:
-  """하이픈은 그대로 두고(모델명 내부 구분자), 그 외 괄호/파이프 등 구두점은
-  전부 공백으로 바꿉니다. "모델명 뒤에 설명 문구가 오는 경우"(공백으로 끊김)
-  와 "모델명이 사실 더 긴 다른 모델명의 접두어일 뿐인 경우"(하이픈으로 계속
-  이어짐, 예: U5G가 U5G-Max-Outdoor 안에 있는 경우)를 구분하기 위함."""
-  return re.sub(r"[^a-z0-9-]", " ", (title or "").lower())
-
-
-def is_model_match(model_number: str, title: str) -> bool:
-  model_n = (model_number or "").lower().strip()
-  if not model_n:
-    return False
-  title_n = _title_for_matching(title)
-  pattern = r"(?<![a-z0-9-])" + re.escape(model_n) + r"(?![a-z0-9-])"
-  return re.search(pattern, title_n) is not None
 
 
 def search_candidates(model_number: str):
   """모델명으로 아마존 검색 후, 제목에 모델명이 정확히(다른 모델명의 접두어가
-  아니라 독립된 토큰으로) 들어있는 후보만 position 순으로 최대
-  MAX_CANDIDATES_PER_PRODUCT개 반환."""
-  query = f"Ubiquiti {model_number}"
-  with se._AMAZON_SEMAPHORE:
-    resp = requests.get(
-        SEARCH_URL,
-        params={"token": config.SCRAPEDO_TOKEN, "keyword": query, "geocode": "us"},
-        timeout=60,
-    )
-  if resp.status_code != 200:
-    return None, f"HTTP {resp.status_code}"
+  아니라 독립된 토큰으로) 들어있는 후보만 position 순으로 반환.
 
-  try:
-    data = resp.json()
-  except ValueError:
-    return None, "JSON 파싱 실패"
-
-  matches = []
-  for p in data.get("products", []):
-    title = p.get("title", "")
-    if is_model_match(model_number, title):
-      matches.append({
-          "asin": p.get("asin", ""),
-          "title": title,
-          "price": (p.get("price") or {}).get("amount"),
-          "url": p.get("url", ""),
-          "position": p.get("position", 999),
-      })
-  matches.sort(key=lambda m: m["position"])
-  return matches[:MAX_CANDIDATES_PER_PRODUCT], None
+  실제 검색/매칭 로직은 retailer_search.search_amazon()으로 이관됨 - 여기서는
+  이 스크립트의 "Ubiquiti {모델명}" 검색어 컨벤션만 유지."""
+  return search_amazon(f"Ubiquiti {model_number}", model_number)
 
 
 def main():
@@ -142,7 +95,7 @@ def main():
       for m in matches:
         rows_out.append({
             "SKU": sku, "Model_Number": model, "Category": f.get("Category", ""),
-            "Match_Found": "발견", "Candidate_ASIN": m["asin"],
+            "Match_Found": "발견", "Candidate_ASIN": m["id"],
             "Candidate_Title": m["title"], "Candidate_Price_USD": m["price"],
             "Candidate_URL": m["url"],
         })
