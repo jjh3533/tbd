@@ -17,7 +17,7 @@
 | `sync_engine.py` | 스크래핑/동기화/포맷팅 로직 - 프레임워크 독립 모듈. `start_background_scheduler()`로 매일 09:00 KST 전체 동기화 + 4시간마다 확인 필요 상품만 재조회하는 자동화도 포함 |
 | `dashboard/` | NiceGUI 대시보드 (`theme.py`, `layout.py`, `components.py`, `app.py`, `pages/{home,category,register,inventory,needs_check}.py`, `deploy/{Dockerfile,docker-compose.yml}`) |
 | `config.py` | 공용 시크릿 로더 (`.env`), NocoDB/Scrape.do/Telegram 값 |
-| `naver_config.py` | 네이버 커머스API 설정 (CLIENT_ID/SECRET은 `.env`에서) |
+| `naver_config.py` | 네이버 커머스API 설정 (CLIENT_ID/SECRET은 `.env`에서, NAS엔 없어도 되도록 `required=False`). `PRODUCT_IMAGES_DIR`/`PRODUCT_PAGES_DIR`는 `.env`의 `TBD_SEOUL_ROOT`로 오버라이드 가능 (맥은 미설정=Google Drive CloudStorage 경로, NAS는 `/app/dev/smartstore`로 설정) |
 | `nocodb_client.py` | NocoDB REST v2용 Airtable 호환 어댑터 |
 | `auth.py` | 네이버 OAuth2 bearer token 발급 |
 | `main.py` | 엑셀(`naver_상품등록_템플릿.xlsx`) 기반 네이버 상품 등록 파이프라인 |
@@ -29,7 +29,9 @@
 | `sync_naver_ids_to_nocodb.py` | `TARGET_PRODUCTS` 매핑, 네이버 채널상품번호를 NocoDB에 반영 |
 | `update_price_stock.py` | NocoDB → 네이버 가격/재고 동기화 (영문 필드명 `sale_price` 사용). `{SKU} Black` 짝 로우가 있으면 화이트/블랙 옵션별로 다른 가격/재고 반영 - 옵션이 이미 있으면 갱신, 없으면 신규 생성 |
 | `create_color_variant_rows.py` | 화이트 기준 로우에서 `{SKU} Black`/`{Model Number}-B` 블랙 변형 로우를 생성하는 스크립트 (Category/Weight_KG/MSRP_USD/Naver_Product_No는 화이트와 동일하게 복사, 구매처 ID는 비워둠) |
-| `search_amazon_candidates.py` | ASIN 없는 상품을 상품명+모델명으로 아마존 검색해(Scrape.do Amazon Search 플러그인) 후보를 CSV로 뽑아주는 스크립트. NocoDB에 자동으로 쓰지 않고 사람이 검토하는 용도 |
+| `search_amazon_candidates.py` | ASIN 없는 상품을 상품명+모델명으로 아마존 검색해(Scrape.do Amazon Search 플러그인) 후보를 CSV로 뽑아주는 스크립트. NocoDB에 자동으로 쓰지 않고 사람이 검토하는 용도. 실제 검색 로직은 `retailer_search.py`로 이관됨 |
+| `official_scrapers/` | 구매대행 신규 브랜드 공홈 크롤러 레지스트리 (`fetch_product(brand, url)`). `shopify.py`(Shopify `.json` 엔드포인트, 브랜드 무관 공용) / `unifi.py`(store.ui.com `__NEXT_DATA__` 파싱). 현재 UniFi/GL.inet만 등록됨, 새 브랜드는 `__init__.py`의 `_BRAND_SCRAPERS`에 한 줄 추가 |
+| `retailer_search.py` | 상품명+모델명으로 아마존/B&H/Adorama에서 후보를 찾는 검색 모듈. B&H/Adorama는 전용 검색 플러그인이 없어 사이트 검색결과 페이지의 URL 슬러그로 매칭(카드 `<a>`에 텍스트가 없는 경우가 많아서) |
 | `fix_delivery_settings.py` | 이미 등록된 상품의 배송사/배송비/원산지 일괄 수정 |
 | `update_live_customs_image.py` | 라이브 상세페이지의 통관 안내 섹션 이미지만 교체 |
 | `rename_fields_to_english.py` | NocoDB 필드명을 한글에서 영문으로 변경하는 스크립트 |
@@ -48,10 +50,11 @@
 - `.../TBD Seoul/Product Images/<제품폴더명>/` — 원본 제품 사진
 - `.../TBD Seoul/Product Pages_html/` — 상세페이지 `.dc.html` 소스 + `assets/`(폰트/로고) + `exports/<slug>/`(번호 매겨진 PNG, main.py가 실제 업로드하는 이미지)
 - NAS: `/volume1/docker/nicegui/` (Synology DS925+, `192.168.50.245`, SSH 계정 `jay`) — NiceGUI 대시보드 운영 환경
+- NAS: `/volume1/docker/nicegui/dev/smartstore/` — Synology Drive로 위 Google Drive "TBD Seoul" 폴더와 같은 내용을 동기화해둔 사본(2026-08-01 신설). `docker-compose.yml`이 리포 루트 전체(`.:/app`)를 이미 마운트하고 있어서 별도 볼륨 설정 없이 컨테이너 안에서 `/app/dev/smartstore`로 그대로 보임 — `naver_config.py`의 `TBD_SEOUL_ROOT` 오버라이드가 이 경로를 가리킴. 컨테이너가 만든 파일은 root 소유라 NAS에서 지우려면 `sudo rm` 필요
 
 ## 3. 현재 상태
 
-알려진 미해결 버그나 진행 중인 작업 없음. 세부 경위는 `HISTORY.md` 참고 (항목 42~57).
+알려진 미해결 버그나 진행 중인 작업 없음. 세부 경위는 `HISTORY.md` 참고 (항목 42~58).
 
 - **Price_History**: `NOCODB_HISTORY_TABLE_ID=mi258r3q4g5wu69`로 로컬/NAS 연결 완료, `/inventory`에서 운영 중. 이력이 막 쌓이기 시작한 단계라 "15일 이상 품절" 섹션은 아직 비어있음(정상, Sync가 쌓일수록 채워짐).
 - **자동 동기화 스케줄러**: NAS에서 가동 중(매일 09:00 KST 전체 + 4시간마다 확인 필요만). 트리거는 `sync_engine.start_background_scheduler()`의 `CronTrigger`/`IntervalTrigger`.
@@ -60,6 +63,7 @@
 - **대시보드 카운트**: `sync_engine.exclude_clone_rows()`로 Clone 로우를 제외한 실제 등록 상품(100개) 기준으로 집계(`home.py`/`category.py`/`needs_check.py`). `/inventory`처럼 색상별 추적이 목적인 곳만 원본 그대로 사용.
 - **ASIN 커버리지**: 84개 보유(화이트 73 + 블랙 11). 검토 원본은 `archive/data/asin_candidates.csv`.
 - **UniFi Store 링크**: `product_slug_map.json` 매칭으로 160/160 전부 연결(로컬/NAS 양쪽). 이 파일은 NAS 배포 시 누락되기 쉬우니 코드 배포할 때 항상 같이 올릴 것.
+- **구매대행 서비스 확장 로드맵 Phase A(상품등록 공홈 크롤링)**: `/register`에서 크롤링→미리보기→리테일러 후보 검색→저장까지 my.tbd.kr에 실제 배포/검증 완료(UniFi/GL.inet). 이미지 다운로드는 `/app/dev/smartstore`(위 외부 폴더 참고)에 저장됨. 남은 단계(상품관리 확장/주문관리/발주배송관리)는 아직 미착수 - 브랜드는 UniFi+GL.inet 다음 확장 예정, 포워더는 에코트랜스(API 없음, xlsx 대량등록 가능), 알림은 카카오 알림톡 우선으로 합의됨
 
 **현재 수치**:
 - 네이버 스마트스토어 등록 상품: **100개**
@@ -179,11 +183,14 @@ python3 update_product_names_with_keywords.py                        # 전체 �
 - **코드만 바뀐 경우**(`sync_engine.py`, `dashboard/` 등) → `docker-compose restart`로 충분.
 - **Dockerfile을 바꿔서 새 pip 패키지가 필요한 경우**(예: `apscheduler` 추가) → `restart`로는 새 패키지가 설치되지 않음, 반드시 **`docker-compose up -d --build`**로 이미지 재빌드 필요.
 - **`.py`가 아닌 데이터 파일도 빠뜨리지 말 것**: `sync_engine.py`가 디스크에서 직접 읽는 파일(`product_slug_map.json` 등)은 로컬에는 있어도 NAS에 배포한 적 없으면 조용히 빈 값으로 처리됨(에러 없음 - 예: UniFi Store 링크가 로컬에선 되는데 NAS에선 전부 안 뜨는 버그로 실제 발견됨). 코드 배포할 때 이런 데이터 파일도 같이 올라갔는지 확인할 것.
+- **새 모듈을 배포하기 전에 그 import 체인이 요구하는 시크릿을 먼저 확인할 것**: `dashboard/` 안에서 `import` 하는 모듈은 전부 module-level 코드가 즉시 실행되므로, 그 체인 어딘가 `_get_secret(..., required=True)`가 있고 NAS `.env`에 그 값이 없으면 그 페이지 하나가 아니라 **대시보드 전체가 기동 실패**한다(실제로 `register.py`→`image_uploader`→`naver_config`에서 겪음). NAS에서 안 쓰는 시크릿이면 값을 굳이 채워넣지 말고 `required=False`로 완화하는 쪽이 낫다.
+- **NAS `.env`에 줄 추가할 때 trailing newline 확인**: `cat >> .env`로 이어붙이는데 기존 파일 끝에 개행이 없으면 마지막 줄과 새 줄이 한 줄로 붙어버려 두 값 다 깨진다(실제로 `TELEGRAM_CHAT_ID`+`TBD_SEOUL_ROOT`가 붙어버린 사고 있었음). 추가한 뒤 `cat -A .env`로 줄바꿈(`$`)이 제대로 갈라져 있는지 항상 확인할 것.
 
 ```bash
 # 파일 업로드 (sshpass 필수)
-sshpass -p 'JJ2120jj!!' scp -O -o StrictHostKeyChecking=no sync_engine.py config.py nocodb_client.py product_slug_map.json jay@192.168.50.245:/volume1/docker/nicegui/
-sshpass -p 'JJ2120jj!!' scp -O -o StrictHostKeyChecking=no -r dashboard jay@192.168.50.245:/volume1/docker/nicegui/
+sshpass -p 'JJ2120jj!!' scp -O -o StrictHostKeyChecking=no sync_engine.py config.py nocodb_client.py naver_config.py image_uploader.py product_slug_map.json jay@192.168.50.245:/volume1/docker/nicegui/
+sshpass -p 'JJ2120jj!!' scp -O -o StrictHostKeyChecking=no -r dashboard official_scrapers jay@192.168.50.245:/volume1/docker/nicegui/
+sshpass -p 'JJ2120jj!!' scp -O -o StrictHostKeyChecking=no retailer_search.py jay@192.168.50.245:/volume1/docker/nicegui/
 # Dockerfile이 바뀌었다면 NAS 루트(중첩 아님)에 별도 업로드
 sshpass -p 'JJ2120jj!!' scp -O -o StrictHostKeyChecking=no dashboard/deploy/Dockerfile jay@192.168.50.245:/volume1/docker/nicegui/
 

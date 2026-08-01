@@ -17,8 +17,14 @@ import os
 from config import _get_secret
 
 # --- 커머스API 인증 정보 (apicenter.commerce.naver.com 에서 발급) ---
-CLIENT_ID = _get_secret("NAVER_CLIENT_ID")
-CLIENT_SECRET = _get_secret("NAVER_CLIENT_SECRET")
+# required=False인 이유: 이 모듈은 main.py(네이버 등록 파이프라인, 로컬 전용)뿐
+# 아니라 image_uploader.py(대시보드 "이미지 다운로드" 기능)도 import한다.
+# NAS 배포본은 커머스API 시크릿이 없고 애초에 등록 파이프라인을 그쪽에서 돌리지도
+# 않으므로, 여기서 필수로 걸면 PRODUCT_IMAGES_DIR 하나 읽으려고 import하는 것만으로
+# 대시보드 전체가 기동 실패한다 (실제로 NAS 배포 중 발견함). CLIENT_ID/SECRET을
+# 실제로 쓰는 main.py 쪽에서만 값이 있는지 확인하면 된다.
+CLIENT_ID = _get_secret("NAVER_CLIENT_ID", required=False)
+CLIENT_SECRET = _get_secret("NAVER_CLIENT_SECRET", required=False)
 
 # --- 배송/반품지 정보 (스마트스토어센터 > 판매자정보 > 배송지 관리에 등록되어 있어야 함) ---
 # 아래 값들은 "주소록 조회 API"(GET /external/v1/seller/addressbooks)로 확인 후 채워넣으세요.
@@ -68,9 +74,16 @@ MAX_OPTIONAL_IMAGES = 4
 # --- 상품 이미지 / 상세페이지 원본 폴더 (구글드라이브 동기화 폴더) ---
 # 맥 두 대(다른 macOS 계정)에서 같은 구글 드라이브 계정을 쓰므로, 홈 디렉토리만
 # os.path.expanduser로 자동 치환해 어느 기기에서 실행하든 그대로 동작하게 함.
-_GOOGLE_DRIVE_TBD_ROOT = os.path.expanduser(
+#
+# NAS(도커) 배포본은 Google Drive CloudStorage 마운트가 없는 대신, Synology
+# Drive로 같은 내용을 /volume1/docker/nicegui/dev/smartstore에 동기화해뒀고
+# docker-compose.yml이 리포 루트 전체(`.:/app`)를 마운트해서 컨테이너 안에서는
+# /app/dev/smartstore로 보인다. .env에 TBD_SEOUL_ROOT를 설정하면 그 경로를
+# 우선 쓴다 (NAS만 설정, 맥 두 대는 미설정 상태로 기본값 그대로 사용).
+_DEFAULT_TBD_SEOUL_ROOT = os.path.expanduser(
     "~/Library/CloudStorage/GoogleDrive-jjh3533@gmail.com/내 드라이브/TBD Seoul"
 )
+_GOOGLE_DRIVE_TBD_ROOT = _get_secret("TBD_SEOUL_ROOT", required=False) or _DEFAULT_TBD_SEOUL_ROOT
 PRODUCT_IMAGES_DIR = f"{_GOOGLE_DRIVE_TBD_ROOT}/Product Images"
 PRODUCT_PAGES_DIR = f"{_GOOGLE_DRIVE_TBD_ROOT}/Product Pages_html/exports"
 
