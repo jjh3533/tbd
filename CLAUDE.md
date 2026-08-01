@@ -47,14 +47,14 @@
 | `.claude/launch.json` | `tbd-dashboard-nicegui`(NiceGUI :8080) |
 
 ### 접근 권한 필요한 외부 폴더 (git 저장소 밖, Google Drive 동기화)
-- `.../TBD Seoul/Product Images/<제품폴더명>/` — 원본 제품 사진
+- `.../TBD Seoul/Product Images/<Brand> <Model Number>/` — 원본 제품 사진. 폴더명 규칙은 **"{Brand} {Model Number}"**(예: `UniFi UCG-Ultra`, `GLiNET GL-BE3600`) — SKU(크롤링된 긴 상품명)는 폴더명으로 쓰지 않음. Brand 표기는 `dashboard/pages/register.py`의 `_BRAND_FOLDER_NAMES`에 있음 (`GL.inet` → 점 생략 + 대문자 NET인 `GLiNET`, 일반적인 규칙으로 유추 불가하니 새 브랜드 추가 시 여기서 실제 표기를 확인할 것). 2026-08-01에 기존 폴더 전체(189개)를 이 규칙으로 일괄 정리함 — NocoDB에 없는 상품(Model Number 모름)은 옛 이름 그대로 남아있을 수 있음
 - `.../TBD Seoul/Product Pages_html/` — 상세페이지 `.dc.html` 소스 + `assets/`(폰트/로고) + `exports/<slug>/`(번호 매겨진 PNG, main.py가 실제 업로드하는 이미지)
 - NAS: `/volume1/docker/nicegui/` (Synology DS925+, `192.168.50.245`, SSH 계정 `jay`) — NiceGUI 대시보드 운영 환경
 - NAS: `/volume1/docker/nicegui/dev/smartstore/` — Synology Drive로 위 Google Drive "TBD Seoul" 폴더와 같은 내용을 동기화해둔 사본(2026-08-01 신설). `docker-compose.yml`이 리포 루트 전체(`.:/app`)를 이미 마운트하고 있어서 별도 볼륨 설정 없이 컨테이너 안에서 `/app/dev/smartstore`로 그대로 보임 — `naver_config.py`의 `TBD_SEOUL_ROOT` 오버라이드가 이 경로를 가리킴. 컨테이너가 만든 파일은 root 소유라 NAS에서 지우려면 `sudo rm` 필요
 
 ## 3. 현재 상태
 
-알려진 미해결 버그나 진행 중인 작업 없음. 세부 경위는 `HISTORY.md` 참고 (항목 42~58).
+알려진 미해결 버그나 진행 중인 작업 없음. 세부 경위는 `HISTORY.md` 참고 (항목 42~59).
 
 - **Price_History**: `NOCODB_HISTORY_TABLE_ID=mi258r3q4g5wu69`로 로컬/NAS 연결 완료, `/inventory`에서 운영 중. 이력이 막 쌓이기 시작한 단계라 "15일 이상 품절" 섹션은 아직 비어있음(정상, Sync가 쌓일수록 채워짐).
 - **자동 동기화 스케줄러**: NAS에서 가동 중(매일 09:00 KST 전체 + 4시간마다 확인 필요만). 트리거는 `sync_engine.start_background_scheduler()`의 `CronTrigger`/`IntervalTrigger`.
@@ -63,7 +63,7 @@
 - **대시보드 카운트**: `sync_engine.exclude_clone_rows()`로 Clone 로우를 제외한 실제 등록 상품(100개) 기준으로 집계(`home.py`/`category.py`/`needs_check.py`). `/inventory`처럼 색상별 추적이 목적인 곳만 원본 그대로 사용.
 - **ASIN 커버리지**: 84개 보유(화이트 73 + 블랙 11). 검토 원본은 `archive/data/asin_candidates.csv`.
 - **UniFi Store 링크**: `product_slug_map.json` 매칭으로 160/160 전부 연결(로컬/NAS 양쪽). 이 파일은 NAS 배포 시 누락되기 쉬우니 코드 배포할 때 항상 같이 올릴 것.
-- **구매대행 서비스 확장 로드맵 Phase A(상품등록 공홈 크롤링)**: `/register`에서 크롤링→미리보기→리테일러 후보 검색→저장까지 my.tbd.kr에 실제 배포/검증 완료(UniFi/GL.inet). 이미지 다운로드는 `/app/dev/smartstore`(위 외부 폴더 참고)에 저장됨. 남은 단계(상품관리 확장/주문관리/발주배송관리)는 아직 미착수 - 브랜드는 UniFi+GL.inet 다음 확장 예정, 포워더는 에코트랜스(API 없음, xlsx 대량등록 가능), 알림은 카카오 알림톡 우선으로 합의됨
+- **구매대행 서비스 확장 로드맵 Phase A(상품등록 공홈 크롤링)**: `/register`에서 크롤링→미리보기→리테일러 후보 검색→저장까지 my.tbd.kr에 실제 배포/검증 완료(UniFi/GL.inet). 이미지 다운로드는 `/app/dev/smartstore`(위 외부 폴더 참고)에 "{Brand} {Model Number}" 폴더명으로 저장됨(위 Product Images 폴더 규칙 참고). 기존 Product Images 폴더 전체도 이 규칙으로 정리 완료(154개 이름변경 + 19개 중복 삭제, NocoDB에 없는 33개는 보류). 남은 단계(상품관리 확장/주문관리/발주배송관리)는 아직 미착수 - 브랜드는 UniFi+GL.inet 다음 확장 예정, 포워더는 에코트랜스(API 없음, xlsx 대량등록 가능), 알림은 카카오 알림톡 우선으로 합의됨
 
 **현재 수치**:
 - 네이버 스마트스토어 등록 상품: **100개**
