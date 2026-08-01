@@ -15,11 +15,12 @@
 | 파일 | 역할 |
 |---|---|
 | `sync_engine.py` | 스크래핑/동기화/포맷팅 로직 - 프레임워크 독립 모듈. `start_background_scheduler()`로 매일 09:00 KST 전체 동기화 + 4시간마다 확인 필요 상품만 재조회하는 자동화도 포함 |
-| `dashboard/` | NiceGUI 대시보드 (`theme.py`, `layout.py`, `components.py`, `app.py`, `pages/{home,category,register,inventory,needs_check}.py`, `deploy/{Dockerfile,docker-compose.yml}`) |
+| `dashboard/` | NiceGUI 대시보드 (`theme.py`, `layout.py`, `components.py`, `app.py`, `pages/{home,category,register,inventory,needs_check,orders}.py`, `deploy/{Dockerfile,docker-compose.yml}`) |
 | `config.py` | 공용 시크릿 로더 (`.env`), NocoDB/Scrape.do/Telegram 값 |
 | `naver_config.py` | 네이버 커머스API 설정 (CLIENT_ID/SECRET은 `.env`에서, NAS엔 없어도 되도록 `required=False`). `PRODUCT_IMAGES_DIR`/`PRODUCT_PAGES_DIR`는 `.env`의 `TBD_SEOUL_ROOT`로 오버라이드 가능 (맥은 미설정=Google Drive CloudStorage 경로, NAS는 `/app/dev/smartstore`로 설정) |
 | `nocodb_client.py` | NocoDB REST v2용 Airtable 호환 어댑터 |
-| `auth.py` | 네이버 OAuth2 bearer token 발급 |
+| `auth.py` | 네이버 OAuth2 bearer token 발급 (bcrypt 기반 전자서명) |
+| `naver_order_api.py` | 네이버 Pay-Order/Claims API 클라이언트 (Phase C 주문관리용) |
 | `main.py` | 엑셀(`naver_상품등록_템플릿.xlsx`) 기반 네이버 상품 등록 파이프라인 |
 | `product_builder.py` / `image_uploader.py` | 등록 payload 생성 / 이미지 업로드. **자동 카테고리 선택 및 검색 키워드 추가 기능 내장** |
 | `product_keywords.py` | 카테고리별 자동 leafCategoryId 선택 및 검색 최적화 키워드 생성 모듈 |
@@ -63,7 +64,8 @@
 - **대시보드 카운트**: `sync_engine.exclude_clone_rows()`로 Clone 로우를 제외한 실제 등록 상품(100개) 기준으로 집계(`home.py`/`category.py`/`needs_check.py`). `/inventory`처럼 색상별 추적이 목적인 곳만 원본 그대로 사용.
 - **ASIN 커버리지**: 84개 보유(화이트 73 + 블랙 11). 검토 원본은 `archive/data/asin_candidates.csv`.
 - **UniFi Store 링크**: `product_slug_map.json` 매칭으로 160/160 전부 연결(로컬/NAS 양쪽). 이 파일은 NAS 배포 시 누락되기 쉬우니 코드 배포할 때 항상 같이 올릴 것.
-- **구매대행 서비스 확장 로드맵 Phase A(상품등록 공홈 크롤링) 완료**: `/register`에서 크롤링→미리보기→리테일러 후보 검색→저장까지 my.tbd.kr에 실제 배포/검증 완료(UniFi/GL.inet). 이미지 다운로드는 `/app/dev/smartstore`(위 외부 폴더 참고)에 "{Brand} {Model Number}" 폴더명으로 저장됨(위 Product Images 폴더 규칙 참고). 기존 Product Images 폴더 전체도 이 규칙으로 정리 완료(154개 이름변경 + 19개 중복 삭제, NocoDB에 없는 33개는 보류). 전체 로드맵과 남은 단계(B/C/D)는 4번 참고
+- **구매대행 서비스 확장 로드맵 Phase A(상품등록 공홈 크롤링) 완료**: `/register`에서 크롤링→미리보기→리테일러 후보 검색→저장까지 my.tbd.kr에 실제 배포/검증 완료(UniFi/GL.inet). 이미지 다운로드는 `/app/dev/smartstore`(위 외부 폴더 참고)에 "{Brand} {Model Number}" 폴더명으로 저장됨(위 Product Images 폴더 규칙 참고). 기존 Product Images 폴더 전체도 이 규칙으로 정리 완료(154개 이름변경 + 19개 중복 삭제, NocoDB에 없는 33개는 보류). 전체 로드맵과 남은 단계(B/D)는 4번 참고
+- **구매대행 서비스 확장 로드맵 Phase C(주문관리) 완료**: `/orders` 페이지에서 네이버 Pay-Order/Claims API로 주문 목록 및 클레임 조회 기능 구현 완료. `naver_order_api.py`(API 클라이언트) + `dashboard/pages/orders.py`(UI) 추가. **로컬 전용 기능**(NAS는 네이버 시크릿 없음) — `orders.py`가 lazy import로 `naver_order_api`를 함수 내부에서만 불러와 NAS 기동 시 에러 방지. Dockerfile에 `bcrypt` 의존성 추가 (auth.py의 전자서명용)
 
 **현재 수치**:
 - 네이버 스마트스토어 등록 상품: **100개**
@@ -85,9 +87,8 @@
 ## 4. 다음 작업 계획 (우선순위 순은 아니며, 이전에 합의된 로드맵)
 
 1. **검색 키워드 일괄 추가 완료**: 네이버 커머스API 센터에서 현재 IP 재등록 후 `update_product_names_with_keywords.py` 재실행 — 실패한 38개 상품 키워드 추가
-2. **구매대행 서비스 확장 로드맵** (상품등록→상품관리→주문관리→발주배송관리 4단계, Phase A는 완료 — 3번 현재 상태 참고):
+2. **구매대행 서비스 확장 로드맵** (상품등록→상품관리→주문관리→발주배송관리 4단계, Phase A/C 완료 — 3번 현재 상태 참고):
    - **Phase B(상품관리 확장)**: `official_scrapers`/`retailer_search` 크롤러를 `sync_engine`의 자동 스케줄러/needs_check 로직에 연결해 신규 브랜드 상품도 자동 추적되게 하기. 신규 브랜드 상품이 `product_keywords.py`의 카테고리 자동선택 로직을 못 타는 경우 예외 처리. 대시보드 "상품 등록" 페이지에서 `main.py`/`run_pipeline.py`/`update_price_stock.py`/`fix_delivery_settings.py`를 버튼으로 실행(dry-run/limit 안전장치 포함)하는 것도 이 단계에 포함(예전엔 "대시보드 Phase 2"로 불렀던 항목)
-   - **Phase C(주문관리)**: 네이버 Pay-Order/Claims API 신규 연동 (코드 전혀 없음, 그린필드, 예전 "대시보드 Phase 4"와 동일 항목). **착수 전 커머스API 앱에 주문/클레임 조회 권한이 실제로 있는지 확인 필수**
    - **Phase D(발주 및 배송관리)**: 포워더 에코트랜스(API 없음, xlsx 대량등록 가능) 신청서 자동생성 + 송장 조회 자동화, 카카오 알림톡 연동(비즈니스 채널·발신프로필·템플릿 사전승인 필요 — 승인 대기시간이 기니 착수 전 미리 신청 권장)
    - **브랜드 확장**: UniFi+GL.inet 다음 브랜드(헤드폰 등)는 `official_scrapers`에 어댑터 추가로 온보딩 (Shopify 기반이면 `shopify.py` 그대로 재사용 가능)
 3. **대시보드 디자인 디테일 폴리싱**: 호버 상태, 아바타칩 실사용 등 (위 구매대행 로드맵과 무관한 별도 작업, 예전 "대시보드 Phase 3")
@@ -163,6 +164,7 @@ python3 update_product_names_with_keywords.py                        # 전체 �
 - **Synology NAS**: `scp`/`rsync` 기본 SFTP가 안 먹혀서 `-O`(legacy SCP) 플래그 필수. 홈디렉토리/`.ssh` 권한이 조금만 느슨해도(777) SSH 키 인증을 조용히 무시함 → `chmod 700` 필요
 - **상세페이지 디자인 시스템**: 860px 고정폭, UI Sans 커스텀 폰트(base64 내장), 강조색 `#3371FB`, 한글 텍스트엔 `word-break:keep-all` 필수, 공용 섹션(TBD Seoul 신뢰뱃지/통관안내/배송반품/FAQ/Footer)은 의도적 문구 수정이 아니면 그대로 유지
 - **NiceGUI 대시보드 디자인 시스템**: 페이지 배경(연한 회색) ≠ 카드 배경(흰색)이 핵심 원칙. 버튼 색은 반드시 Tailwind `!bg-[...]` 강제 클래스 사용(일반 커스텀 클래스는 NiceGUI 기본 `color=primary`와의 명시도 싸움에서 짐). 활성 메뉴는 흰색/surface 배경(검정 아님, 명시적 요청으로 변경됨)
+- **Phase C(주문관리) lazy import 패턴**: `dashboard/pages/orders.py`는 module-level에서 `naver_order_api`를 import하지 않고, `load_orders()`/`load_claims()` 함수 내부에서만 import함. 이는 NAS 배포본이 네이버 커머스API 시크릿 없이도 대시보드가 기동되도록 하기 위함 — `/orders` 페이지에 실제 접근하기 전까지는 import가 발생하지 않음. `naver_order_api`는 `auth.py`를 import하고, `auth.py`는 `bcrypt`를 import하므로 Dockerfile에 `bcrypt`가 반드시 필요함 (2026-08-01 추가됨).
 - **테스트/빌드 명령어**:
   ```bash
   python3 -m py_compile <file>.py                     # 문법 체크
