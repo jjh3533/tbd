@@ -63,7 +63,7 @@
 - **대시보드 카운트**: `sync_engine.exclude_clone_rows()`로 Clone 로우를 제외한 실제 등록 상품(100개) 기준으로 집계(`home.py`/`category.py`/`needs_check.py`). `/inventory`처럼 색상별 추적이 목적인 곳만 원본 그대로 사용.
 - **ASIN 커버리지**: 84개 보유(화이트 73 + 블랙 11). 검토 원본은 `archive/data/asin_candidates.csv`.
 - **UniFi Store 링크**: `product_slug_map.json` 매칭으로 160/160 전부 연결(로컬/NAS 양쪽). 이 파일은 NAS 배포 시 누락되기 쉬우니 코드 배포할 때 항상 같이 올릴 것.
-- **구매대행 서비스 확장 로드맵 Phase A(상품등록 공홈 크롤링)**: `/register`에서 크롤링→미리보기→리테일러 후보 검색→저장까지 my.tbd.kr에 실제 배포/검증 완료(UniFi/GL.inet). 이미지 다운로드는 `/app/dev/smartstore`(위 외부 폴더 참고)에 "{Brand} {Model Number}" 폴더명으로 저장됨(위 Product Images 폴더 규칙 참고). 기존 Product Images 폴더 전체도 이 규칙으로 정리 완료(154개 이름변경 + 19개 중복 삭제, NocoDB에 없는 33개는 보류). 남은 단계(상품관리 확장/주문관리/발주배송관리)는 아직 미착수 - 브랜드는 UniFi+GL.inet 다음 확장 예정, 포워더는 에코트랜스(API 없음, xlsx 대량등록 가능), 알림은 카카오 알림톡 우선으로 합의됨
+- **구매대행 서비스 확장 로드맵 Phase A(상품등록 공홈 크롤링) 완료**: `/register`에서 크롤링→미리보기→리테일러 후보 검색→저장까지 my.tbd.kr에 실제 배포/검증 완료(UniFi/GL.inet). 이미지 다운로드는 `/app/dev/smartstore`(위 외부 폴더 참고)에 "{Brand} {Model Number}" 폴더명으로 저장됨(위 Product Images 폴더 규칙 참고). 기존 Product Images 폴더 전체도 이 규칙으로 정리 완료(154개 이름변경 + 19개 중복 삭제, NocoDB에 없는 33개는 보류). 전체 로드맵과 남은 단계(B/C/D)는 4번 참고
 
 **현재 수치**:
 - 네이버 스마트스토어 등록 상품: **100개**
@@ -85,13 +85,16 @@
 ## 4. 다음 작업 계획 (우선순위 순은 아니며, 이전에 합의된 로드맵)
 
 1. **검색 키워드 일괄 추가 완료**: 네이버 커머스API 센터에서 현재 IP 재등록 후 `update_product_names_with_keywords.py` 재실행 — 실패한 38개 상품 키워드 추가
-2. **대시보드 Phase 2**: `main.py`/`run_pipeline.py`/`update_price_stock.py`/`fix_delivery_settings.py`를 NiceGUI 대시보드의 "상품 등록" 페이지에서 버튼으로 실행 (dry-run/limit 안전장치 UI 포함)
-3. **대시보드 Phase 3**: 디자인 디테일 폴리싱 (호버 상태, 아바타칩 실사용 등)
-4. **대시보드 Phase 4**: 주문관리/배송관리 — 네이버 Pay-Order/Claims API 신규 연동 필요 (코드 전혀 없음, 그린필드). **착수 전 커머스API 앱에 주문/클레임 조회 권한이 실제로 있는지 확인 필수**
-5. NocoDB에 다른 카테고리(Gateway, Routing 등)에도 미등록(`Naver_Product_No` 없음) 상품이 더 있는지 확인 — 사용자가 원하면 계속 등록 확장
-6. **가격/재고 이력 기능 관찰**: NAS 배포는 완료됐으니, 앞으로 몇 차례 Sync를 돌려서 `Price_History`에 실제 이력이 잘 쌓이는지, `/inventory`의 "15일 이상 품절" 섹션이 시간이 지나며 의도대로 채워지는지 확인
-7. **자동 동기화 스케줄러 관찰**: 다음날 09:00 KST 전체 동기화가 실제로 발동하는지, 4시간마다 확인 필요 상품 재조회가 정상 도는지 `docker-compose logs`/Telegram 알림으로 며칠 지켜보기. 문제 있으면 `sync_engine.start_background_scheduler()`의 트리거 설정 확인
-8. **화이트/블랙 색상 옵션 커버리지 확대**: 남은 8개 Black 로우(B&H 코드 없음)와 나머지 ADORAMA_ID/ASIN을 마저 채워넣기. `UniFi Reader Pro`는 재고가 생기면 다음 Sync에서 옵션이 자동으로 만들어지는지 며칠 후 확인. `UniFi Access Button Black`(1855250-REG)은 B&H 제목에 "(Black)" 표기가 없어 실제 색상이 맞는지 직접 확인 권장. `UniFi Reader`/`UniFi G3 Reader Fingerprint`/`UniFi Retrofit Reader Fingerprint`는 화이트 자체를 나중에 등록하게 되면 그때 Black 로우도 같이 생성
+2. **구매대행 서비스 확장 로드맵** (상품등록→상품관리→주문관리→발주배송관리 4단계, Phase A는 완료 — 3번 현재 상태 참고):
+   - **Phase B(상품관리 확장)**: `official_scrapers`/`retailer_search` 크롤러를 `sync_engine`의 자동 스케줄러/needs_check 로직에 연결해 신규 브랜드 상품도 자동 추적되게 하기. 신규 브랜드 상품이 `product_keywords.py`의 카테고리 자동선택 로직을 못 타는 경우 예외 처리. 대시보드 "상품 등록" 페이지에서 `main.py`/`run_pipeline.py`/`update_price_stock.py`/`fix_delivery_settings.py`를 버튼으로 실행(dry-run/limit 안전장치 포함)하는 것도 이 단계에 포함(예전엔 "대시보드 Phase 2"로 불렀던 항목)
+   - **Phase C(주문관리)**: 네이버 Pay-Order/Claims API 신규 연동 (코드 전혀 없음, 그린필드, 예전 "대시보드 Phase 4"와 동일 항목). **착수 전 커머스API 앱에 주문/클레임 조회 권한이 실제로 있는지 확인 필수**
+   - **Phase D(발주 및 배송관리)**: 포워더 에코트랜스(API 없음, xlsx 대량등록 가능) 신청서 자동생성 + 송장 조회 자동화, 카카오 알림톡 연동(비즈니스 채널·발신프로필·템플릿 사전승인 필요 — 승인 대기시간이 기니 착수 전 미리 신청 권장)
+   - **브랜드 확장**: UniFi+GL.inet 다음 브랜드(헤드폰 등)는 `official_scrapers`에 어댑터 추가로 온보딩 (Shopify 기반이면 `shopify.py` 그대로 재사용 가능)
+3. **대시보드 디자인 디테일 폴리싱**: 호버 상태, 아바타칩 실사용 등 (위 구매대행 로드맵과 무관한 별도 작업, 예전 "대시보드 Phase 3")
+4. NocoDB에 다른 카테고리(Gateway, Routing 등)에도 미등록(`Naver_Product_No` 없음) 상품이 더 있는지 확인 — 사용자가 원하면 계속 등록 확장
+5. **가격/재고 이력 기능 관찰**: NAS 배포는 완료됐으니, 앞으로 몇 차례 Sync를 돌려서 `Price_History`에 실제 이력이 잘 쌓이는지, `/inventory`의 "15일 이상 품절" 섹션이 시간이 지나며 의도대로 채워지는지 확인
+6. **자동 동기화 스케줄러 관찰**: 다음날 09:00 KST 전체 동기화가 실제로 발동하는지, 4시간마다 확인 필요 상품 재조회가 정상 도는지 `docker-compose logs`/Telegram 알림으로 며칠 지켜보기. 문제 있으면 `sync_engine.start_background_scheduler()`의 트리거 설정 확인
+7. **화이트/블랙 색상 옵션 커버리지 확대**: 남은 8개 Black 로우(B&H 코드 없음)와 나머지 ADORAMA_ID/ASIN을 마저 채워넣기. `UniFi Reader Pro`는 재고가 생기면 다음 Sync에서 옵션이 자동으로 만들어지는지 며칠 후 확인. `UniFi Access Button Black`(1855250-REG)은 B&H 제목에 "(Black)" 표기가 없어 실제 색상이 맞는지 직접 확인 권장. `UniFi Reader`/`UniFi G3 Reader Fingerprint`/`UniFi Retrofit Reader Fingerprint`는 화이트 자체를 나중에 등록하게 되면 그때 Black 로우도 같이 생성
 
 ## 5. 특이사항
 
