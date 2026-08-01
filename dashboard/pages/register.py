@@ -24,9 +24,24 @@ from dashboard import components, layout
 
 _UNSAFE_FOLDER_CHARS = re.compile(r'[\\/:*?"<>|]')
 
+# Product Images 폴더명에 쓸 브랜드 표기. "GL.inet"은 마침표가 파일시스템/
+# URL 등에서 오류를 일으킬 수 있어 폴더명에서는 생략한다. 표기는 사용자가
+# 실제로 만든 폴더("GLiNET GL-BE3600")와 맞춘 것("GLiNET").
+_BRAND_FOLDER_NAMES = {
+    "UniFi": "UniFi",
+    "GL.inet": "GLiNET",
+}
+
 
 def _safe_folder_name(name: str) -> str:
   return _UNSAFE_FOLDER_CHARS.sub("", name).strip() or "unnamed"
+
+
+def _image_folder_name(brand: str, model_number: str) -> str:
+  """폴더명 = "{브랜드} {모델명}" (예: "UniFi UCG-Ultra", "GLiNET GL-BE3600").
+  SKU(크롤링된 상품명)는 너무 길고 복잡해서 폴더명으로 안 쓴다."""
+  brand_label = _BRAND_FOLDER_NAMES.get(brand, brand)
+  return _safe_folder_name(f"{brand_label} {model_number}".strip())
 
 
 def _download_images(image_urls: list[str], folder_name: str) -> tuple[str, int]:
@@ -168,10 +183,11 @@ def register_page() -> None:
       if not image_urls:
         ui.notify("먼저 크롤링해서 이미지를 불러오세요.", type="negative")
         return
-      folder_name = (sku_input.value or "").strip()
-      if not folder_name:
-        ui.notify("SKU를 먼저 입력하세요 (폴더명으로 사용됩니다).", type="negative")
+      model_number = (model_number_input.value or "").strip()
+      if not model_number:
+        ui.notify("Model Number를 먼저 입력하세요 (폴더명으로 사용됩니다).", type="negative")
         return
+      folder_name = _image_folder_name(brand_select.value, model_number)
 
       download_button.props("loading")
       download_status.text = "다운로드 중..."
