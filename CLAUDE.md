@@ -165,6 +165,7 @@ python3 update_product_names_with_keywords.py                        # 전체 �
 - **상세페이지 디자인 시스템**: 860px 고정폭, UI Sans 커스텀 폰트(base64 내장), 강조색 `#3371FB`, 한글 텍스트엔 `word-break:keep-all` 필수, 공용 섹션(TBD Seoul 신뢰뱃지/통관안내/배송반품/FAQ/Footer)은 의도적 문구 수정이 아니면 그대로 유지
 - **NiceGUI 대시보드 디자인 시스템**: 페이지 배경(연한 회색) ≠ 카드 배경(흰색)이 핵심 원칙. 버튼 색은 반드시 Tailwind `!bg-[...]` 강제 클래스 사용(일반 커스텀 클래스는 NiceGUI 기본 `color=primary`와의 명시도 싸움에서 짐). 활성 메뉴는 흰색/surface 배경(검정 아님, 명시적 요청으로 변경됨)
 - **Phase C(주문관리) lazy import 패턴**: `dashboard/pages/orders.py`는 module-level에서 `naver_order_api`를 import하지 않고, `load_orders()`/`load_claims()` 함수 내부에서만 import함. 이는 NAS 배포본이 네이버 커머스API 시크릿 없이도 대시보드가 기동되도록 하기 위함 — `/orders` 페이지에 실제 접근하기 전까지는 import가 발생하지 않음. `naver_order_api`는 `auth.py`를 import하고, `auth.py`는 `bcrypt`를 import하므로 Dockerfile에 `bcrypt`가 반드시 필요함 (2026-08-01 추가됨).
+- **Shopify 크롤러(`official_scrapers/shopify.py`) 로케일 프리픽스 버그**: 상품 목록/검색 결과에서 복사한 URL은 `/en-us/products/...`처럼 로케일 프리픽스가 붙는데, Shopify `.json` 엔드포인트는 이 프리픽스가 붙으면 404 (정규 경로 `/products/...`에만 존재) — `/register`에서 GL.inet 이미지 크롤링이 조용히 실패하는 원인이었음. `_product_json_url`이 경로 전체를 쓰지 않고 `/products/` 이후 핸들만 뽑아 재조립하도록 수정함 (2026-08-02).
 - **테스트/빌드 명령어**:
   ```bash
   python3 -m py_compile <file>.py                     # 문법 체크

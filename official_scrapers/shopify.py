@@ -16,8 +16,21 @@ from sync_engine import _scrapedo_get
 
 
 def _product_json_url(url: str) -> str:
+  """쿼리 파라미터를 제거하고 .json 엔드포인트 URL 생성.
+
+  예: https://gl-inet.com/products/gl-be10000?_pos=1&_fid=...
+   → https://gl-inet.com/products/gl-be10000.json
+
+  상품 목록/검색 결과에서 복사한 URL은 `/en-us/products/...`처럼 로케일
+  프리픽스가 붙어 있는 경우가 있는데, Shopify의 .json 엔드포인트는 로케일
+  프리픽스가 붙으면 404를 낸다 (`/products/...` 경로에만 존재). 그래서 경로
+  전체를 쓰지 않고 `/products/` 이후 핸들만 뽑아 정규 경로로 재조립한다.
+  """
   parsed = urlparse(url)
   path = parsed.path.rstrip("/")
+  if "/products/" in path:
+    handle = path.split("/products/", 1)[1]
+    path = f"/products/{handle}"
   return f"{parsed.scheme}://{parsed.netloc}{path}.json"
 
 
