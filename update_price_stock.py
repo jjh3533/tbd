@@ -32,6 +32,8 @@ NocoDB 필드:
     로우에 아직 sale_price가 없으면(구매처 ID 미입력) 기존처럼 모든 옵션에
     균일하게 적용하고 콘솔에 안내만 출력한다.
 """
+from __future__ import annotations
+
 import argparse
 import json
 

@@ -18,6 +18,18 @@ def _day_window(dt: datetime) -> tuple[datetime, datetime]:
     return start, start + timedelta(hours=23, minutes=59, seconds=59)
 
 
+def _merge_orders_by_id(order_lists: list[list[dict]]) -> dict[str, dict]:
+    """여러 날짜 구간에서 받은 주문 목록을 productOrderId 기준으로 병합한다
+    (같은 주문이 여러 구간에 걸쳐 겹쳐 나올 수 있어 중복 제거 필요)."""
+    merged: dict[str, dict] = {}
+    for orders in order_lists:
+        for o in orders:
+            order_id = o.get("productOrderId")
+            if order_id:
+                merged[order_id] = o
+    return merged
+
+
 @ui.page("/orders")
 def orders_page() -> None:
     with layout.frame(active_path="/orders"):
@@ -108,7 +120,7 @@ def orders_page() -> None:
                 else:  # last7
                     windows = [_day_window(now - timedelta(days=i)) for i in range(7)]
 
-                orders_by_id: dict[str, dict] = {}
+                order_lists: list[list[dict]] = []
                 failed_days: list[str] = []
                 for from_date, to_date in windows:
                     try:
@@ -116,14 +128,11 @@ def orders_page() -> None:
                             lambda f=from_date, t=to_date: naver_order_api.get_product_orders(f, t)
                         )
                         data = await loop
-                        for o in data.get("content", []):
-                            order_id = o.get("productOrderId")
-                            if order_id:
-                                orders_by_id[order_id] = o
+                        order_lists.append(data.get("content", []))
                     except Exception:
                         failed_days.append(from_date.strftime("%m/%d"))
 
-                orders = list(orders_by_id.values())
+                orders = list(_merge_orders_by_id(order_lists).values())
                 state["orders"] = orders
 
                 # 테이블 업데이트
