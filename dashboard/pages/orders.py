@@ -11,6 +11,13 @@ from nicegui import ui
 from dashboard import components, layout
 
 
+def _day_window(dt: datetime) -> tuple[datetime, datetime]:
+    """dt가 속한 하루(00:00~23:59:59)의 (시작, 끝) 튜플. 네이버 API가 최대
+    24시간 범위만 허용하므로, 여러 날짜를 조회할 땐 이 단위로 나눠 호출한다."""
+    start = dt.replace(hour=0, minute=0, second=0, microsecond=0)
+    return start, start + timedelta(hours=23, minutes=59, seconds=59)
+
+
 @ui.page("/orders")
 def orders_page() -> None:
     with layout.frame(active_path="/orders"):
@@ -88,27 +95,35 @@ def orders_page() -> None:
                 # Lazy import - NAS에서는 시크릿이 없어도 대시보드가 기동되게 함
                 import naver_order_api
 
-                # 날짜 범위 계산
+                # 날짜 범위 계산. 네이버 API가 한 번에 최대 24시간만 허용해서
+                # "최근 7일"은 하루 단위 구간 7개로 나눠 각각 조회한 뒤 합친다
+                # (예전엔 UI 라벨과 달리 실제로는 오늘 하루만 조회하고 있었음).
                 period = date_select.value
                 now = datetime.now()
 
                 if period == "today":
-                    from_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
-                    to_date = from_date + timedelta(hours=23, minutes=59, seconds=59)
+                    windows = [_day_window(now)]
                 elif period == "yesterday":
-                    yesterday = now - timedelta(days=1)
-                    from_date = yesterday.replace(hour=0, minute=0, second=0, microsecond=0)
-                    to_date = from_date + timedelta(hours=23, minutes=59, seconds=59)
+                    windows = [_day_window(now - timedelta(days=1))]
                 else:  # last7
-                    # 24시간 제한이 있어서 오늘만 조회
-                    from_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
-                    to_date = from_date + timedelta(hours=23, minutes=59, seconds=59)
+                    windows = [_day_window(now - timedelta(days=i)) for i in range(7)]
 
-                # API 호출
-                loop = ui.run.io_bound(lambda: naver_order_api.get_product_orders(from_date, to_date))
-                data = await loop
+                orders_by_id: dict[str, dict] = {}
+                failed_days: list[str] = []
+                for from_date, to_date in windows:
+                    try:
+                        loop = ui.run.io_bound(
+                            lambda f=from_date, t=to_date: naver_order_api.get_product_orders(f, t)
+                        )
+                        data = await loop
+                        for o in data.get("content", []):
+                            order_id = o.get("productOrderId")
+                            if order_id:
+                                orders_by_id[order_id] = o
+                    except Exception:
+                        failed_days.append(from_date.strftime("%m/%d"))
 
-                orders = data.get("content", [])
+                orders = list(orders_by_id.values())
                 state["orders"] = orders
 
                 # 테이블 업데이트
@@ -125,8 +140,12 @@ def orders_page() -> None:
                     for o in orders
                 ]
 
-                order_status.text = f"총 {len(orders)}건"
-                ui.notify(f"주문 {len(orders)}건 조회 완료", type="positive")
+                if failed_days:
+                    order_status.text = f"총 {len(orders)}건 (⚠️ {', '.join(failed_days)} 조회 실패 - 일부 누락 가능)"
+                    ui.notify(f"일부 날짜 조회 실패: {', '.join(failed_days)}", type="warning")
+                else:
+                    order_status.text = f"총 {len(orders)}건"
+                    ui.notify(f"주문 {len(orders)}건 조회 완료", type="positive")
 
             except Exception as e:
                 order_status.text = "조회 실패"
