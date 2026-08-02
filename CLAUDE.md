@@ -57,6 +57,9 @@
 
 알려진 미해결 버그나 진행 중인 작업 없음. 세부 경위는 `HISTORY.md` 참고 (항목 42~59).
 
+- **코드 리뷰 기반 수정 진행 중**: `CODE_REVIEW.md`(ChatGPT 검토, 2026-08-02)를 실제 코드와 대조 검증 후 우선순위를 다시 매겨 진행 중. P0(대시보드 로그인 인증, 아래 항목)는 완료. 남은 항목(NocoDB 갱신 실패 무시, Sync 취소 후 락 경합, 주문 "최근 7일" 범위 오류, 공홈 크롤링 3중 호출, Needs_Check 누락, 주문/클레임 시간대 처리, 등록 파이프라인 동시실행 방지, 테스트 부재)은 미착수 — 우선순위와 상세는 `CODE_REVIEW.md` 및 세션 기록 참고.
+
+- **대시보드 로그인 인증 추가**: Cloudflare Tunnel로 my.tbd.kr을 외부에 노출 중인데 대시보드에 인증이 전혀 없어 URL만 알면 누구나 /register(실제 네이버 API 실행)·/orders(고객 주문정보)를 포함한 모든 페이지에 접근 가능했던 문제를 수정함(CODE_REVIEW.md 검토 중 발견). `dashboard/auth.py`의 `AuthMiddleware`가 `app.storage.user` 세션 기준으로 미인증 요청을 `/login`으로 리다이렉트. 단일 관리자 비밀번호 `DASHBOARD_PASSWORD`, 세션 서명 키 `DASHBOARD_STORAGE_SECRET` 둘 다 환경변수 필수(로컬/NAS `.env` 각각 설정 필요, 값이 없으면 대시보드 기동 자체가 실패함 — required 시크릿이므로 NAS 배포 전 반드시 추가). 로그아웃은 사이드바 LINKS 하단 링크(`/logout`).
 - **Price_History**: `NOCODB_HISTORY_TABLE_ID=mi258r3q4g5wu69`로 로컬/NAS 연결 완료, `/inventory`에서 운영 중. 이력이 막 쌓이기 시작한 단계라 "15일 이상 품절" 섹션은 아직 비어있음(정상, Sync가 쌓일수록 채워짐).
 - **자동 동기화 스케줄러**: NAS에서 가동 중(매일 09:00 KST 전체 + 4시간마다 확인 필요만). 트리거는 `sync_engine.start_background_scheduler()`의 `CronTrigger`/`IntervalTrigger`.
 - **Sync 겹침 방지**: `sync_engine.run_sync_guarded()`가 수동 버튼/스케줄러 공통 진입점(`_sync_lock`/`_sync_status`/`_sync_cancel_event`). 대시보드에 진행중 스피너+"⏹️ 중지" 버튼 있음, Sync 중엔 모든 버튼 비활성화.
