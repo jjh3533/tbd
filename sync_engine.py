@@ -730,23 +730,28 @@ def process_single_record(r, current_rate, retailers=RETAILER_NAMES):
     update_data["BH_USD"] = bh_price
     update_data["BH_In_Stock"] = bool(bh_data and bh_data.get("in_stock"))
 
+  # 본 테이블(Products) 갱신을 Price_History 기록보다 먼저 시도합니다.
+  # 갱신이 실패하면 Price_History도 기록하지 않습니다 - 두 테이블 상태가
+  # 서로 어긋나는 걸(이력엔 남았는데 실제 상품 데이터는 안 바뀜) 막기 위함.
+  update_error = None
+  try:
+    table.update(record_id, update_data)
+  except Exception as e:
+    update_error = e
+
   # 실제로 값이 바뀐 것만 Price_History에 영구 기록 (추가 크롤링 없이, 이번
   # 라운드에 이미 조회한 값을 버리지 않고 쌓는 것이 목적). 재조회 안 한
   # 리테일러의 가격은 update_data에 아예 안 들어있으므로 자동으로 제외됨.
-  if curr_stock != prev_stock:
-    _log_change(sku, naver_id, "In_Stock", prev_stock, curr_stock)
-  for _name, _field in _RETAILER_PRICE_FIELD.items():
-    if _field not in update_data:
-      continue
-    _old_price = fields.get(_field, 0.0) or 0.0
-    _new_price = update_data[_field]
-    if _old_price != _new_price:
-      _log_change(sku, naver_id, _field, _old_price, _new_price)
-
-  try:
-    table.update(record_id, update_data)
-  except Exception:
-    pass
+  if update_error is None:
+    if curr_stock != prev_stock:
+      _log_change(sku, naver_id, "In_Stock", prev_stock, curr_stock)
+    for _name, _field in _RETAILER_PRICE_FIELD.items():
+      if _field not in update_data:
+        continue
+      _old_price = fields.get(_field, 0.0) or 0.0
+      _new_price = update_data[_field]
+      if _old_price != _new_price:
+        _log_change(sku, naver_id, _field, _old_price, _new_price)
 
   def _fmt(label, name, data, price):
     if data and data.get("status") == "check_needed":
@@ -754,38 +759,45 @@ def process_single_record(r, current_rate, retailers=RETAILER_NAMES):
     suffix = "" if name in retailers else "(cached)"
     return f"{label}:${price}{suffix}"
 
-  log_line = (
-      f"✅ [{sku}] Complete | {_fmt('Ado', 'Adorama', adorama_data, adorama_price)} /"
-      f" {_fmt('Amz', 'Amazon', amazon_data, amazon_price)} /"
-      f" {_fmt('BH', 'B&H', bh_data, bh_price)}"
-  )
-
-  status_change = None
-  if any_check_needed and not prev_needs_check:
-    status_change = (
-        "CHECK",
-        f"⚠️ **[확인 필요]** *{sku}*\n• {', '.join(check_needed_sources)} 접속/파싱"
-        f" 실패 - 사이트를 직접 확인해주세요",
+  if update_error is not None:
+    log_line = f"❌ [{sku}] NocoDB 갱신 실패: {update_error}"
+  else:
+    log_line = (
+        f"✅ [{sku}] Complete | {_fmt('Ado', 'Adorama', adorama_data, adorama_price)} /"
+        f" {_fmt('Amz', 'Amazon', amazon_data, amazon_price)} /"
+        f" {_fmt('BH', 'B&H', bh_data, bh_price)}"
     )
-  elif prev_stock != curr_stock:
-    if not curr_stock:
-      status_change = (
-          "OOS",
-          f"🔴 **[OUT OF STOCK - Above MSRP]** *{sku}*\n• SmartStore"
-          f" ID({naver_id}) Action Required",
-      )
-    else:
-      updated_record = table.get(record_id)
-      new_sell_price = updated_record["fields"].get("sale_price", 0)
-      available_sources = ", ".join(valid_retailers)
-      status_change = (
-          "IN_STOCK",
-          f"🟢 **[BACK IN STOCK]** *{sku}*\n• Valid Retailers:"
-          f" **{available_sources}**\n• Target Price (MSRP Based):"
-          f" **`{new_sell_price:,}원`**",
-      )
 
-  return log_line, status_change
+  # NocoDB 갱신이 실패했으면 curr_stock/any_check_needed 등은 실제로 저장되지
+  # 않은 값이므로, 상태 변화 알림(재입고/품절/확인필요 텔레그램)은 보내지 않음
+  # - 안 그러면 "반영 안 된 변화"를 이미 반영된 것처럼 알리게 됨.
+  status_change = None
+  if update_error is None:
+    if any_check_needed and not prev_needs_check:
+      status_change = (
+          "CHECK",
+          f"⚠️ **[확인 필요]** *{sku}*\n• {', '.join(check_needed_sources)} 접속/파싱"
+          f" 실패 - 사이트를 직접 확인해주세요",
+      )
+    elif prev_stock != curr_stock:
+      if not curr_stock:
+        status_change = (
+            "OOS",
+            f"🔴 **[OUT OF STOCK - Above MSRP]** *{sku}*\n• SmartStore"
+            f" ID({naver_id}) Action Required",
+        )
+      else:
+        updated_record = table.get(record_id)
+        new_sell_price = updated_record["fields"].get("sale_price", 0)
+        available_sources = ", ".join(valid_retailers)
+        status_change = (
+            "IN_STOCK",
+            f"🟢 **[BACK IN STOCK]** *{sku}*\n• Valid Retailers:"
+            f" **{available_sources}**\n• Target Price (MSRP Based):"
+            f" **`{new_sell_price:,}원`**",
+        )
+
+  return log_line, status_change, update_error is None
 
 
 def run_tbd_tracker(log_container, retailers=RETAILER_NAMES, only_needs_check=False, cancel_event=None):
@@ -823,6 +835,7 @@ def run_tbd_tracker(log_container, retailers=RETAILER_NAMES, only_needs_check=Fa
   out_of_stock_count = 0
   back_in_stock_count = 0
   check_needed_count = 0
+  update_error_count = 0
   detail_messages = []
   updated_count = len(records)
 
@@ -841,8 +854,10 @@ def run_tbd_tracker(log_container, retailers=RETAILER_NAMES, only_needs_check=Fa
         cancelled = True
         log_container.write("⏹️ 중지 요청 - 이미 시작된 항목만 마저 반영하고 나머지는 건너뜁니다.")
         break
-      log_line, res = future.result()
+      log_line, res, ok = future.result()
       log_container.write(log_line)
+      if not ok:
+        update_error_count += 1
       if res:
         st_type, msg = res
         if st_type == "OOS":
@@ -868,14 +883,23 @@ def run_tbd_tracker(log_container, retailers=RETAILER_NAMES, only_needs_check=Fa
       f" / 🟢 Normal {back_in_stock_count})",
       f"• **Needs Manual Check**: {check_needed_count} (사이트 접속/파싱 실패 - 품절"
       " 확정 아님)",
-      "\n---",
   ]
+  if update_error_count:
+    summary_header.append(
+        f"• **⚠️ NocoDB 갱신 실패**: {update_error_count}건 - 위 항목 로그에서 ❌ 표시 확인"
+        " (이 항목들은 이번 Sync에서 실제로 반영되지 않았습니다)"
+    )
+  summary_header.append("\n---")
 
   if detail_messages:
     final_msg = "\n\n".join(["\n".join(summary_header)] + detail_messages)
     final_msg += (
         "\n\n👉 [Naver Commerce Admin](https://sell.smartstore.naver.com/)"
     )
+  elif update_error_count:
+    # 재고/가격 변화는 없었지만 NocoDB 갱신 자체가 실패한 항목이 있으면
+    # "이상 없음"으로 조용히 넘어가지 않고 알림
+    final_msg = "\n".join(summary_header)
   else:
     final_msg = (
         "\n".join(summary_header)
