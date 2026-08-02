@@ -8,6 +8,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Optional
 
+import pytz
 import requests
 
 from auth import get_bearer_token
@@ -15,11 +16,26 @@ from naver_config import CLIENT_ID, CLIENT_SECRET
 
 BASE_URL = "https://api.commerce.naver.com"
 
+_KST = pytz.timezone("Asia/Seoul")
+
 
 def _get_headers() -> dict:
     """인증 헤더 생성."""
     token = get_bearer_token(CLIENT_ID, CLIENT_SECRET)
     return {"Authorization": f"Bearer {token}"}
+
+
+def _to_kst(dt: datetime) -> datetime:
+    """KST aware datetime으로 정규화.
+
+    naive datetime(tzinfo 없음)은 이미 KST 벽시계 값이라고 보고 그대로
+    KST로 로컬라이즈합니다(기본값 계산에 쓰는 datetime.now()가 이 경우).
+    aware datetime은 실제 시각을 유지한 채 KST로 변환합니다. 예전엔 이
+    구분 없이 문자열 끝에 무조건 "+09:00"을 붙여서, aware UTC datetime이
+    전달되면 실제 조회 시간이 9시간 어긋날 수 있었습니다."""
+    if dt.tzinfo is None:
+        return _KST.localize(dt)
+    return dt.astimezone(_KST)
 
 
 def get_product_orders(
@@ -43,6 +59,9 @@ def get_product_orders(
         from_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     if to_date is None:
         to_date = from_date + timedelta(hours=23, minutes=59, seconds=59)
+
+    from_date = _to_kst(from_date)
+    to_date = _to_kst(to_date)
 
     # 24시간 제한 검증
     if (to_date - from_date).total_seconds() > 24 * 3600:
@@ -133,6 +152,13 @@ def get_product_order_claims(
         from_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     if to_date is None:
         to_date = from_date + timedelta(hours=23, minutes=59, seconds=59)
+
+    from_date = _to_kst(from_date)
+    to_date = _to_kst(to_date)
+
+    # 24시간 제한 검증 (get_product_orders와 동일 - 예전엔 클레임 조회에만 빠져있었음)
+    if (to_date - from_date).total_seconds() > 24 * 3600:
+        raise ValueError("from_date와 to_date는 최대 24시간 차이만 허용됩니다.")
 
     params = {
         "from": from_date.strftime("%Y-%m-%dT%H:%M:%S.000+09:00"),
