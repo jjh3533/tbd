@@ -574,13 +574,17 @@ def _stale_retailer_data(name, product_id, fields):
           "detail": ""}
 
 
-def process_single_record(r, current_rate, retailers=RETAILER_NAMES):
+def process_single_record(r, current_rate, retailers=RETAILER_NAMES, generation=None):
   """워커 스레드에서 실행되므로 UI 프레임워크 호출 없이 로그 문자열만 만들어
   반환합니다.
 
   retailers: 이번 라운드에 실제로 재조회할 리테일러 이름 집합/튜플
   ("Adorama", "Amazon", "B&H" 중 일부 또는 전체). 나머지는 NocoDB에 저장된
-  마지막 값을 그대로 사용합니다(개별 Sync 버튼용)."""
+  마지막 값을 그대로 사용합니다(개별 Sync 버튼용).
+
+  generation: 지정하면, NocoDB에 쓰기 직전에 자기 세대가 여전히 최신인지
+  확인합니다(run_sync_guarded._bump_sync_generation 참고) - 취소된 이전
+  Sync의 워커가 뒤늦게 끝나 새로 시작된 Sync의 결과를 덮어쓰는 걸 막기 위함."""
   record_id = r["id"]
   fields = r["fields"]
   sku = fields.get("SKU", "무명 상품")
@@ -730,6 +734,12 @@ def process_single_record(r, current_rate, retailers=RETAILER_NAMES):
     update_data["BH_USD"] = bh_price
     update_data["BH_In_Stock"] = bool(bh_data and bh_data.get("in_stock"))
 
+  # 취소된 이전 Sync 세대의 워커가 뒤늦게 여기 도달한 경우 - 그 사이 새 Sync가
+  # 시작되어 이미 최신 데이터를 쓰고 있으므로, 오래된 결과로 덮어쓰지 않고
+  # 조용히 건너뜁니다(에러 아님 - ok=True로 반환).
+  if generation is not None and not _is_current_sync_generation(generation):
+    return f"⏭️ [{sku}] 이전 Sync가 취소된 뒤 뒤늦게 끝나 건너뜀 (최신 Sync가 이미 진행 중)", None, True
+
   # 본 테이블(Products) 갱신을 Price_History 기록보다 먼저 시도합니다.
   # 갱신이 실패하면 Price_History도 기록하지 않습니다 - 두 테이블 상태가
   # 서로 어긋나는 걸(이력엔 남았는데 실제 상품 데이터는 안 바뀜) 막기 위함.
@@ -800,7 +810,7 @@ def process_single_record(r, current_rate, retailers=RETAILER_NAMES):
   return log_line, status_change, update_error is None
 
 
-def run_tbd_tracker(log_container, retailers=RETAILER_NAMES, only_needs_check=False, cancel_event=None):
+def run_tbd_tracker(log_container, retailers=RETAILER_NAMES, only_needs_check=False, cancel_event=None, generation=None):
   """retailers: 이번 라운드에 재조회할 리테일러 이름 집합/튜플. 기본값은 3곳
   전체(전체 Sync 버튼). 개별 Sync 버튼은 {"Adorama"} 처럼 1곳만 넘겨줍니다.
   only_needs_check=True면 Needs_Check=True인 상품만 골라 재조회합니다
@@ -812,7 +822,12 @@ def run_tbd_tracker(log_container, retailers=RETAILER_NAMES, only_needs_check=Fa
   cancel_event: threading.Event를 넘기면, 매 결과가 들어올 때마다 확인해서
   set()돼 있으면 남은 작업을 더 기다리지 않고 조기 종료합니다. 이미 실행
   중인(네트워크 요청이 나간) 항목은 끝까지 진행되지만(스레드를 강제로 죽일
-  수는 없음), 아직 시작 안 한 항목은 스레드풀에서 그대로 취소됩니다."""
+  수는 없음), 아직 시작 안 한 항목은 스레드풀에서 그대로 취소됩니다.
+
+  generation: run_sync_guarded가 발급한 이번 Sync의 세대 번호. 각 워커는
+  자기 세대가 여전히 최신(_is_current_sync_generation)일 때만 NocoDB에 씁니다
+  - 취소된 이전 세대의 워커가 뒤늦게 끝나 새 세대의 결과를 덮어쓰는 걸 막기
+  위함."""
   retailers_label = (
       " / ".join(retailers) if len(retailers) < len(RETAILER_NAMES)
       else "Adorama / Amazon / B&H Triple-Channel"
@@ -846,7 +861,7 @@ def run_tbd_tracker(log_container, retailers=RETAILER_NAMES, only_needs_check=Fa
   cancelled = False
   try:
     futures = [
-        executor.submit(process_single_record, r, current_rate, retailers)
+        executor.submit(process_single_record, r, current_rate, retailers, generation)
         for r in records
     ]
     for future in as_completed(futures):
@@ -1423,6 +1438,26 @@ def get_latest_price_deltas():
 _KST_TZ = pytz.timezone("Asia/Seoul")
 _sync_lock = threading.Lock()
 _sync_cancel_event = threading.Event()
+# Sync 취소 시 executor.shutdown(wait=False)로 이미 시작된 워커를 백그라운드에
+# 남겨둔 채 run_sync_guarded가 곧바로 락을 반환하는데, 사용자가 그 직후 새
+# Sync를 시작하면 취소된 이전 세대의 워커와 새 세대의 워커가 동시에 NocoDB를
+# 쓸 수 있었음. 새 Sync가 시작될 때마다 세대를 올리고, 각 워커는 자기 세대가
+# 여전히 최신일 때만 NocoDB에 씁니다 - 취소된 세대의 뒤늦은 쓰기를 막기 위함
+# (스레드를 강제로 죽일 수는 없으니, 결과를 버리는 방식으로 처리).
+_sync_generation_lock = threading.Lock()
+_sync_generation = 0
+
+
+def _bump_sync_generation() -> int:
+  global _sync_generation
+  with _sync_generation_lock:
+    _sync_generation += 1
+    return _sync_generation
+
+
+def _is_current_sync_generation(generation: int) -> bool:
+  with _sync_generation_lock:
+    return generation == _sync_generation
 # 대시보드가 폴링해서 스피너/버튼 비활성화/중지 버튼을 그리는 데 쓰는 전역
 # 상태. 여러 브라우저 탭에서 봐도 항상 "지금 뭐가 도는지"가 일치해야 하므로
 # (수동 버튼 여러 개를 동시에 눌러서 겹쳐 도는 사고를 겪은 뒤 도입) 클라이언트별
@@ -1465,6 +1500,7 @@ def run_sync_guarded(log_container, retailers=RETAILER_NAMES, only_needs_check=F
     log_container.write("⏭️ 이미 다른 동기화가 진행 중입니다 - 끝난 뒤 다시 시도해주세요.")
     return 0
 
+  generation = _bump_sync_generation()
   _sync_cancel_event.clear()
   _sync_status["running"] = True
   _sync_status["label"] = label or (
@@ -1473,7 +1509,7 @@ def run_sync_guarded(log_container, retailers=RETAILER_NAMES, only_needs_check=F
   try:
     return run_tbd_tracker(
         log_container, retailers, only_needs_check=only_needs_check,
-        cancel_event=_sync_cancel_event,
+        cancel_event=_sync_cancel_event, generation=generation,
     )
   finally:
     _sync_status["running"] = False
