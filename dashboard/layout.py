@@ -63,5 +63,7 @@ def frame(active_path: str):
       ]:
         ui.html(f'<a class="tbd-nav-link" href="{href}" target="_blank" rel="noopener noreferrer">{label}</a>', sanitize=False)
 
+      ui.html('<a class="tbd-nav-link" href="/logout">🚪 로그아웃</a>', sanitize=False)
+
     with ui.column().classes("tbd-main gap-0"):
       yield

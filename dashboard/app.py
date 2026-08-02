@@ -11,12 +11,15 @@ from pathlib import Path
 # 프로젝트 루트(sync_engine.py, config.py, nocodb_client.py 등)를 import 경로에 추가.
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from nicegui import ui
+from nicegui import app, ui
 
 import sync_engine
+from dashboard.auth import AuthMiddleware, DASHBOARD_STORAGE_SECRET
 
 # 각 페이지 모듈을 import해야 @ui.page 데코레이터가 등록된다.
-from dashboard.pages import home, category, register, inventory, needs_check  # noqa: F401
+from dashboard.pages import login, home, category, register, inventory, needs_check  # noqa: F401
+
+app.add_middleware(AuthMiddleware)
 
 # 매일 09:00 KST 전체 동기화 + 4시간마다 확인 필요 상품만 재조회하는 백그라운드
 # 스케줄러. reload=False라 이 모듈은 프로세스당 한 번만 실행되므로, 중복
@@ -28,6 +31,6 @@ ui.run(
     favicon="⚡",
     host="0.0.0.0",  # 컨테이너 밖에서 접속하려면 필수
     port=8080,
-    storage_secret="tbd-dashboard-local-dev-secret",
+    storage_secret=DASHBOARD_STORAGE_SECRET,
     reload=False,
 )
