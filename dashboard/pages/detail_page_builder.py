@@ -268,7 +268,7 @@ def detail_page_builder_page() -> None:
         for rec in matches:
           fields = rec.get("fields", {})
 
-          def _apply(fields=fields):
+          async def _apply(fields=fields):
             brand = fields.get("Brand") or "UniFi"
             brand_select.value = brand if brand in ("UniFi", "GL.inet") else "UniFi"
             model_number = (fields.get("Model Number") or "").strip()
@@ -276,6 +276,10 @@ def detail_page_builder_page() -> None:
             folder_brand = {"UniFi": "UniFi", "GL.inet": "GLiNET"}.get(brand_select.value, brand_select.value)
             if model_number:
               image_folder_input.value = f"{folder_brand} {model_number}"
+              # 폴더명이 정해지자마자 기본 이미지 위치(제품이미지 루트/이 폴더)를
+              # 자동으로 불러온다 - 예전엔 "이미지 불러오기" 버튼을 한 번 더
+              # 눌러야만 갤러리가 떴음(사용자 요청 2026-08-03).
+              await _do_load_images()
             ui.notify(f"[{fields.get('SKU')}] 적용됨", type="positive")
 
           ui.button(f"{fields.get('SKU', '')[:60]}", on_click=_apply).props("outline dense align=left").classes("w-full justify-start")
@@ -324,6 +328,15 @@ def detail_page_builder_page() -> None:
       state["hero_source"] = brief.get("hero_source")
       state["design_source"] = brief.get("design_source")
       _refresh_status()
+
+      # 브리프에 저장된 히어로/디자인 이미지 경로에서 제품이미지 폴더명을
+      # 역산해 기본 위치를 자동으로 채우고 갤러리도 바로 불러온다(사용자
+      # 요청 2026-08-03) - 예전엔 이 필드가 비어있어 "이미지 불러오기"를
+      # 다시 누르기 전엔 폴더명조차 안 보였음.
+      source_path = state["hero_source"] or state["design_source"]
+      if source_path:
+        image_folder_input.value = os.path.basename(os.path.dirname(source_path))
+        await _do_load_images()
 
       why_headline_input.value = brief.get("why_headline", "")
       why_sub_input.value = brief.get("why_sub", "")
