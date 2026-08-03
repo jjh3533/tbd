@@ -31,7 +31,11 @@ def export_sections(html_path: str, out_dir: str):
     url = "file://" + os.path.abspath(html_path)
 
     with sync_playwright() as p:
-        browser = p.chromium.launch()
+        # --no-sandbox: NAS Docker 컨테이너가 root로 실행되는데(별도 USER
+        # 지정 없음), Chromium의 자체 샌드박스는 root 권한 컨테이너에서 커널
+        # 네임스페이스 제약 때문에 기본적으로 크래시한다 - 로컬 Mac에서도
+        # 문제 없이 동작하는 표준적인 완화책이라 환경 분기 없이 항상 켜둠.
+        browser = p.chromium.launch(args=["--no-sandbox"])
         page = browser.new_page(viewport={"width": 940, "height": 1200}, device_scale_factor=2)
         page.goto(url, wait_until="networkidle")
 

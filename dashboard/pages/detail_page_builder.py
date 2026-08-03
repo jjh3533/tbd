@@ -5,11 +5,13 @@ product_pages/scripts/build_detail_page.py(브랜드 무관 상세페이지 생�
 넣으면 .dc.html 조립과 PNG export는 전부 코드가 처리한다 - 매 상품마다 AI
 대화로 전체 파이프라인을 새로 훑지 않아도 되게 하는 게 목적.
 
-로컬 전용 기능이다: Google Drive 동기화 폴더(Product Images/Product Pages_html)와
-Playwright 헤드리스 Chromium(export_sections.py)이 필요해서 NAS 배포본에는 안
-맞는다. 그래서 이 파일은 register.py의 image_uploader 지연 임포트와 동일한
-이유로, build_detail_page 임포트를 전부 버튼 핸들러 안으로 미뤄둔다 - 그래야
-NAS에서 이 페이지 라우트가 있어도 대시보드 전체 기동에는 영향이 없다."""
+my.tbd.kr(NAS)에서도 전체 기능(이미지 폴더 접근·PNG export 포함)이 동작한다
+(2026-08-03, NAS Dockerfile에 Playwright + 헤드리스 Chromium 추가 후 확인) -
+`naver_config`의 `TBD_SEOUL_ROOT` 오버라이드로 Product Images/Product
+Pages_html 경로가 이미 NAS에도 매핑돼 있었다. build_detail_page 임포트를
+버튼 핸들러 안으로 미뤄두는 건 여전한데(register.py의 image_uploader
+지연 임포트와 동일 패턴), 지금은 NAS 회피 목적이 아니라 build_detail_page가
+product_pages/scripts/에 있어 기본 sys.path에 없기 때문(`_load_bdp()` 참고)."""
 from __future__ import annotations
 
 import asyncio
@@ -47,9 +49,10 @@ def _find_nocodb_record(records: list[dict], title: str) -> dict | None:
 
 _SCRIPTS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "product_pages", "scripts")
 
-# 완성된 .dc.html이 있는 폴더 - PNG export(Playwright, 로컬 전용)와 달리 이
-# 폴더 자체는 Synology Drive로 NAS에도 동기화되어 있어(TBD_SEOUL_ROOT 참고)
-# my.tbd.kr에서도 미리보기가 그대로 동작한다.
+# 완성된 .dc.html이 있는 폴더 - Synology CloudSync로 NAS에도 동기화되어
+# 있어(TBD_SEOUL_ROOT 참고, 다만 CloudSync 반영이 늦거나 안 될 때가 있었음
+# - CLAUDE.md 참고) my.tbd.kr에서도 미리보기가 그대로 동작한다. PNG export도
+# 2026-08-03부터 NAS Dockerfile에 Playwright를 추가해 my.tbd.kr에서 동작한다.
 _PAGES_ROOT = os.path.dirname(naver_config.PRODUCT_PAGES_DIR)
 _PREVIEW_URL_PREFIX = "/detail-pages"
 
@@ -240,7 +243,7 @@ def detail_page_builder_page() -> None:
     components.section_header("6) 완성된 상세페이지 보기")
     ui.label(
         "지금까지 만든 .dc.html을 브라우저 새 탭에서 그대로 열어봅니다 - "
-        "PNG export 없이도(로컬 전용 기능이라 my.tbd.kr에선 안 됨) 실제 레이아웃을 바로 확인할 수 있어요."
+        "PNG export 없이도 실제 레이아웃을 바로 확인할 수 있어요."
     ).classes("text-sm text-tbd-text-secondary mb-2")
 
     with ui.row().classes("w-full gap-4 items-end mb-2"):
@@ -467,7 +470,7 @@ def detail_page_builder_page() -> None:
 
       fetch_reference_button.props("loading")
       try:
-        import official_scrapers  # 지연 import - NAS에도 있지만 이 페이지 자체가 로컬 전용이라 통일
+        import official_scrapers  # 지연 import - 다른 버튼 핸들러들과 패턴 통일(NAS에도 정상 배포되어 있음)
 
         loop = asyncio.get_event_loop()
         product = await loop.run_in_executor(
@@ -499,7 +502,7 @@ def detail_page_builder_page() -> None:
 
       generate_brief_button.props("loading")
       try:
-        import brief_generator  # 지연 import - anthropic 패키지는 NAS Dockerfile에 없음(로컬 전용 기능)
+        import brief_generator  # 지연 import - anthropic 패키지는 NAS Dockerfile에도 있음(정상 배포됨), 다른 핸들러들과 패턴만 통일
 
         folder_brand = {"UniFi": "UniFi", "GL.inet": "GLiNET"}.get(brand_select.value, brand_select.value)
         folder_name = (image_folder_input.value or "").strip()
