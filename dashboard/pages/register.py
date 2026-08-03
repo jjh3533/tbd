@@ -86,7 +86,7 @@ def register_page() -> None:
     # ------------------------------------------------------------------
     # 🔍 공홈에서 불러오기
     # ------------------------------------------------------------------
-    ui.label("🔍 공홈에서 불러오기").classes("text-lg font-semibold mb-2")
+    components.section_header("🔍 공홈에서 불러오기")
     ui.label(
         "브랜드와 공홈 상품 URL을 넣고 크롤링하면 이미지/가격/설명을 자동으로"
         " 가져옵니다. 아래 필드는 전부 수정 가능하니 크롤링 결과가 틀리면"
@@ -102,7 +102,7 @@ def register_page() -> None:
       crawl_url_input = ui.input(
           "공홈 상품 URL", placeholder="e.g. https://store.ui.com/us/en/products/u6-pro"
       ).classes("flex-1")
-      crawl_button = ui.button("크롤링").props("unelevated color=primary")
+      crawl_button = components.primary_button("크롤링")
 
     crawl_status = ui.label("").classes("text-sm text-tbd-text-secondary")
     preview_images_row = ui.row().classes("w-full gap-2 flex-wrap mb-2")
@@ -118,10 +118,10 @@ def register_page() -> None:
     # ------------------------------------------------------------------
     # 🔎 리테일러 후보 검색
     # ------------------------------------------------------------------
-    ui.label("🔎 리테일러 후보 검색").classes("text-lg font-semibold mb-2")
+    components.section_header("🔎 리테일러 후보 검색")
     with ui.row().classes("w-full gap-4 items-end"):
       model_number_input = ui.input("Model Number", placeholder="e.g. U6-Pro").classes("flex-1")
-      search_button = ui.button("검색").props("unelevated color=primary")
+      search_button = components.primary_button("검색")
 
     candidates_column = ui.column().classes("w-full gap-3 mb-2")
 
@@ -309,4 +309,4 @@ def register_page() -> None:
       except Exception as e:  # noqa: BLE001
         ui.notify(f"NocoDB Registration Error: {e}", type="negative")
 
-    ui.button("⚡ Add to Inventory System", on_click=_submit).props("unelevated color=primary").classes("mt-4")
+    components.primary_button("⚡ Add to Inventory System", on_click=_submit).classes("mt-4")

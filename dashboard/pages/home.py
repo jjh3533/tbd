@@ -77,16 +77,13 @@ def home_page() -> None:
       with ui.column().classes("flex-1 min-w-0"):
         components.smartstore_donut_card(smartstore_sale + smartstore_out, smartstore_sale, smartstore_out)
 
-    ui.label("카테고리별 현황").classes("text-lg font-bold mb-1")
-    ui.label("카드를 클릭하면 해당 카테고리의 상품/가격만 모아볼 수 있어요.").classes(
-        "text-sm text-tbd-text-secondary mb-4"
-    )
+    components.section_header("카테고리별 현황", "카드를 클릭하면 해당 카테고리의 상품/가격만 모아볼 수 있어요.")
 
     with ui.grid(columns=4).classes("w-full gap-4 mb-12"):
       for cat in CATEGORIES:
         components.category_card(cat, cat_counts[cat])
 
-    ui.label("전체 상품").classes("text-lg font-bold mb-3")
+    components.section_header("전체 상품")
     sorted_records = sort_records_by_category_then_name(records)
     price_deltas = get_latest_price_deltas()
     table_html = build_products_table_html(

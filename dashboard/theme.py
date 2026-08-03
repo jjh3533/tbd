@@ -67,10 +67,18 @@ _VARS = {
     },
 }
 
-# Sync 버튼 전용 색 - 라이트/다크 상관없이 항상 검정 배경 + 흰 글씨로 고정
+# 액션 버튼 전용 색 - 라이트/다크 상관없이 항상 고정.
 # (사이드바 테마와 무관하게 "액션 버튼"이라는 걸 항상 같은 색으로 구분).
+# Tailwind 임의값 클래스(!bg-[...])로 적용한다 - Quasar의 기본 color=primary가
+# 자체 !important 규칙을 쓰고 있어서, 새 CSS 클래스를 <style> 블록에 추가하는
+# 방식으로는(스펙ificity를 아무리 올려도) 이길 수 없었다(실제로 겪음). 이
+# 프로젝트에서 검증된 유일한 override 방법은 Tailwind의 "!" 접두사 임의값
+# 클래스뿐이라 버튼 색은 전부 이 방식으로 통일한다.
 BLACK_BTN_BG = "#1A1B1E"
 BLACK_BTN_TEXT = "#FFFFFF"
+SUCCESS_BTN_BG = _VARS["light"]["success"]
+DANGER_BTN_BG = _VARS["light"]["danger"]
+WARNING_BTN_TEXT = _VARS["light"]["warning"]
 
 RADIUS_SM = "10px"
 RADIUS_MD = "16px"
@@ -205,6 +213,14 @@ def build_head_html() -> str:
       white-space: nowrap;
     }}
 
+    /* 액션 버튼 색(위험도별 시맨틱 색상)은 여기서 CSS 클래스로 정의하지 않는다 -
+       Quasar의 기본 color=primary 배경이 자체적으로 !important를 쓰고 있어서
+       새 <style> 블록의 클래스로는(specificity를 올려도) 이길 수 없었음
+       (실제로 겪음). components.py의 primary_button/safe_button/
+       live_write_button/utility_button이 대신 Tailwind "!bg-[...]" 임의값
+       클래스로 직접 색을 강제한다 - 이 프로젝트에서 유일하게 검증된 override
+       방법(sync.py의 기존 검정 버튼이 이 방식으로 이미 잘 동작하고 있었음). */
+
     /* ---------- 통계 카드 ---------- */
     .tbd-card {{
       position: relative;
@@ -252,6 +268,12 @@ def build_head_html() -> str:
     .tbd-card-value.danger  {{ color: var(--tbd-danger); }}
     .tbd-card-value.warning {{ color: var(--tbd-warning); }}
     .tbd-card-value.accent  {{ color: var(--tbd-accent); }}
+
+    /* 차트류 카드(홈 대시보드) 내부 라벨 - .tbd-card-label과 별도로 존재하던
+       인라인 Tailwind 스타일(text-sm font-semibold text-gray-700 등)을 대체.
+       패딩은 카드마다 미세하게 달라서(pb-1/pb-2/pb-0) 여기 넣지 않고 각
+       호출부의 Tailwind 패딩 클래스와 병행 사용. */
+    .tbd-card-title {{ font-size: 13px; font-weight: 600; color: var(--tbd-text-secondary); }}
 
     /* ---------- 카테고리 카드 ---------- */
     .tbd-cat-card {{
@@ -330,11 +352,18 @@ def build_head_html() -> str:
     }}
     .tbd-progress-bar {{ height: 100%; background-color: var(--tbd-accent); border-radius: 3px; }}
 
-    /* ---------- 동기화 로그 ---------- */
-    .tbd-sync-log {{
+    /* ---------- 진행 로그 (sync/smartstore/detail-page-builder 공용) ----------
+       예전엔 페이지마다 로그 위젯 스타일이 제각각(테마 적용 안 된 기본 Quasar
+       검정 콘솔 vs 이 파스텔 스타일)이었음. .tbd-sync-log는 하위호환으로 이름
+       유지, .tbd-log가 실제 공용 클래스. 크기만 --fill/--md/--sm 모디파이어로
+       페이지별 조정. */
+    .tbd-sync-log, .tbd-log {{
       margin-top: 6px; border-radius: {RADIUS_SM}; background-color: var(--tbd-surface);
       box-shadow: var(--tbd-shadow-sm); font-size: 10.5px; color: var(--tbd-text-secondary);
     }}
+    .tbd-log--fill {{ min-height: 420px; }}
+    .tbd-log--md {{ height: 16rem; }}
+    .tbd-log--sm {{ height: 8rem; }}
 
     hr {{ border-color: var(--tbd-border) !important; }}
   </style>

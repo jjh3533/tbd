@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from nicegui import ui
 
+from dashboard import theme
 
 _TONE_ICON = {
     "": "📦",
@@ -77,7 +78,7 @@ def status_donut_card(total: int, active: int, out_stock: int, needs_check: int)
                   'emphasis': {'scale': False}, 'data': data}],
   }
   with ui.element('div').classes('tbd-card w-full h-full'):
-    ui.label('상품 소싱 현황').classes('text-sm font-semibold text-gray-700 px-4 pt-4 pb-1')
+    ui.label('상품 소싱 현황').classes('tbd-card-title px-4 pt-4 pb-1')
     ui.echart(option).classes('w-full').style('height: 260px')
     with ui.column().classes('px-4 pb-4 gap-2 w-full'):
       for label, value, color in [
@@ -132,7 +133,7 @@ def page_coverage_bar_card(brand_data: dict) -> None:
       ],
   }
   with ui.element('div').classes('tbd-card w-full h-full'):
-    ui.label('상세페이지 제작 현황').classes('text-sm font-semibold text-gray-700 px-4 pt-4 pb-2')
+    ui.label('상세페이지 제작 현황').classes('tbd-card-title px-4 pt-4 pb-2')
     with ui.row().classes('px-4 pb-2 gap-4 items-center'):
       for label, color in [('Detail', '#2f6df6'), ('Simple', '#5996ef'), ('미제작', '#dae4f2')]:
         with ui.row().classes('items-center gap-1.5'):
@@ -167,7 +168,7 @@ def smartstore_donut_card(total: int, in_stock: int, out_stock: int) -> None:
                   'emphasis': {'scale': False}, 'data': data}],
   }
   with ui.element('div').classes('tbd-card w-full h-full'):
-    ui.label('스마트스토어 현황').classes('text-sm font-semibold text-gray-700 px-4 pt-4 pb-1')
+    ui.label('스마트스토어 현황').classes('tbd-card-title px-4 pt-4 pb-1')
     ui.echart(option).classes('w-full').style('height: 260px')
     with ui.column().classes('px-4 pb-4 gap-2 w-full'):
       for label, value, color in [
@@ -248,7 +249,7 @@ def exchange_rate_line_card(history: list, current_rate: float) -> None:
   }
   with ui.element('div').classes('tbd-card w-full h-full'):
     with ui.row().classes('px-4 pt-4 pb-0 items-center justify-between w-full'):
-      ui.label('USD / KRW 환율').classes('text-sm font-semibold text-gray-700')
+      ui.label('USD / KRW 환율').classes('tbd-card-title')
       if trend_str:
         ui.html(
             f'<span style="font-size:11px;color:{trend_color};font-weight:600;'
@@ -302,7 +303,7 @@ def scrapedo_donut_card(usage: dict | None) -> None:
                   'emphasis': {'scale': False}, 'data': data}],
   }
   with ui.element('div').classes('tbd-card w-full h-full'):
-    ui.label('Scrape.do 크레딧').classes('text-sm font-semibold text-gray-700 px-4 pt-4 pb-0')
+    ui.label('Scrape.do 크레딧').classes('tbd-card-title px-4 pt-4 pb-0')
     ui.echart(option).classes('w-full').style('height: 148px')
     with ui.row().classes('px-4 pb-3 gap-4 w-full justify-center'):
       for label, value, color in [
@@ -325,6 +326,66 @@ def topbar(title: str) -> None:
       <div class="tbd-badge">System Active</div>
     </div>
   """, sanitize=False)
+
+
+# ---------------------------------------------------------------------------
+# 시맨틱 액션 버튼 - 페이지마다 제각각이던 버튼 색(검정/초록/파랑 하드코딩)을
+# 위험도 기준 4종으로 통일. Tailwind "!bg-[...]" 임의값 클래스로 직접 색을
+# 강제한다 - Quasar의 기본 color=primary 배경이 자체 !important 규칙을 쓰고
+# 있어서 theme.py의 <style> 블록에 새 클래스를 추가하는 방식으로는(specificity를
+# 올려도) 이길 수 없었다(실제로 겪음). Tailwind의 "!" 임의값 클래스가 이
+# 프로젝트에서 유일하게 검증된 override 방법이라(sync.py의 기존 검정 버튼이
+# 이미 이 방식으로 잘 동작 중이었음) 전부 이 방식으로 통일한다.
+# ---------------------------------------------------------------------------
+
+def primary_button(text: str, on_click=None, **kwargs) -> ui.button:
+  """일반 진행 액션 (예: 로그인, 검색/생성처럼 되돌리기 쉬운 진행 버튼)."""
+  return ui.button(text, on_click=on_click, **kwargs).props("unelevated rounded").classes(
+      f"!bg-[{theme.BLACK_BTN_BG}] !text-[{theme.BLACK_BTN_TEXT}]"
+  )
+
+
+def safe_button(text: str, on_click=None, **kwargs) -> ui.button:
+  """읽기 전용 / 항상 눌러도 안전한 액션 (예: 상태 조회·동기화)."""
+  return ui.button(text, on_click=on_click, **kwargs).props("unelevated rounded").classes(
+      f"!bg-[{theme.SUCCESS_BTN_BG}] !text-white"
+  )
+
+
+def live_write_button(text: str, on_click=None, **kwargs) -> ui.button:
+  """실제 라이브 외부 API에 쓰는 되돌리기 어려운 액션 - 의도적으로 눈에 띄게."""
+  return ui.button(text, on_click=on_click, **kwargs).props("unelevated rounded").classes(
+      f"!bg-[{theme.DANGER_BTN_BG}] !text-white font-semibold"
+  )
+
+
+def utility_button(text: str, on_click=None, **kwargs) -> ui.button:
+  """드문 관리/1회성 스크립트용 - 평소엔 안 보이게 outline으로."""
+  return ui.button(text, on_click=on_click, **kwargs).props("outline rounded").classes(
+      f"!text-[{theme.WARNING_BTN_TEXT}] !border-[{theme.WARNING_BTN_TEXT}]"
+  )
+
+
+def section_header(title: str, subtitle: str | None = None) -> None:
+  """섹션 제목 - 예전엔 페이지마다 (font-bold mb-1 + 별도 서브타이틀)과
+  (font-semibold mb-2, 서브타이틀 없음) 두 컨벤션이 공존했음(smartstore.py는
+  한 페이지 안에서 둘 다 섞어 쓰기도 함). 이 함수 하나로 통일."""
+  if subtitle:
+    ui.label(title).classes("text-lg font-bold mb-1")
+    ui.label(subtitle).classes("text-sm text-tbd-text-secondary mb-4")
+  else:
+    ui.label(title).classes("text-lg font-semibold mb-2")
+
+
+async def confirm_dialog(message: str) -> bool:
+  """예/아니오 확인 다이얼로그 (원래 smartstore.py의 _confirm() - 배송 페이지도
+  동일 패턴이 필요해 공용으로 승격)."""
+  with ui.dialog() as dialog, ui.card():
+    ui.label(message)
+    with ui.row().classes("w-full justify-end gap-2 mt-2"):
+      ui.button("취소", on_click=lambda: dialog.submit(False)).props("flat")
+      ui.button("확인", on_click=lambda: dialog.submit(True)).props("unelevated color=negative")
+  return bool(await dialog)
 
 
 class NiceGuiLogAdapter:

@@ -6,7 +6,7 @@ import asyncio
 from nicegui import ui
 
 import sync_engine
-from sync_engine import RETAILER_NAMES
+from sync_engine import RETAILER_NAMES, safe_fetch_records, exclude_clone_rows, status_counts
 from dashboard import components, layout, theme
 from dashboard.components import NiceGuiLogAdapter
 
@@ -29,7 +29,19 @@ def sync_page() -> None:
   with layout.frame(active_path="/sync"):
     components.topbar("Sync")
 
-    _black_btn = f"!bg-[{theme.BLACK_BTN_BG}] !text-[{theme.BLACK_BTN_TEXT}]"
+    records = exclude_clone_rows(
+        safe_fetch_records(on_error=lambda msg: ui.notify(msg, type="negative"))
+    )
+    active, out_stock, needs_check = status_counts(records)
+    with ui.row().classes("w-full gap-5 mb-10"):
+      with ui.column().classes("flex-1 min-w-0"):
+        components.stat_card("상품 수", len(records))
+      with ui.column().classes("flex-1 min-w-0"):
+        components.stat_card("판매 가능", active, "success")
+      with ui.column().classes("flex-1 min-w-0"):
+        components.stat_card("품절", out_stock, "danger")
+      with ui.column().classes("flex-1 min-w-0"):
+        components.stat_card("확인 필요", needs_check, "warning")
 
     with ui.row().classes("w-full items-center gap-2 mb-4").style("display:none") as sync_status_row:
       ui.spinner(size="sm")
@@ -42,7 +54,7 @@ def sync_page() -> None:
 
     def _sync_button(text, on_click, extra_classes=""):
       btn = ui.button(text, on_click=on_click).props("unelevated rounded").classes(
-          f"{extra_classes} {_black_btn}"
+          f"{extra_classes} !bg-[{theme.BLACK_BTN_BG}] !text-[{theme.BLACK_BTN_TEXT}]"
       )
       _sync_buttons.append(btn)
       return btn
@@ -63,7 +75,7 @@ def sync_page() -> None:
             "flex-1",
         ).props("size=sm")
 
-    sync_log = ui.log().classes("tbd-sync-log w-full")
+    sync_log = ui.log().classes("tbd-log tbd-log--fill w-full")
 
     def _poll_sync_status():
       running = sync_engine.is_sync_running()

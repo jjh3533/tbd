@@ -14,7 +14,7 @@ from playwright.sync_api import sync_playwright
 
 def slugify_label(label: str) -> str:
     mapping = {
-        "Hero": "hero", "Design": "design", "Compare": "compare",
+        "Header": "header", "Hero": "hero", "Design": "design", "Compare": "compare",
         "Tech Specs": "tech-specs", "TBD Seoul": "tbd-seoul",
         "통관 안내": "customs", "배송/반품 안내": "shipping",
         "FAQ": "faq", "Footer": "footer",

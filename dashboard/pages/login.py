@@ -33,7 +33,7 @@ def login_page(redirect_to: str = "/"):
       password_input = ui.input("비밀번호", password=True, password_toggle_button=True).classes("w-full").props(
           "debounce=0"
       ).on("keydown.enter", try_login)
-      ui.button("로그인", on_click=try_login).classes("w-full !bg-[#1A1B1E] !text-white")
+      ui.button("로그인", on_click=try_login).props("unelevated rounded").classes("w-full tbd-btn-primary")
 
 
 @ui.page("/logout")
