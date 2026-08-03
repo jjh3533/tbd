@@ -119,21 +119,62 @@ def get_product_orders(
 
 
 def get_product_order_detail(product_order_id: str) -> dict:
-    """주문 상세 조회.
+    """주문 상세 조회 (원본 응답 그대로).
+
+    처음엔 GET .../product-orders/{id} 경로를 썼으나 실제로는 404만 났다 -
+    올바른 엔드포인트는 POST .../product-orders/query에 productOrderIds
+    배열을 넘기는 방식(실제 주문으로 확인함). 배송지 정보는
+    data[0].productOrder.shippingAddress에 들어있다.
 
     Args:
         product_order_id: 상품 주문 번호
 
     Returns:
-        dict: 주문 상세 정보
+        dict: 주문 상세 정보 (data[0] = {"order": {...}, "productOrder": {...}, "delivery": {...}})
     """
-    resp = requests.get(
-        f"{BASE_URL}/external/v1/pay-order/seller/product-orders/{product_order_id}",
+    resp = requests.post(
+        f"{BASE_URL}/external/v1/pay-order/seller/product-orders/query",
         headers=_get_headers(),
+        json={"productOrderIds": [product_order_id]},
         timeout=30,
     )
     resp.raise_for_status()
-    return resp.json()
+    data = resp.json().get("data") or []
+    return data[0] if data else {}
+
+
+def get_recipient_info(product_order_id: str) -> dict:
+    """배송대행지 신청서(에코트랜스 xlsx)에 채울 수령인 정보를 조회.
+
+    네이버 Pay-Order API 응답을 직접 확인한 결과, 우편번호/주소/연락처/
+    수령인명은 productOrder.shippingAddress에 구조화된 필드로 들어있지만
+    **개인통관고유부호는 이 API 어디에도 없다**(order/productOrder 키를
+    전부 확인함 - 없음). 이 상품이 네이버에 "일반" 배송 타입으로 등록돼
+    있어서(해외구매대행 전용 배송 타입이 아니라) 네이버가 애초에 그 값을
+    수집/노출하지 않는 것으로 보인다. 그래서 personal_customs_code는 여기서
+    채우지 않고 항상 빈 문자열로 돌려준다 - 수동 입력이 필요하다.
+
+    Returns:
+        dict: {recipient_name_kr, recipient_phone, recipient_postal_code,
+        recipient_address, personal_customs_code(항상 "")}. 조회 실패 시 전부 빈 값.
+    """
+    try:
+        detail = get_product_order_detail(product_order_id)
+        addr = (detail.get("productOrder") or {}).get("shippingAddress") or {}
+    except Exception:
+        addr = {}
+
+    base = addr.get("baseAddress", "")
+    detailed = addr.get("detailedAddress", "")
+    full_address = f"{base} {detailed}".strip()
+
+    return {
+        "recipient_name_kr": addr.get("name", ""),
+        "recipient_phone": addr.get("tel1", ""),
+        "recipient_postal_code": addr.get("zipCode", ""),
+        "recipient_address": full_address,
+        "personal_customs_code": "",
+    }
 
 
 def dispatch_product_order(

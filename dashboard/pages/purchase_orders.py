@@ -127,13 +127,30 @@ def purchase_orders_page() -> None:
           }
           rows = list(state["fulfillment_by_order_id"].values())
           row = of.find_or_create(order_id, defaults, rows)
-          of.update_fields(row["id"], {
+
+          fields_to_save = {
               "purchase_site": site_select.value,
               "local_order_number": order_number_input.value,
               "local_order_date": date.today().isoformat(),
               "local_unit_price_usd": price_input.value or 0,
               "purchase_status": "발주완료",
-          })
+          }
+
+          # 배송대행지 신청서(에코트랜스 xlsx)에 필요한 우편번호/주소/연락처를
+          # 네이버 주문 상세에서 가져와 같이 채운다(수령인 이름도 함께 -
+          # 개인통관고유부호만은 네이버 API에 없어 여기서 채워지지 않음).
+          try:
+            import naver_order_api
+
+            recipient = await run.io_bound(naver_order_api.get_recipient_info, order_id)
+            # 빈 값(특히 personal_customs_code - 네이버 API엔 애초에 없어 항상
+            # 빈 문자열)은 반영하지 않는다 - 재저장 시 기존에 수동으로 채워둔
+            # 값을 빈 값으로 덮어쓰지 않기 위함.
+            fields_to_save.update({k: v for k, v in recipient.items() if v})
+          except Exception as e:  # noqa: BLE001
+            print(f"발주 페이지 - 수령인 정보 조회 실패 ({order_id}): {e}")
+
+          of.update_fields(row["id"], fields_to_save)
           ui.notify("발주 정보 저장 완료", type="positive")
           await _refresh()
 
