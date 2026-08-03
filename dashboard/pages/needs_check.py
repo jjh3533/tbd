@@ -12,7 +12,6 @@ from sync_engine import (
     sort_records_by_category_then_name,
 )
 from dashboard import components, layout
-from dashboard.layout import _theme_name
 
 
 @ui.page("/needs-check")
@@ -34,9 +33,9 @@ def needs_check_page() -> None:
 
     price_deltas = get_latest_price_deltas()
     table_html = build_products_table_html(
-        check_records, _theme_name(), show_category=True, price_deltas=price_deltas
+        check_records, "light", show_category=True, price_deltas=price_deltas
     )
     if table_html is None:
       ui.label("확인이 필요한 상품이 없습니다.").classes("text-tbd-text-secondary")
     else:
-      ui.html(table_html)
+      ui.html(table_html, sanitize=False)

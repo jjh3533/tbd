@@ -8,6 +8,7 @@ from sync_engine import (
     build_products_table_html,
     exclude_clone_rows,
     get_current_exchange_rate,
+    get_exchange_rate_history,
     get_latest_price_deltas,
     get_scrapedo_usage,
     safe_fetch_records,
@@ -15,7 +16,6 @@ from sync_engine import (
     status_counts,
 )
 from dashboard import components, layout
-from dashboard.layout import _theme_name
 
 
 @ui.page("/")
@@ -24,23 +24,14 @@ def home_page() -> None:
     components.topbar("Main Dashboard")
 
     current_rate = get_current_exchange_rate()
+    rate_history = get_exchange_rate_history()
     scrapedo_usage = get_scrapedo_usage()
 
-    with ui.row().classes("w-full gap-10 mb-10"):
-      with ui.column().classes("gap-1"):
-        ui.label("USD / KRW").classes("text-xs text-tbd-text-secondary")
-        ui.label(f"₩ {current_rate:,}").classes("text-2xl font-bold")
-      with ui.column().classes("gap-1"):
-        ui.label("Scrape.do 잔여 크레딧").classes("text-xs text-tbd-text-secondary")
-        if scrapedo_usage:
-          remaining = scrapedo_usage.get("RemainingMonthlyRequest", 0)
-          max_credits = scrapedo_usage.get("MaxMonthlyRequest", 0)
-          pct_left = f"{remaining / max_credits:.0%} 남음" if max_credits else ""
-          ui.label(f"{remaining:,}").classes("text-2xl font-bold")
-          if pct_left:
-            ui.label(pct_left).classes("text-xs text-tbd-text-secondary")
-        else:
-          ui.label("조회 실패").classes("text-2xl font-bold")
+    with ui.row().classes("gap-5 mb-6 items-stretch"):
+      with ui.element('div').style('width: 320px; flex-shrink: 0; display: flex; flex-direction: column'):
+        components.exchange_rate_line_card(rate_history, current_rate)
+      with ui.element('div').style('width: 220px; flex-shrink: 0; display: flex; flex-direction: column'):
+        components.scrapedo_donut_card(scrapedo_usage)
 
     records = exclude_clone_rows(safe_fetch_records(on_error=lambda msg: ui.notify(msg, type="negative")))
 
@@ -52,16 +43,39 @@ def home_page() -> None:
       if c in cat_counts:
         cat_counts[c] += 1
 
-    with ui.row().classes("w-full gap-5 mb-12"):
-      for label, value, tone in [
-          ("전체 상품", total, ""),
-          ("판매 가능 (Active)", active_count, "success"),
-          ("품절 (Out of Stock)", out_stock, "danger"),
-          ("확인 필요 (Check Needed)", check_needed, "warning"),
-          ("카테고리", len([c for c in cat_counts.values() if c > 0]), "accent"),
-      ]:
-        with ui.column().classes("flex-1 min-w-0"):
-          components.stat_card(label, value, tone)
+    page_by_brand: dict = {
+        "UniFi":  {"Detail": 0, "Simple": 0, "None": 0},
+        "GL.iNet": {"Detail": 0, "Simple": 0, "None": 0},
+    }
+    smartstore_sale = 0
+    smartstore_out = 0
+    for r in records:
+      fields = r["fields"]
+      brand = fields.get("Brand") or ""
+      b_key = "GL.iNet" if "GL" in brand else "UniFi"
+      page = fields.get("Product_Page") or ""
+      if page in ("Detail", "Simple"):
+        page_by_brand[b_key][page] += 1
+      else:
+        page_by_brand[b_key]["None"] += 1
+
+      # 스마트스토어 상태 집계 (Naver_Product_No가 있는 상품만, Black 버전 제외)
+      naver_id = fields.get("Naver_Product_No")
+      sku = fields.get("SKU", "")
+      if naver_id and str(naver_id).strip() not in ("", "-") and "Black" not in sku:
+        sales_status = fields.get("SalesStatus", "")
+        if sales_status == "SALE":
+          smartstore_sale += 1
+        elif sales_status in ("OUTOFSTOCK", "SUSPENSION"):
+          smartstore_out += 1
+
+    with ui.row().classes("w-full gap-5 mb-6 items-stretch"):
+      with ui.column().classes("flex-1 min-w-0"):
+        components.status_donut_card(total, active_count, out_stock, check_needed)
+      with ui.column().classes("flex-1 min-w-0"):
+        components.page_coverage_bar_card(page_by_brand)
+      with ui.column().classes("flex-1 min-w-0"):
+        components.smartstore_donut_card(smartstore_sale + smartstore_out, smartstore_sale, smartstore_out)
 
     ui.label("카테고리별 현황").classes("text-lg font-bold mb-1")
     ui.label("카드를 클릭하면 해당 카테고리의 상품/가격만 모아볼 수 있어요.").classes(
@@ -76,9 +90,9 @@ def home_page() -> None:
     sorted_records = sort_records_by_category_then_name(records)
     price_deltas = get_latest_price_deltas()
     table_html = build_products_table_html(
-        sorted_records, _theme_name(), show_category=True, price_deltas=price_deltas
+        sorted_records, "light", show_category=True, price_deltas=price_deltas
     )
     if table_html is None:
       ui.label("등록된 상품이 없습니다.").classes("text-tbd-text-secondary")
     else:
-      ui.html(table_html)
+      ui.html(table_html, sanitize=False)

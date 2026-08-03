@@ -15,7 +15,6 @@ from sync_engine import (
     status_counts,
 )
 from dashboard import components, layout
-from dashboard.layout import _theme_name
 
 
 def category_slug(name: str) -> str:
@@ -54,9 +53,9 @@ def category_page(slug: str) -> None:
 
     price_deltas = get_latest_price_deltas()
     table_html = build_products_table_html(
-        cat_records, _theme_name(), show_category=False, price_deltas=price_deltas
+        cat_records, "light", show_category=False, price_deltas=price_deltas
     )
     if table_html is None:
       ui.label("등록된 상품이 없습니다.").classes("text-tbd-text-secondary")
     else:
-      ui.html(table_html)
+      ui.html(table_html, sanitize=False)

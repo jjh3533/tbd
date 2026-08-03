@@ -1,11 +1,12 @@
-streamlit==1.60.0
 requests
 yfinance
 pandas
 beautifulsoup4
 python-dotenv
-pytz
-
-# naver_smartstore_uploader 쪽에서 필요
-bcrypt
+nicegui
+apscheduler
+playwright
 openpyxl
+bcrypt
+pytz
+anthropic

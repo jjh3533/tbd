@@ -33,13 +33,11 @@ FONT_REGULAR = _b64("ui-sans-v9-regular.woff2")
 FONT_MEDIUM = _b64("ui-sans-v9-medium.woff2")
 FONT_BOLD = _b64("ui-sans-v9-bold.woff2")
 FONT_BLACK = _b64("ui-sans-v9-black.woff2")
-LOGO_DARK = _b64("tbd_dashboard.svg")
-LOGO_LIGHT = _b64("tbd_dashboard_white.svg")
+LOGO = _b64("tbd_logo.svg")
 
 
-def logo_data_uri(theme_name: str) -> str:
-  logo_data = LOGO_LIGHT if theme_name == "dark" else LOGO_DARK
-  return f"data:image/svg+xml;base64,{logo_data}" if logo_data else ""
+def logo_data_uri() -> str:
+  return f"data:image/svg+xml;base64,{LOGO}" if LOGO else ""
 
 
 # ==========================================
@@ -47,7 +45,6 @@ def logo_data_uri(theme_name: str) -> str:
 # ==========================================
 _VARS = {
     "light": {
-        # 페이지 배경(연한 웜그레이)과 카드 배경(순백)을 분리 - 이게 핵심.
         "page-bg": "#F4F4F6",
         "surface": "#FFFFFF",
         "surface-tint": "rgba(33, 35, 39, 0.04)",
@@ -65,33 +62,8 @@ _VARS = {
         "warning-soft-bg": "#FCF1E3",
         "shadow": "0 1px 1px rgba(20, 21, 26, 0.03), 0 8px 20px -6px rgba(20, 21, 26, 0.08)",
         "shadow-sm": "0 1px 2px rgba(20, 21, 26, 0.04)",
-        # 활성 메뉴 항목: 카드와 같은 언어로 - 회색 사이드바 위에 흰 배경만
-        # 살짝 얹어서 표시 (검정 필이 아니라 옅은 부상 효과).
         "nav-active-bg": "#FFFFFF",
         "nav-active-text": "#1A1B1E",
-    },
-    "dark": {
-        "page-bg": "#0B0C0E",
-        "surface": "#1B1D21",
-        "surface-tint": "rgba(249, 250, 250, 0.045)",
-        "surface-tint-strong": "rgba(249, 250, 250, 0.08)",
-        "border": "rgba(249, 250, 250, 0.08)",
-        "text": "#F5F6F7",
-        "text-secondary": "#8E9298",
-        "accent": "#4C9AFF",
-        "accent-soft-bg": "#122A4D",
-        "success": "#36D876",
-        "success-soft-bg": "#0F2E1E",
-        "danger": "#FF6259",
-        "danger-soft-bg": "#3A1414",
-        "warning": "#F0A83C",
-        "warning-soft-bg": "#3A2B0F",
-        "shadow": "0 1px 1px rgba(0, 0, 0, 0.2), 0 8px 20px -6px rgba(0, 0, 0, 0.5)",
-        "shadow-sm": "0 1px 2px rgba(0, 0, 0, 0.3)",
-        # 다크모드에서는 순백 대신 카드와 동일한(surface) 밝은 회색으로 -
-        # 순백 필은 다크 배경에서 너무 튀어서 surface 톤으로 "부상" 느낌만 유지.
-        "nav-active-bg": "#2A2D32",
-        "nav-active-text": "#F5F6F7",
     },
 }
 
@@ -113,10 +85,7 @@ def _vars_block(scope: str, tokens: dict) -> str:
 
 def build_head_html() -> str:
   """<head>에 한 번만 주입할 폰트 + CSS 변수 + 전역 스타일시트."""
-  vars_css = (
-      _vars_block(":root", _VARS["light"]) + "\n"
-      + _vars_block("body.tbd-dark", _VARS["dark"])
-  )
+  vars_css = _vars_block(":root", _VARS["light"])
   return f"""
   <style>
     @font-face {{ font-family:'UI Sans'; src:url(data:font/woff2;base64,{FONT_REGULAR}) format('woff2'); font-weight:400; font-display:swap; }}
@@ -192,22 +161,14 @@ def build_head_html() -> str:
       font-weight: 700;
       box-shadow: var(--tbd-shadow-sm);
     }}
-
-    /* ---------- 바로가기 ---------- */
-    .tbd-quicklinks {{ display: flex; gap: 8px; margin-top: 8px; }}
-    .tbd-quicklink {{
-      flex: 1;
-      text-align: center;
-      padding: 9px 4px;
-      border-radius: {RADIUS_SM};
-      background-color: var(--tbd-surface);
-      box-shadow: var(--tbd-shadow-sm);
-      font-size: 11px;
-      font-weight: 600;
+    .tbd-nav-sub {{
+      font-size: 12px;
+      padding-left: 24px;
       color: var(--tbd-text-secondary) !important;
-      text-decoration: none !important;
     }}
-    .tbd-quicklink:hover {{ color: var(--tbd-accent) !important; }}
+    .tbd-nav-sub.active {{
+      color: var(--tbd-nav-active-text) !important;
+    }}
 
     /* ---------- 상단바 ---------- */
     /* 이전엔 position:absolute로 배지를 띄웠는데, NiceGUI의 ui.html()
@@ -274,7 +235,6 @@ def build_head_html() -> str:
       font-size: 16px;
       background-color: rgba(255,255,255,0.55);
     }}
-    body.tbd-dark .tbd-card-icon {{ background-color: rgba(0,0,0,0.25); }}
 
     .tbd-card-label {{
       font-size: 12px;

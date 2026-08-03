@@ -32,7 +32,7 @@ def stat_card(label: str, value, tone: str = "") -> None:
       <div class="tbd-card-label">{label}</div>
       <div class="tbd-card-value {tone}">{value}</div>
     </div>
-  """).classes("w-full h-full")
+  """, sanitize=False).classes("w-full h-full")
 
 
 def category_card(name: str, count: int) -> None:
@@ -48,7 +48,274 @@ def category_card(name: str, count: int) -> None:
         <span class="tbd-cat-card-num">{count}</span>Products
       </div>
     </a>
-  """)
+  """, sanitize=False)
+
+
+def status_donut_card(total: int, active: int, out_stock: int, needs_check: int) -> None:
+  """판매 가능 / 품절 / 확인 필요를 반원 도넛 차트로 표시하는 카드."""
+  dummy = max(total, 1)  # 하단 반원을 채우는 투명 세그먼트
+  data = (
+      [
+          {'value': active,      'name': '판매 가능', 'itemStyle': {'color': '#2f6df6'}},
+          {'value': out_stock,   'name': '품절',     'itemStyle': {'color': '#c9d9f7'}},
+          {'value': needs_check, 'name': '확인 필요', 'itemStyle': {'color': '#e37574'}},
+          {'value': dummy, 'itemStyle': {'color': 'rgba(0,0,0,0)'}, 'emphasis': {'disabled': True}},
+      ] if total > 0 else [
+          {'value': 1, 'itemStyle': {'color': '#e5e7eb'}},
+          {'value': 1, 'itemStyle': {'color': 'rgba(0,0,0,0)'}, 'emphasis': {'disabled': True}},
+      ]
+  )
+  option = {
+      'animation': False,
+      'graphic': {'elements': [
+          {'type': 'text', 'left': 'center', 'top': '52%',
+           'style': {'text': str(total), 'fontSize': 42, 'fontWeight': 'bold',
+                     'fill': '#111827', 'textAlign': 'center'}},
+      ]},
+      'series': [{'type': 'pie', 'radius': ['60%', '88%'], 'center': ['50%', '72%'],
+                  'startAngle': 180, 'label': {'show': False}, 'labelLine': {'show': False},
+                  'emphasis': {'scale': False}, 'data': data}],
+  }
+  with ui.element('div').classes('tbd-card w-full h-full'):
+    ui.label('상품 소싱 현황').classes('text-sm font-semibold text-gray-700 px-4 pt-4 pb-1')
+    ui.echart(option).classes('w-full').style('height: 260px')
+    with ui.column().classes('px-4 pb-4 gap-2 w-full'):
+      for label, value, color in [
+          ('판매 가능', active, '#2f6df6'),
+          ('품절', out_stock, '#c9d9f7'),
+          ('확인 필요', needs_check, '#e37574'),
+      ]:
+        with ui.row().classes('w-full items-center justify-between'):
+          with ui.row().classes('items-center gap-2'):
+            ui.html(
+                f'<span style="width:10px;height:10px;border-radius:50%;'
+                f'background:{color};display:inline-block;flex-shrink:0"></span>',
+                sanitize=False,
+            )
+            ui.label(label).classes('text-sm text-gray-500')
+          ui.label(str(value)).classes('text-sm font-semibold')
+
+
+def page_coverage_bar_card(brand_data: dict) -> None:
+  """브랜드별 상세페이지 제작 현황 스택 바 차트 카드."""
+  brands = list(brand_data.keys())
+  detail_vals = [brand_data[b]["Detail"] for b in brands]
+  simple_vals = [brand_data[b]["Simple"] for b in brands]
+  none_vals   = [brand_data[b]["None"]   for b in brands]
+  option = {
+      'animation': False,
+      'tooltip': {'trigger': 'axis', 'axisPointer': {'type': 'shadow'}},
+      'grid': {'top': 16, 'left': 40, 'right': 16, 'bottom': 24},
+      'xAxis': {'type': 'category', 'data': brands,
+                'axisLabel': {'fontSize': 12, 'fontWeight': 'bold', 'color': '#374151'}},
+      'yAxis': {'type': 'value', 'minInterval': 1,
+                'axisLabel': {'fontSize': 11, 'color': '#9ca3af'}},
+      'series': [
+          {
+              'name': 'Detail', 'type': 'bar', 'stack': 'total',
+              'data': detail_vals, 'itemStyle': {'color': '#2f6df6'},
+              'label': {'show': True, 'position': 'inside',
+                        'formatter': '{c}', 'color': '#fff', 'fontSize': 12, 'fontWeight': 'bold'},
+          },
+          {
+              'name': 'Simple', 'type': 'bar', 'stack': 'total',
+              'data': simple_vals, 'itemStyle': {'color': '#5996ef'},
+              'label': {'show': True, 'position': 'inside',
+                        'formatter': '{c}', 'color': '#fff', 'fontSize': 12, 'fontWeight': 'bold'},
+          },
+          {
+              'name': 'None', 'type': 'bar', 'stack': 'total',
+              'data': none_vals, 'itemStyle': {'color': '#dae4f2'},
+              'label': {'show': True, 'position': 'inside',
+                        'formatter': '{c}', 'color': '#6b7280', 'fontSize': 12, 'fontWeight': 'bold'},
+          },
+      ],
+  }
+  with ui.element('div').classes('tbd-card w-full h-full'):
+    ui.label('상세페이지 제작 현황').classes('text-sm font-semibold text-gray-700 px-4 pt-4 pb-2')
+    with ui.row().classes('px-4 pb-2 gap-4 items-center'):
+      for label, color in [('Detail', '#2f6df6'), ('Simple', '#5996ef'), ('미제작', '#dae4f2')]:
+        with ui.row().classes('items-center gap-1.5'):
+          ui.html(f'<span style="width:10px;height:10px;border-radius:2px;background:{color};'
+                  f'display:inline-block;flex-shrink:0"></span>', sanitize=False)
+          ui.label(label).classes('text-xs text-gray-600')
+    ui.echart(option).classes('w-full').style('height: 260px')
+
+
+def smartstore_donut_card(total: int, in_stock: int, out_stock: int) -> None:
+  """스마트스토어 판매중 / 품절 반원 도넛 차트 카드."""
+  dummy = max(total, 1)
+  data = (
+      [
+          {'value': in_stock,  'name': '판매중', 'itemStyle': {'color': '#03c75a'}},
+          {'value': out_stock, 'name': '품절',   'itemStyle': {'color': 'rgba(3, 199, 90, 0.25)'}},
+          {'value': dummy, 'itemStyle': {'color': 'rgba(0,0,0,0)'}, 'emphasis': {'disabled': True}},
+      ] if total > 0 else [
+          {'value': 1, 'itemStyle': {'color': '#e5e7eb'}},
+          {'value': 1, 'itemStyle': {'color': 'rgba(0,0,0,0)'}, 'emphasis': {'disabled': True}},
+      ]
+  )
+  option = {
+      'animation': False,
+      'graphic': {'elements': [
+          {'type': 'text', 'left': 'center', 'top': '52%',
+           'style': {'text': str(total), 'fontSize': 42, 'fontWeight': 'bold',
+                     'fill': '#111827', 'textAlign': 'center'}},
+      ]},
+      'series': [{'type': 'pie', 'radius': ['60%', '88%'], 'center': ['50%', '72%'],
+                  'startAngle': 180, 'label': {'show': False}, 'labelLine': {'show': False},
+                  'emphasis': {'scale': False}, 'data': data}],
+  }
+  with ui.element('div').classes('tbd-card w-full h-full'):
+    ui.label('스마트스토어 현황').classes('text-sm font-semibold text-gray-700 px-4 pt-4 pb-1')
+    ui.echart(option).classes('w-full').style('height: 260px')
+    with ui.column().classes('px-4 pb-4 gap-2 w-full'):
+      for label, value, color in [
+          ('판매중', in_stock, '#03c75a'),
+          ('품절', out_stock, 'rgba(3, 199, 90, 0.25)'),
+      ]:
+        with ui.row().classes('w-full items-center justify-between'):
+          with ui.row().classes('items-center gap-2'):
+            ui.html(
+                f'<span style="width:10px;height:10px;border-radius:50%;'
+                f'background:{color};display:inline-block;flex-shrink:0"></span>',
+                sanitize=False,
+            )
+            ui.label(label).classes('text-sm text-gray-500')
+          ui.label(str(value)).classes('text-sm font-semibold')
+
+
+def exchange_rate_line_card(history: list, current_rate: float) -> None:
+  """환율 추세 꺾은선 그래프 카드 (소형)."""
+  dates = [item["date"] for item in history]
+  rates = [item["rate"] for item in history]
+
+  if len(rates) >= 2:
+    diff = round(rates[-1] - rates[0], 1)
+    trend_str = f"+{diff}" if diff >= 0 else str(diff)
+    trend_color = "#e37574" if diff >= 0 else "#2f6df6"
+  else:
+    trend_str = ""
+    trend_color = "#9ca3af"
+
+  option = {
+      'animation': False,
+      'grid': {'top': 8, 'left': 8, 'right': 8, 'bottom': 24, 'containLabel': True},
+      'tooltip': {
+          'trigger': 'axis',
+          'axisPointer': {'type': 'line', 'lineStyle': {'color': '#c9d9f7', 'width': 1}},
+          'formatter': '{b}<br/>₩{c}',
+          'backgroundColor': '#fff',
+          'borderColor': '#e5e7eb',
+          'textStyle': {'color': '#1A1B1E', 'fontSize': 11},
+      },
+      'xAxis': {
+          'type': 'category',
+          'data': dates,
+          'boundaryGap': False,
+          'axisLine': {'show': False},
+          'axisTick': {'show': False},
+          'axisLabel': {
+              'fontSize': 10, 'color': '#9ca3af',
+              'interval': max(len(dates) // 3 - 1, 0),
+          },
+          'splitLine': {'show': False},
+      },
+      'yAxis': {
+          'type': 'value',
+          'scale': True,
+          'axisLabel': {'show': False},
+          'axisLine': {'show': False},
+          'axisTick': {'show': False},
+          'splitLine': {'lineStyle': {'color': '#f3f4f6', 'width': 1}},
+      },
+      'series': [{
+          'type': 'line',
+          'data': rates,
+          'smooth': True,
+          'symbol': 'none',
+          'lineStyle': {'color': '#2f6df6', 'width': 2},
+          'areaStyle': {
+              'color': {
+                  'type': 'linear', 'x': 0, 'y': 0, 'x2': 0, 'y2': 1,
+                  'colorStops': [
+                      {'offset': 0, 'color': 'rgba(47,109,246,0.18)'},
+                      {'offset': 1, 'color': 'rgba(47,109,246,0.0)'},
+                  ],
+              }
+          },
+      }],
+  }
+  with ui.element('div').classes('tbd-card w-full h-full'):
+    with ui.row().classes('px-4 pt-4 pb-0 items-center justify-between w-full'):
+      ui.label('USD / KRW 환율').classes('text-sm font-semibold text-gray-700')
+      if trend_str:
+        ui.html(
+            f'<span style="font-size:11px;color:{trend_color};font-weight:600;'
+            f'background:{"rgba(227,117,116,0.1)" if "+" in trend_str else "rgba(201,217,247,0.5)"};'
+            f'padding:2px 7px;border-radius:999px">{trend_str} 14일</span>',
+            sanitize=False,
+        )
+    with ui.row().classes('px-4 pt-1 pb-0 items-baseline gap-1'):
+      ui.label(f'₩{current_rate:,.1f}').classes('text-2xl font-bold')
+    ui.echart(option).classes('w-full').style('height: 120px')
+
+
+def scrapedo_donut_card(usage: dict | None) -> None:
+  """Scrape.do 잔여 크레딧 원형 도넛 카드 (소형)."""
+  if usage:
+    remaining = usage.get("RemainingMonthlyRequest", 0)
+    max_credits = usage.get("MaxMonthlyRequest", 1)
+    used = max(max_credits - remaining, 0)
+    pct = remaining / max_credits if max_credits else 0
+  else:
+    remaining = used = 0
+    max_credits = 1
+    pct = 0
+
+  data = (
+      [
+          {'value': remaining, 'name': '잔여', 'itemStyle': {'color': '#2f6df6'}},
+          {'value': used,      'name': '사용', 'itemStyle': {'color': '#c9d9f7'}},
+      ] if usage else [
+          {'value': 1, 'itemStyle': {'color': '#e5e7eb'}},
+      ]
+  )
+  option = {
+      'animation': False,
+      'tooltip': {
+          'trigger': 'item',
+          'formatter': '{b}: {c}',
+          'backgroundColor': '#fff',
+          'borderColor': '#e5e7eb',
+          'textStyle': {'color': '#1A1B1E', 'fontSize': 11},
+      },
+      'graphic': {'elements': [
+          {'type': 'text', 'left': 'center', 'top': '36%',
+           'style': {'text': f'{pct:.0%}', 'fontSize': 18, 'fontWeight': 'bold',
+                     'fill': '#111827', 'textAlign': 'center'}},
+          {'type': 'text', 'left': 'center', 'top': '54%',
+           'style': {'text': '잔여', 'fontSize': 10, 'fill': '#9ca3af', 'textAlign': 'center'}},
+      ]},
+      'series': [{'type': 'pie', 'radius': ['56%', '78%'], 'center': ['50%', '52%'],
+                  'label': {'show': False}, 'labelLine': {'show': False},
+                  'emphasis': {'scale': False}, 'data': data}],
+  }
+  with ui.element('div').classes('tbd-card w-full h-full'):
+    ui.label('Scrape.do 크레딧').classes('text-sm font-semibold text-gray-700 px-4 pt-4 pb-0')
+    ui.echart(option).classes('w-full').style('height: 148px')
+    with ui.row().classes('px-4 pb-3 gap-4 w-full justify-center'):
+      for label, value, color in [
+          ('잔여', f'{remaining:,}', '#2f6df6'),
+          ('사용', f'{used:,}', '#c9d9f7'),
+      ]:
+        with ui.row().classes('items-center gap-1.5'):
+          ui.html(
+              f'<span style="width:8px;height:8px;border-radius:50%;background:{color};'
+              f'display:inline-block;flex-shrink:0"></span>',
+              sanitize=False,
+          )
+          ui.label(f'{label} {value}').classes('text-xs text-gray-500')
 
 
 def topbar(title: str) -> None:
@@ -57,7 +324,7 @@ def topbar(title: str) -> None:
       <div class="tbd-topbar-title">{title}</div>
       <div class="tbd-badge">System Active</div>
     </div>
-  """)
+  """, sanitize=False)
 
 
 class NiceGuiLogAdapter:

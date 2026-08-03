@@ -125,14 +125,14 @@ def inventory_page() -> None:
           "text-tbd-text-secondary mb-8"
       )
     else:
-      ui.html(long_oos_html).classes("mb-8")
+      ui.html(long_oos_html, sanitize=False).classes("mb-8")
 
     if unknown_since:
       ui.label("기록 이전부터 품절").classes("text-lg font-bold mb-1")
       ui.label(
           "이 기능 도입 이전부터 품절이었던 상품 - 정확한 품절 시작일을 알 수 없습니다."
       ).classes("text-sm text-tbd-text-secondary mb-4")
-      ui.html(_unknown_since_table_html(unknown_since)).classes("mb-8")
+      ui.html(_unknown_since_table_html(unknown_since), sanitize=False).classes("mb-8")
 
     ui.label("최근 가격 / 재고 변동").classes("text-lg font-bold mb-1")
     ui.label("최근 50건, 시간순 정렬.").classes("text-sm text-tbd-text-secondary mb-4")
@@ -141,4 +141,4 @@ def inventory_page() -> None:
     if history_html is None:
       ui.label("아직 기록된 변동 이력이 없습니다.").classes("text-tbd-text-secondary")
     else:
-      ui.html(history_html)
+      ui.html(history_html, sanitize=False)
