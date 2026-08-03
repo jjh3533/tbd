@@ -32,6 +32,7 @@ def frame(active_path: str):
           or active_path.startswith("/category/")
           or active_path.startswith("/brand/")
       )
+      register_expanded = active_path in ("/register", "/detail-page-builder")
 
       ui.html('<div class="tbd-nav-label">PRODUCTS</div>', sanitize=False)
       for label, href in [
@@ -47,6 +48,13 @@ def frame(active_path: str):
           for brand_label, brand_href in [("UniFi", "/brand/unifi"), ("GL.iNet", "/brand/glinet")]:
             sub_cls = "tbd-nav-link tbd-nav-sub active" if brand_href == active_path else "tbd-nav-link tbd-nav-sub"
             ui.html(f'<a class="{sub_cls}" href="{brand_href}">{brand_label}</a>', sanitize=False)
+        if href == "/register" and register_expanded:
+          sub_cls = (
+              "tbd-nav-link tbd-nav-sub active"
+              if active_path == "/detail-page-builder"
+              else "tbd-nav-link tbd-nav-sub"
+          )
+          ui.html(f'<a class="{sub_cls}" href="/detail-page-builder">🖼️ 상세페이지 제작</a>', sanitize=False)
 
       ui.html('<div class="tbd-nav-label">SALES</div>', sanitize=False)
       for label, href in [

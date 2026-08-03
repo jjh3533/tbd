@@ -5,7 +5,38 @@
 UCG Ultra 페이지에서 그대로 가져온 것과 100% 동일한 텍스트.
 """
 
-HEAD = """<!DOCTYPE html>
+# 브랜드별로 바뀌는 부분(헤더/히어로 로고, 트러스트·FAQ·푸터의 브랜드 표기)만
+# 파라미터화. head()/trust_to_footer()/hero()는 이 값을 안 넘기면 기존 UniFi
+# 문구와 100% 동일한 결과를 내도록 UNIFI_BRAND를 기본값으로 쓴다.
+UNIFI_BRAND = {
+    "header_logo_src": "assets/common/common_logo-supply.svg",
+    "header_logo_alt": "Unifi Supply",
+    "hero_logo_src": "assets/common/common_logo-symbol.svg",
+    "hero_logo_alt": "UniFi",
+    "hero_logo_height": "60px",
+    "eyebrow_label": "UNIFI SUPPLY BY TBD SEOUL",
+    "supply_label": "Unifi Supply",
+    "product_name": "UniFi",  # 트러스트 헤드라인/재고 문구에 쓰는 제품 라인명
+    "official_name": "Ubiquiti",  # 공식 채널/A/S 문구에 쓰는 제조사명
+    "store_line": "Unifi Supply by TBD Seoul",
+}
+
+GLINET_BRAND = {
+    "header_logo_src": "assets/common/common_logo-glinet.svg",
+    "header_logo_alt": "GL.iNet",
+    "hero_logo_src": "assets/common/common_logo-glinet.svg",
+    "hero_logo_alt": "GL.iNet",
+    "hero_logo_height": "22px",
+    "eyebrow_label": "GL.INET SUPPLY BY TBD SEOUL",
+    "supply_label": "GLiNET Supply",
+    "product_name": "GL.iNet",
+    "official_name": "GL.iNet",
+    "store_line": "GLiNET Supply by TBD Seoul",
+}
+
+
+def head(brand=UNIFI_BRAND):
+    return f"""<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
@@ -17,13 +48,13 @@ HEAD = """<!DOCTYPE html>
 <helmet>
   <script src="./image-slot.js"></script>
   <style>
-    @font-face{font-family:'UI Sans';src:url('assets/common/common_font-ui-sans-400.otf') format('opentype');font-weight:400;font-style:normal;}
-    @font-face{font-family:'UI Sans';src:url('assets/common/common_font-ui-sans-500.otf') format('opentype');font-weight:500;font-style:normal;}
-    @font-face{font-family:'UI Sans';src:url('assets/common/common_font-ui-sans-700.otf') format('opentype');font-weight:700;font-style:normal;}
-    @font-face{font-family:'UI Sans';src:url('assets/common/common_font-ui-sans-900.otf') format('opentype');font-weight:900;font-style:normal;}
-    *{box-sizing:border-box;word-break:keep-all;overflow-wrap:break-word;}
-    a{color:#3371FB;}
-    a:hover{color:#2452C3;}
+    @font-face{{font-family:'UI Sans';src:url('assets/common/common_font-ui-sans-400.otf') format('opentype');font-weight:400;font-style:normal;}}
+    @font-face{{font-family:'UI Sans';src:url('assets/common/common_font-ui-sans-500.otf') format('opentype');font-weight:500;font-style:normal;}}
+    @font-face{{font-family:'UI Sans';src:url('assets/common/common_font-ui-sans-700.otf') format('opentype');font-weight:700;font-style:normal;}}
+    @font-face{{font-family:'UI Sans';src:url('assets/common/common_font-ui-sans-900.otf') format('opentype');font-weight:900;font-style:normal;}}
+    *{{box-sizing:border-box;word-break:keep-all;overflow-wrap:break-word;}}
+    a{{color:#3371FB;}}
+    a:hover{{color:#2452C3;}}
   </style>
 </helmet>
 <div style="background:#E8E8ED;display:flex;justify-content:center;padding:40px 0 120px;font-family:'UI Sans','Pretendard',-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;color:#212326;">
@@ -31,7 +62,7 @@ HEAD = """<!DOCTYPE html>
 
   <div style="padding:22px 60px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #E4E4E9;">
     <div style="display:flex;align-items:center;gap:14px;">
-      <img src="assets/common/common_logo-supply.svg" alt="Unifi Supply" style="height:20px;width:auto;display:block;">
+      <img src="{brand['header_logo_src']}" alt="{brand['header_logo_alt']}" style="height:20px;width:auto;display:block;">
       <div style="width:1px;height:16px;background:#E4E4E9;"></div>
       <img src="assets/common/common_logo-tbd.svg" alt="TBD Seoul" style="height:14px;width:auto;display:block;opacity:0.75;">
     </div>
@@ -39,17 +70,20 @@ HEAD = """<!DOCTYPE html>
   </div>
 """
 
-TRUST_TO_FOOTER = """
+
+HEAD = head()
+
+_TRUST_TO_FOOTER_TEMPLATE = """
   <section style="padding:100px 60px;" data-screen-label="TBD Seoul">
     <div style="max-width:520px;margin:0 auto 48px;text-align:center;">
-      <div style="font-size:13px;letter-spacing:0.06em;color:#3371FB;font-weight:600;text-transform:uppercase;">UNIFI SUPPLY BY TBD SEOUL</div>
-      <h2 style="font-size:36px;font-weight:700;letter-spacing:-0.02em;margin-top:10px;line-height:1.25;">UniFi 전문 해외직구로<br>안심하고 구매하세요</h2>
+      <div style="font-size:13px;letter-spacing:0.06em;color:#3371FB;font-weight:600;text-transform:uppercase;">__EYEBROW__</div>
+      <h2 style="font-size:36px;font-weight:700;letter-spacing:-0.02em;margin-top:10px;line-height:1.25;">__PRODUCT__ 전문 해외직구로<br>안심하고 구매하세요</h2>
     </div>
     <div style="display:flex;gap:20px;max-width:760px;margin:0 auto;">
       <div style="flex:1;padding:28px 24px;border-radius:16px;background:#fff;border:1px solid #E4E4E9;text-align:left;">
         <div style="width:36px;height:36px;border-radius:10px;background:#F5F4F7;display:flex;align-items:center;justify-content:center;margin-bottom:14px;font-size:16px;">✓</div>
         <h4 style="font-size:15.5px;font-weight:600;margin-bottom:6px;">정품 병행/직수입</h4>
-        <p style="font-size:13.5px;color:#696F78;line-height:1.55;">미국의 Ubiquiti 공식 채널을<br>통해 유통되는 정품만을 구매해<br>한국의 고객님께 보내드려요.</p>
+        <p style="font-size:13.5px;color:#696F78;line-height:1.55;">미국의 __OFFICIAL__ 공식 채널을<br>통해 유통되는 정품만을 구매해<br>한국의 고객님께 보내드려요.</p>
       </div>
       <div style="flex:1;padding:28px 24px;border-radius:16px;background:#fff;border:1px solid #E4E4E9;text-align:left;">
         <div style="width:36px;height:36px;border-radius:10px;background:#F5F4F7;display:flex;align-items:center;justify-content:center;margin-bottom:14px;font-size:16px;">↻</div>
@@ -59,7 +93,7 @@ TRUST_TO_FOOTER = """
       <div style="flex:1;padding:28px 24px;border-radius:16px;background:#fff;border:1px solid #E4E4E9;text-align:left;">
         <div style="width:36px;height:36px;border-radius:10px;background:#F5F4F7;display:flex;align-items:center;justify-content:center;margin-bottom:14px;font-size:16px;">⏱</div>
         <h4 style="font-size:15.5px;font-weight:600;margin-bottom:6px;">배송 소요 안내</h4>
-        <p style="font-size:13.5px;color:#696F78;line-height:1.55;">미국의 해외직구 특성상 보통<br>7일에서 14일 정도 소요됩니다.<br>(미국 현지의 UniFi 재고 상황에<br>따라 더 길어질 수 있습니다.)</p>
+        <p style="font-size:13.5px;color:#696F78;line-height:1.55;">미국의 해외직구 특성상 보통<br>7일에서 14일 정도 소요됩니다.<br>(미국 현지의 __PRODUCT__ 재고 상황에<br>따라 더 길어질 수 있습니다.)</p>
       </div>
     </div>
   </section>
@@ -139,7 +173,7 @@ TRUST_TO_FOOTER = """
       </div>
       <div style="padding:22px 0;border-bottom:1px solid #E4E4E9;">
         <div style="font-size:15.5px;font-weight:600;margin-bottom:8px;">A/S는 어떻게 진행되나요?</div>
-        <div style="font-size:14px;color:#696F78;line-height:1.7;">구매 후 2주 이내 초기불량은 TBD Seoul이 왕복 배송비를 포함해 전액 부담합니다. 2주 이후에는 Ubiquiti 미국 무상 A/S 기간·항목에 해당하는 경우, 고객이 왕복 배송료만 부담하면 TBD Seoul이 해외 A/S까지 대행해 드립니다.</div>
+        <div style="font-size:14px;color:#696F78;line-height:1.7;">구매 후 2주 이내 초기불량은 TBD Seoul이 왕복 배송비를 포함해 전액 부담합니다. 2주 이후에는 __OFFICIAL__ 미국 무상 A/S 기간·항목에 해당하는 경우, 고객이 왕복 배송료만 부담하면 TBD Seoul이 해외 A/S까지 대행해 드립니다.</div>
       </div>
     </div>
   </section>
@@ -147,7 +181,7 @@ TRUST_TO_FOOTER = """
   <div style="padding:60px;background:#F5F4F7;font-size:12px;color:#696F78;line-height:1.8;" data-screen-label="Footer">
     <img src="assets/common/common_logo-footer.svg" alt="TBD Seoul" style="height: 31px; width: 111px; opacity: 0.55; margin-bottom: 18px">
     <div style="display:flex;gap:8px;"><span style="flex-shrink:0;color:#212326;font-weight:500;">상호</span><span>TBD Seoul</span></div>
-    <div style="display:flex;gap:8px;"><span style="flex-shrink:0;color:#212326;font-weight:500;">스토어</span><span>Unifi Supply by TBD Seoul</span></div>
+    <div style="display:flex;gap:8px;"><span style="flex-shrink:0;color:#212326;font-weight:500;">스토어</span><span>__STORE__</span></div>
     <div style="display:flex;gap:8px;"><span style="flex-shrink:0;color:#212326;font-weight:500;">고지</span><span>본 상품은 해외에서 발송되는 병행/직수입 상품으로, 통관 절차 및 반품 정책은 국내 상품과 다를 수 있습니다.</span></div>
   </div>
 
@@ -167,10 +201,23 @@ class Component extends DCLogic {
 """
 
 
-def hero(title, tagline_html, img_src, img_alt):
+def trust_to_footer(brand=UNIFI_BRAND):
+    return (
+        _TRUST_TO_FOOTER_TEMPLATE
+        .replace("__EYEBROW__", brand["eyebrow_label"])
+        .replace("__PRODUCT__", brand["product_name"])
+        .replace("__OFFICIAL__", brand["official_name"])
+        .replace("__STORE__", brand["store_line"])
+    )
+
+
+TRUST_TO_FOOTER = trust_to_footer()
+
+
+def hero(title, tagline_html, img_src, img_alt, brand=UNIFI_BRAND):
     return f'''
   <div style="padding:100px 60px 4px;text-align:center;" data-screen-label="Hero">
-    <img src="assets/common/common_logo-symbol.svg" alt="UniFi" style="height:60px;width:auto;display:block;margin:0 auto;">
+    <img src="{brand['hero_logo_src']}" alt="{brand['hero_logo_alt']}" style="height:{brand['hero_logo_height']};width:auto;display:block;margin:0 auto;">
     <h1 style="font-size:52px;font-weight:700;letter-spacing:-0.03em;line-height:1.15;margin-top:48px;">{title}</h1>
     <div style="margin-top:18px;font-size:21px;color:#696F78;font-weight:400;">{tagline_html}</div>
     <div style="margin-top:56px;">
@@ -180,14 +227,15 @@ def hero(title, tagline_html, img_src, img_alt):
 '''
 
 
-def why_section(eyebrow, headline_html, sub_html, cards):
+def why_section(eyebrow, headline_html, sub_html, cards, bg=False):
+    bg_style = "background:#F5F4F7;" if bg else ""
     cards_html = "\n".join(f'''      <div style="padding:36px 28px;background:#fff;border:1px solid #E4E4E9;border-radius:18px;">
         <div style="font-size:13px;color:#3371FB;font-weight:700;margin-bottom:16px;">{i:02d}</div>
         <h3 style="font-size:19px;font-weight:600;margin-bottom:10px;">{h}</h3>
         <p style="font-size:14.5px;color:#696F78;line-height:1.6;">{p}</p>
       </div>''' for i, (h, p) in enumerate(cards, 1))
     return f'''
-  <section style="padding:100px 60px;" data-screen-label="{eyebrow}">
+  <section style="padding:100px 60px;{bg_style}" data-screen-label="{eyebrow}">
     <div style="max-width:520px;margin:0 auto 48px;text-align:center;">
       <div style="font-size:13px;letter-spacing:0.06em;color:#3371FB;font-weight:600;text-transform:uppercase;">{eyebrow}</div>
       <h2 style="font-size:36px;font-weight:700;letter-spacing:-0.02em;margin-top:10px;line-height:1.25;">{headline_html}</h2>
