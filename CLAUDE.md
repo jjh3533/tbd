@@ -21,7 +21,9 @@
 | `naver_config.py` | 네이버 커머스API 설정 (CLIENT_ID/SECRET은 `.env`에서, NAS엔 없어도 되도록 `required=False`). `PRODUCT_IMAGES_DIR`/`PRODUCT_PAGES_DIR`는 `.env`의 `TBD_SEOUL_ROOT`로 오버라이드 가능 (맥은 미설정=Google Drive CloudStorage 경로, NAS는 `/app/dev/smartstore`로 설정) |
 | `nocodb_client.py` | NocoDB REST v2용 Airtable 호환 어댑터 |
 | `auth.py` | 네이버 OAuth2 bearer token 발급 (bcrypt 기반 전자서명) |
-| `naver_order_api.py` | 네이버 Pay-Order/Claims API 클라이언트 (Phase C 주문관리용) |
+| `naver_order_api.py` | 네이버 Pay-Order/Claims API 클라이언트 (Phase C 주문관리용). `get_product_orders()`는 자유 날짜범위 조회 시 실제로 재현되는 429 Too Many Requests에 지수 백오프 재시도(최대 5회) 내장 |
+| `naver_delivery_companies.py`/`naver_delivery_companies.json` | 스마트스토어센터 공식 택배사 코드표(222개, `smartstore/delivery-companies_*.xls`에서 1회성 추출)를 정적 JSON으로 보관. `/shipping`의 택배사 선택 드롭다운이 사용, 기본값 "ACE"(ACEexpress) |
+| `ace_express_tracking.py` | ACE Express(acedp.co.kr) 공개 송장조회 크롤러 - 로그인 불필요(사이트 자체가 "It's free!"로 안내하는 공개 기능), `GET /welcome/Track/hno/{송장번호}`를 BeautifulSoup으로 파싱. `/orders` 새로고침이 국제배송/통관/국내배송 단계 판정에 사용 |
 | `main.py` | 엑셀(`naver_상품등록_템플릿.xlsx`) 기반 네이버 상품 등록 파이프라인 |
 | `product_builder.py` / `image_uploader.py` | 등록 payload 생성 / 이미지 업로드. **자동 카테고리 선택 및 검색 키워드 추가 기능 내장** |
 | `product_keywords.py` | 카테고리별 자동 leafCategoryId 선택 및 검색 최적화 키워드 생성 모듈 |
@@ -39,7 +41,8 @@
 | `retailer_search.py` | 상품명+모델명으로 아마존/B&H/Adorama에서 후보를 찾는 검색 모듈. B&H/Adorama는 전용 검색 플러그인이 없어 사이트 검색결과 페이지의 URL 슬러그로 매칭(카드 `<a>`에 텍스트가 없는 경우가 많아서) |
 | `update_live_customs_image.py` | 라이브 상세페이지의 통관 안내 섹션 이미지만 교체 |
 | `common_settings.py`/`common_settings.json` | 브랜드 로고/문구 + 구매·배송 안내 문구(초기불량 보장 기간, 배송 소요일)를 코드 수정 없이 바꾸는 JSON 설정 저장소. 대시보드 `/settings`가 읽고 쓰고, `product_pages/scripts/build_pages.py`가 `UNIFI_BRAND`/`GLINET_BRAND`/트러스트 템플릿 기본값 위에 덮어씌움. 이미 생성된 `.dc.html`엔 소급 적용 안 됨 |
-| `order_fulfillment.py` | "주문판 sync_engine" - `Order_Fulfillment` NocoDB 테이블 접근(`order_table`, `NOCODB_ORDER_TABLE_ID` 없으면 `None`), 날짜창 조회 헬퍼(`day_window`/`merge_orders_by_id`, `orders.py`/`purchase_orders.py` 공유), 상품명↔NocoDB SKU 매칭(`match_sku_for_order`), `derive_fulfillment_status`(저장 안 하고 매번 계산) |
+| `order_fulfillment.py` | "주문판 sync_engine" - `Order_Fulfillment` NocoDB 테이블 접근(`order_table`, `NOCODB_ORDER_TABLE_ID` 없으면 `None`), 날짜창 조회 헬퍼(`day_window`/`date_range_windows`/`merge_orders_by_id`, `orders.py`/`purchase_orders.py` 공유 - `date_range_windows(from_date, to_date)`는 임의 기간을 하루 단위로 쪼개 네이버 API 24시간 제한을 우회), 상품명↔NocoDB SKU 매칭(`match_sku_for_order`), `derive_fulfillment_status`(저장 안 하고 매번 계산) |
+| `add_order_fulfillment_ace_fields.py` | `Order_Fulfillment`에 `intl_delivery_company`/`ace_customs_started_at`/`ace_domestic_started_at`/`ace_delivered_at`/`ace_last_checked_at` 컬럼을 추가한 1회성 스크립트(멱등) - `create_order_fulfillment_table.py`의 컬럼 정의에도 반영해뒀으니 이 스크립트는 이미 만들어진 기존 테이블에 소급 적용할 때만 필요 |
 | `iecot_config.py` | 배송대행지(에코트랜스) 신청서 고정값 - `IECOT_ITEM_CODE_DEFAULT="91"`, `IECOT_BRANCH_CODE="DE"`, `IECOT_SALES_AGENT_NAME="TBD Seoul"` 등 사람이 확정한 값 |
 | `iecot_export.py` | `Order_Fulfillment` 레코드로 에코트랜스 업로드용 37컬럼 xlsx를 openpyxl로 생성(`build_iecot_xlsx`). 원본 샘플은 레거시 OLE2 `.xls`라 열 순 없지만 컬럼 구조만 참고해 새 `.xlsx`를 처음부터 생성 |
 | `create_order_fulfillment_table.py` | NocoDB `Order_Fulfillment` 테이블(주문→발주→현지배송→배송대행지→국제배송→네이버발송 상태 추적) 생성 1회성 스크립트, `create_price_history_table.py`와 동일 패턴 |
@@ -63,12 +66,14 @@
 
 ## 3. 현재 상태
 
-알려진 미해결 버그: 클레임 조회 API 엔드포인트가 404(정확한 경로 미확인, 아래 항목 참고). 그 외 진행 중인 작업 없음. 아래는 "지금 상태"만 요약한 것 — 각 항목이 왜/어떻게 그렇게 됐는지의 상세 경위는 `HISTORY.md` 참고(괄호 안 숫자가 해당 항목 번호, 전체 범위는 42~80).
+알려진 미해결 버그: 클레임 조회 API 엔드포인트가 404(정확한 경로 미확인, `/orders`에선 이미 UI에서 뺌 - 아래 항목 참고). 그 외 진행 중인 작업 없음. 아래는 "지금 상태"만 요약한 것 — 각 항목이 왜/어떻게 그렇게 됐는지의 상세 경위는 `HISTORY.md` 참고(괄호 안 숫자가 해당 항목 번호, 전체 범위는 42~81).
 
 - **대시보드 UI 통일**: 통계 카드/버튼/로그/섹션 헤더 스타일을 전 페이지 공통으로 통일(`dashboard/components.py`의 `primary_button`/`safe_button`/`live_write_button`/`utility_button`/`section_header`/`confirm_dialog`). 시맨틱 버튼 색은 Quasar 기본 스타일과의 CSS 우선순위 싸움 때문에 CSS 클래스가 아니라 Tailwind `!bg-[...]` 임의값 클래스로 구현됨(이 프로젝트에서 유일하게 검증된 override 방법 - 새 버튼 스타일 추가 시 이 패턴을 따를 것). (78)
 - **`/settings`**: 브랜드 로고/문구, 구매·배송 안내 문구(초기불량 보장 기간/배송 소요일)를 코드 수정 없이 바꾸는 페이지 - `common_settings.py`/`common_settings.json`, `build_pages.py`가 병합해서 사용. 이미 만든 `.dc.html`엔 소급 적용 안 됨. (79)
 - **`/smartstore`**: 등록 파이프라인(상품 등록/전체 파이프라인 - "배송 설정 수정" 버튼은 문서 지침대로 삭제, 스크립트는 `archive/scripts/fix_delivery_settings.py`로 이동) + 네이버 상태 동기화 + 가격/재고 업데이트(전체 상품 대상, dry-run 기본값/limit/확인 다이얼로그 있음) + "등록대기"(상세페이지는 있지만 미등록인 상품) 카드+리스트가 이 페이지에 모여있고 각 버튼에 역할 설명 라벨이 붙어있음. (71, 72, 75, 76, 79)
 - **주문관리 발주/배송 (`/purchase`, `/shipping`)**: 새 NocoDB 테이블 `Order_Fulfillment`(`NOCODB_ORDER_TABLE_ID`)로 주문→발주→현지배송→배송대행지(에코트랜스 xlsx, `iecot_export.py`/`iecot_config.py`)→국제배송→네이버발송까지 추적. `naver_order_api.dispatch_product_order()`를 처음으로 실제 연결(미리보기 토글+확인 다이얼로그 필수). 실제 주문 1건으로 전 단계 검증 완료. **카카오 알림톡은 API 키/템플릿 승인 대기로 이번 범위에서 제외** - Phase D의 나머지 절반. (80)
+  - `/purchase`: 발주 항목 리스트 표(주문번호/성명이 맨 왼쪽, 공홈/Amazon/Adorama/B&H 가격 비교, 클릭 시 새 탭으로 상품 페이지 이동, 발주완료 항목도 계속 표시)가 전체 너비로 렌더링됨. (81)
+  - `/shipping`: 택배사 선택은 "국제배송 송장 등록" 단계에서 하고(`intl_delivery_company`에 저장, 공식 코드표 기반 `naver_delivery_companies.py` 사용, 기본값 ACE), "스마트스토어 등록(발송 처리)" 단계에선 그 값을 자동 재사용 - 재선택 불필요. (81)
 - **대시보드 로그인**: `dashboard/auth.py`의 `AuthMiddleware`가 `app.storage.user` 세션 기준으로 미인증 요청을 `/login`으로 리다이렉트. `DASHBOARD_PASSWORD`/`DASHBOARD_STORAGE_SECRET` 둘 다 환경변수 필수(로컬/NAS `.env` 각각 설정, 없으면 대시보드 기동 자체가 실패). 로그아웃은 사이드바 LINKS 하단 링크(`/logout`). (62)
 - **자동 테스트**: `tests/`에 pytest 단위 테스트 28개(핵심 순수 함수 mock 기반 회귀 테스트) — `python3 -m pytest tests/`(`requirements-dev.txt` 필요). (67)
 - **Price_History**: `NOCODB_HISTORY_TABLE_ID=mi258r3q4g5wu69`로 로컬/NAS 연결 완료, `/inventory`에서 운영 중. 이력이 막 쌓이기 시작한 단계라 "15일 이상 품절" 섹션은 아직 비어있음(정상, Sync가 쌓일수록 채워짐).
@@ -80,7 +85,7 @@
 - **ASIN 커버리지**: 84개 보유(화이트 73 + 블랙 11). 검토 원본은 `archive/data/asin_candidates.csv`.
 - **UniFi Store 링크**: `product_slug_map.json` 매칭으로 160/160 전부 연결(로컬/NAS 양쪽). 이 파일은 NAS 배포 시 누락되기 쉬우니 코드 배포할 때 항상 같이 올릴 것.
 - **GL.iNet 브랜드**: `/brand/unifi`, `/brand/glinet` 라우트(`dashboard/pages/brand.py`), 검색/정렬/카테고리 필터 지원, Brand 필드 기준 필터링(미설정 시 Category 폴백). GL.iNet 크롤링 시 SKU에 "GLiNet " 접두사 자동 추가(`register.py`의 `_BRAND_SKU_PREFIXES`). **GL.iNet 신규 상품 등록 시 NocoDB Category는 "WiFi"로 설정** — `/brand/glinet` 페이지는 Category 무관하게 Brand 필드로 필터링하므로 정상 조회됨. (71)
-- **주문관리** (`/orders`): 네이버 Pay-Order/Claims API로 주문 목록/클레임 조회. my.tbd.kr에서도 정상 동작(NAS `.env`에 네이버 시크릿 설정 완료). **클레임 조회(`/product-order-claims`)는 아직도 404** - 정확한 엔드포인트 경로 미확인(공식 문서 사이트 `apicenter.commerce.naver.com` 접근 불가), 실제로 필요해지면 그때 재조사. (60, 70, 74)
+- **주문관리** (`/orders`): 네이버 Pay-Order API로 조회한 주문을 카드 형식으로 표시(주문일시/주문번호/주문자명/전화번호/주소/개인통관고유부호 + 배송단계 그래픽 트래커) + 통합검색 + 15건 초과 시 페이지네이션. 상단에 7단계(주문/발주/현지배송/국제배송/통관/국내배송/완료) 카운트 카드. 조회기간은 프리셋 없이 시작일/종료일 자유 지정(기본 최근 30일) - 네이버 API가 1회 호출당 최대 24시간만 허용해 `order_fulfillment.date_range_windows()`로 하루씩 쪼개 순차 호출한다. **국제배송/통관/국내배송 단계는 저장된 값이 아니라 매 새로고침마다 ACE Express(acedp.co.kr) 공개 송장조회를 실제로 크롤링해서 판정**(`ace_express_tracking.py`) - 항공기 출발/도착/반출 이벤트 기준, 한 번 확인된 단계(`ace_customs_started_at`/`ace_domestic_started_at`/`ace_delivered_at`)는 재조회 생략. **30일 범위 연속 조회 중 네이버 API 429 Too Many Requests가 실제로 재현되어** `get_product_orders()`에 지수 백오프 재시도 + 호출 사이 텀(0.8초)을 추가함 - 그래도 드물게 일부 날짜가 실패할 수 있는데, 실패한 날짜는 화면에 표시되고 새로고침을 다시 누르면 대개 해결됨(레이트리밋은 금방 풀림). **클레임 조회(`/product-order-claims`)는 아직도 404** - 정확한 엔드포인트 경로 미확인(공식 문서 사이트 `apicenter.commerce.naver.com` 접근 불가), UI에서도 뺐음(관리 안 함), 실제로 필요해지면 그때 재조사. (60, 70, 74, 81)
 - **상세페이지 제작 도구** (`/detail-page-builder`): 카피라이팅(태그라인/Why 3카드/Design/Tech Specs)만 폼에 채우면 `.dc.html` 조립·PNG export는 코드가 처리. 엔진은 `product_pages/scripts/build_detail_page.py`(브랜드 무관, "콘텐츠 브리프" dict 하나로 동작). 저장된 브리프는 `Product Pages_html/briefs/<slug>.json`에 남아 "저장된 브리프 불러오기"로 재사용 가능. NocoDB SKU 검색으로 브랜드/상품명/이미지폴더명 자동채움. "🤖 브리프 초안 생성" 버튼으로 Claude(`brief_generator.py`, CheapSub 중계 API 경유)가 공홈 URL만으로 초안을 만들어 폼을 자동으로 채워줌(생성 결과는 항상 초안 - 저장/업로드 전 사람이 검토·수정). GL.iNet 최초 상세페이지: Slate 7(`GLiNET Supply - Slate 7.dc.html`). **PNG Export만 로컬 Mac 전용**(NAS Docker엔 Playwright 없음 - `Dockerfile`이 `requirements.txt`와 별도 pip 목록을 씀). (68-69, 71)
 
 **현재 수치**:
@@ -178,12 +183,14 @@ python3 update_product_names_with_keywords.py                        # 전체 �
   - `customerBenefit.immediateDiscountPolicy.discountMethod.value`는 0보다 커야 함 (0일 때는 필드 자체를 빼야 함)
   - 무료배송(`deliveryFeeType: FREE`)일 때는 `deliveryFeePayType` 필드를 넣으면 안 됨, 유료배송(`PAID`)일 때만 필수
   - 카테고리 ID 유효성: 일부 카테고리(네트워크장비 50000098, 주변기기 50000094)는 리프 카테고리처럼 보이지만 실제로는 등록 불가. 하위 카테고리(AP 50001623, CCTV 50002707)를 사용해야 함
+  - **429 Too Many Requests**: `get_product_orders()`를 연속 호출(예: `/orders`의 자유 날짜범위가 하루씩 쪼개 순차 호출)하면 간헐적으로 재현됨 - 지수 백오프 재시도로 대부분 해결되지만, 아주 넓은 범위를 조회할 땐 여전히 드물게 일부 날짜가 실패할 수 있음(레이트리밋은 초 단위로 금방 풀리니 새로고침 재시도로 해결됨)
 - **Synology NAS**: `scp`/`rsync` 기본 SFTP가 안 먹혀서 `-O`(legacy SCP) 플래그 필수. 홈디렉토리/`.ssh` 권한이 조금만 느슨해도(777) SSH 키 인증을 조용히 무시함 → `chmod 700` 필요
 - **상세페이지 디자인 시스템**: 860px 고정폭, UI Sans 커스텀 폰트(base64 내장), 강조색 `#3371FB`, 한글 텍스트엔 `word-break:keep-all` 필수, 공용 섹션(TBD Seoul 신뢰뱃지/통관안내/배송반품/FAQ/Footer)은 의도적 문구 수정이 아니면 그대로 유지
 - **NiceGUI 대시보드 디자인 시스템**: 페이지 배경(연한 회색) ≠ 카드 배경(흰색)이 핵심 원칙. 버튼 색은 반드시 Tailwind `!bg-[...]` 강제 클래스 사용(일반 커스텀 클래스는 NiceGUI 기본 `color=primary`와의 명시도 싸움에서 짐). 활성 메뉴는 흰색/surface 배경(검정 아님, 명시적 요청으로 변경됨). **같은 행의 카드 높이를 맞추려면** `ui.row()`에 `items-stretch` 클래스 필수 — NiceGUI의 `ui.row()`는 기본 `items-center`라 카드들이 각자 content 높이로만 렌더링되고, 카드 내부의 `h-full`도 부모 div가 flex column이어야 동작함(`ui.element('div').style('...display:flex;flex-direction:column')`). 래퍼 div 없이 `ui.column()`을 쓰는 경우엔 `items-stretch`만 추가하면 됨.
 - **사이드바 구조**: PRODUCTS(신규등록/상품리스트/가격업데이트/품절변동/스마트스토어) → SALES(주문) → LINKS(TBD Seoul 스마트스토어/스마트스토어센터/커머스API센터). LINKS는 외부 링크로 `target="_blank"`로 새 창 오픈, 활성 상태 없음. `dashboard/layout.py`의 `frame()` 함수에서 관리
 - **Phase C(주문관리) lazy import 패턴**: `dashboard/pages/orders.py`는 module-level에서 `naver_order_api`를 import하지 않고, `load_orders()`/`load_claims()` 함수 내부에서만 import함. 이는 NAS 배포본이 네이버 커머스API 시크릿 없이도 대시보드가 기동되도록 하기 위함 — `/orders` 페이지에 실제 접근하기 전까지는 import가 발생하지 않음. `naver_order_api`는 `auth.py`를 import하고, `auth.py`는 `bcrypt`를 import하므로 Dockerfile에 `bcrypt`가 반드시 필요함 (2026-08-01 추가됨).
 - **Shopify 크롤러(`official_scrapers/shopify.py`) 로케일 프리픽스 버그**: 상품 목록/검색 결과에서 복사한 URL은 `/en-us/products/...`처럼 로케일 프리픽스가 붙는데, Shopify `.json` 엔드포인트는 이 프리픽스가 붙으면 404 (정규 경로 `/products/...`에만 존재) — `/register`에서 GL.inet 이미지 크롤링이 조용히 실패하는 원인이었음. `_product_json_url`이 경로 전체를 쓰지 않고 `/products/` 이후 핸들만 뽑아 재조립하도록 수정함 (2026-08-02).
+- **ACE Express 송장조회 엔드포인트**: acedp.co.kr 메인 페이지의 송장번호 검색창은 로그인 없이 누구나 조회 가능("It's free!")하고, 실제로는 `GET /welcome/Track/hno/{송장번호}`를 iframe(colorbox)으로 열어 보여주는 방식 - 사이트의 `Trackit()` JS 함수에서 확인함(HTML `onclick` 속성에 노출되어 있어 `javascript_tool`로 함수 본문을 직접 덤프해서 찾았음). 응답은 `charset=utf-8`이지만 `requests`가 자동으로 잘못 추측하는 경우가 있어 `resp.encoding = "utf-8"`을 명시로 강제해야 한글이 깨지지 않음. 송장 미확인 시 응답 바디가 그냥 `"No Data"` 문자열임.
 - **테스트/빌드 명령어**:
   ```bash
   python3 -m py_compile <file>.py                     # 문법 체크
