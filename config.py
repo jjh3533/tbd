@@ -35,6 +35,7 @@ NOCODB_URL = _get_secret("NOCODB_URL")
 NOCODB_API_TOKEN = _get_secret("NOCODB_API_TOKEN")
 NOCODB_TABLE_ID = _get_secret("NOCODB_TABLE_ID")
 NOCODB_HISTORY_TABLE_ID = _get_secret("NOCODB_HISTORY_TABLE_ID", required=False)
+NOCODB_ORDER_TABLE_ID = _get_secret("NOCODB_ORDER_TABLE_ID", required=False)
 
 SCRAPEDO_TOKEN = _get_secret("SCRAPEDO_TOKEN")
 

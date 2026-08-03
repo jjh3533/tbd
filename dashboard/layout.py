@@ -32,11 +32,10 @@ def frame(active_path: str):
           or active_path.startswith("/category/")
           or active_path.startswith("/brand/")
       )
-      register_expanded = active_path in ("/register", "/detail-page-builder")
-
       ui.html('<div class="tbd-nav-label">PRODUCTS</div>', sanitize=False)
       for label, href in [
           ("➕ 신규등록", "/register"),
+          ("🖼️ 상세페이지 제작", "/detail-page-builder"),
           ("📋 상품 리스트", "/"),
           ("⚡ 가격 업데이트", "/sync"),
           ("📦 품절/변동", "/inventory"),
@@ -48,17 +47,22 @@ def frame(active_path: str):
           for brand_label, brand_href in [("UniFi", "/brand/unifi"), ("GL.iNet", "/brand/glinet")]:
             sub_cls = "tbd-nav-link tbd-nav-sub active" if brand_href == active_path else "tbd-nav-link tbd-nav-sub"
             ui.html(f'<a class="{sub_cls}" href="{brand_href}">{brand_label}</a>', sanitize=False)
-        if href == "/register" and register_expanded:
-          sub_cls = (
-              "tbd-nav-link tbd-nav-sub active"
-              if active_path == "/detail-page-builder"
-              else "tbd-nav-link tbd-nav-sub"
-          )
-          ui.html(f'<a class="{sub_cls}" href="/detail-page-builder">🖼️ 상세페이지 제작</a>', sanitize=False)
 
+      sales_expanded = active_path in ("/orders", "/purchase", "/shipping")
       ui.html('<div class="tbd-nav-label">SALES</div>', sanitize=False)
       for label, href in [
           ("🛒 주문", "/orders"),
+      ]:
+        active_cls = "tbd-nav-link active" if href == active_path else "tbd-nav-link"
+        ui.html(f'<a class="{active_cls}" href="{href}">{label}</a>', sanitize=False)
+        if href == "/orders" and sales_expanded:
+          for sub_label, sub_href in [("📝 발주", "/purchase"), ("🚚 배송", "/shipping")]:
+            sub_cls = "tbd-nav-link tbd-nav-sub active" if sub_href == active_path else "tbd-nav-link tbd-nav-sub"
+            ui.html(f'<a class="{sub_cls}" href="{sub_href}">{sub_label}</a>', sanitize=False)
+
+      ui.html('<div class="tbd-nav-label">COMMON</div>', sanitize=False)
+      for label, href in [
+          ("⚙️ 공통 설정", "/settings"),
       ]:
         active_cls = "tbd-nav-link active" if href == active_path else "tbd-nav-link"
         ui.html(f'<a class="{active_cls}" href="{href}">{label}</a>', sanitize=False)

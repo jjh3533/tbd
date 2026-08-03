@@ -19,7 +19,7 @@ from dashboard.auth import AuthMiddleware, DASHBOARD_STORAGE_SECRET
 # 각 페이지 모듈을 import해야 @ui.page 데코레이터가 등록된다.
 from dashboard.pages import (  # noqa: F401
     login, home, category, brand, register, inventory, needs_check, orders,
-    sync, smartstore, detail_page_builder,
+    sync, smartstore, detail_page_builder, settings, purchase_orders, shipping,
 )
 
 app.add_middleware(AuthMiddleware)
@@ -30,7 +30,7 @@ app.add_middleware(AuthMiddleware)
 sync_engine.start_background_scheduler()
 
 ui.run(
-    title="UniFi Supply Center",
+    title="TBD Center",
     favicon="⚡",
     host="0.0.0.0",  # 컨테이너 밖에서 접속하려면 필수
     port=8080,
