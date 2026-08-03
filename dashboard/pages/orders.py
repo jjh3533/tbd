@@ -2,8 +2,24 @@
 
 스마트스토어에 들어온 주문을 카드 형식으로 보여준다. 각 카드는 주문일시/
 주문번호/주문자명/전화번호/주소/개인통관고유부호를 노출하고, 배송 단계
-(주문→발주→현지배송→국제배송→통관→국내배송→배송완료)를 그래픽으로
+(주문→발주→현지배송→국제배송→통관→국내배송→완료)를 그래픽으로
 표시한다. 통합검색으로 여러 필드를 한 번에 검색할 수 있다.
+
+상단엔 7단계 각각의 현재 주문 수를 보여주는 통계 카드가 있고, 조회기간은
+프리셋 없이 시작일/종료일을 자유롭게 골라 조회한다(네이버 API 자체는 1회
+호출당 최대 24시간만 허용해 내부적으로 day_window 단위로 나눠 호출 - 기간이
+길수록 호출 수가 늘어난다). 15건 초과 시 하단에 페이지네이션이 나타난다.
+
+배송 단계 판정 기준(사용자 확정):
+- 발주: local_order_number 입력시
+- 현지배송: local_tracking_number 입력시
+- 국제배송: ACE Express 송장조회 이벤트 "항공기 출발"
+- 통관 시작: 이벤트 "항공기 도착"
+- 국내배송 시작: 이벤트 "반출" (비고 "KOR")
+- 완료: 네이버 주문상태 배송완료/구매확정 또는 ACE 이벤트 "배달완료"
+국제배송/통관/국내배송 단계는 매 새로고침마다 ace_express_tracking으로 실제
+조회해서 갱신한다 - 단, 국내배송 시작까지 이미 확정된 주문은 더 이상 바뀔
+사실이 없으므로(ace_domestic_started_at 저장됨) 재조회를 건너뛴다.
 
 클레임 조회는 이 페이지에서 관리하지 않는다(엔드포인트 자체가 아직 404 -
 CLAUDE.md 참고). naver_order_api.py의 클레임 관련 함수는 그대로 남겨두되
@@ -11,36 +27,43 @@ CLAUDE.md 참고). naver_order_api.py의 클레임 관련 함수는 그대로 �
 """
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+import asyncio
+import math
+from datetime import date, datetime, timedelta
 from html import escape as html_escape
 
 from nicegui import run, ui
 
+import ace_express_tracking as aet
 import order_fulfillment as of
 from dashboard import components, layout
 
-_STAGE_LABELS = ["주문", "발주", "현지배송", "국제배송", "통관", "국내배송", "배송완료"]
+_STAGE_LABELS = ["주문", "발주", "현지배송", "국제배송", "통관", "국내배송", "완료"]
+_STAGE_TONES = ["", "warning", "accent", "accent", "accent", "accent", "success"]
+_PAGE_SIZE = 15
 
 # 네이버 주문 상태 중 "배송완료"로 간주할 값들.
 _DELIVERED_STATUSES = ("DELIVERED", "PURCHASE_DECIDED")
 
 
-def _compute_stage_index(fields: dict, naver_status: str) -> int:
-    """주문 이행 단계 인덱스(0~6)를 계산. 저장된 값이 아니라 매번 계산하는
-    이유는 order_fulfillment.derive_fulfillment_status()와 동일 - 데이터가
-    쌓이는 순서가 항상 같지 않기 때문(예: 현지배송 송장이 국제배송/배송대행지
-    신청보다 늦게 나오는 경우)."""
+def _compute_stage_index(fields: dict, naver_status: str, live_intl_shipped: bool = False) -> int:
+    """주문 이행 단계 인덱스(0~6)를 계산. 통관/국내배송 단계는 ACE Express
+    실측 이벤트 기준이라 fields에 저장된 ace_* 시각과, 이번 새로고침에서
+    막 조회한 live_intl_shipped(아직 저장되지 않은 "항공기 출발만 확인됨"
+    상태)를 함께 본다."""
     index = 0
     if fields.get("local_order_number"):
         index = max(index, 1)
     if fields.get("local_tracking_number"):
         index = max(index, 2)
-    if fields.get("intl_tracking_number"):
+    intl_shipped = live_intl_shipped or bool(fields.get("ace_customs_started_at")) or bool(fields.get("ace_domestic_started_at"))
+    if intl_shipped:
         index = max(index, 3)
-    if fields.get("naver_dispatched_at"):
-        # 발송 처리 시점엔 통관(4)까지는 이미 끝난 것으로 간주하고 국내배송(5)까지 표시.
+    if fields.get("ace_customs_started_at"):
+        index = max(index, 4)
+    if fields.get("ace_domestic_started_at"):
         index = max(index, 5)
-    if naver_status in _DELIVERED_STATUSES:
+    if naver_status in _DELIVERED_STATUSES or fields.get("ace_delivered_at"):
         index = 6
     return index
 
@@ -61,7 +84,7 @@ def _stage_tracker_html(current_index: int) -> str:
     return f'<div class="tbd-stage-track">{"".join(steps)}</div>'
 
 
-def _order_card_html(order: dict, fields: dict, recipient: dict, naver_status: str) -> str:
+def _order_card_html(order: dict, fields: dict, recipient: dict, stage_index: int) -> str:
     order_id = order.get("productOrderId", "")
     product_name = order.get("productName", "")
     order_date = order.get("orderDate", "")[:16]
@@ -69,8 +92,6 @@ def _order_card_html(order: dict, fields: dict, recipient: dict, naver_status: s
     phone = recipient.get("recipient_phone", "") or "-"
     address = recipient.get("recipient_address", "") or "-"
     customs_code = fields.get("personal_customs_code") or "-"
-
-    stage_index = _compute_stage_index(fields, naver_status)
 
     return f"""
   <div class="tbd-order-card">
@@ -94,21 +115,24 @@ def orders_page() -> None:
     with layout.frame(active_path="/orders"):
         components.topbar("Order Management")
 
-        state: dict = {"enriched": []}
+        state: dict = {"enriched": [], "stage_counts": [0] * 7, "page": 1}
 
         components.section_header("📦 주문 목록")
 
-        with ui.row().classes("w-full gap-4 items-end mb-4"):
-            date_select = ui.select(
-                {
-                    "today": "오늘",
-                    "yesterday": "어제",
-                    "last7": "최근 7일",
-                },
-                value="today",
-                label="조회 기간",
-            ).classes("w-40")
+        stat_row = ui.row().classes("w-full gap-3 mb-8 flex-nowrap overflow-x-auto")
 
+        def _render_stat_cards():
+            stat_row.clear()
+            with stat_row:
+                for label, tone, count in zip(_STAGE_LABELS, _STAGE_TONES, state["stage_counts"]):
+                    with ui.column().classes("flex-1 min-w-0"):
+                        components.stat_card(label, count, tone)
+
+        with ui.row().classes("w-full gap-4 items-end mb-4"):
+            start_date_input = ui.input(
+                "시작일", value=(date.today() - timedelta(days=30)).isoformat()
+            ).props("type=date").classes("w-40")
+            end_date_input = ui.input("종료일", value=date.today().isoformat()).props("type=date").classes("w-40")
             refresh_btn = ui.button("🔄 새로고침").props("outline")
             order_status = ui.label("").classes("text-sm text-tbd-text-secondary")
 
@@ -117,6 +141,7 @@ def orders_page() -> None:
         ).classes("w-full mb-4")
 
         cards_wrap = ui.element("div").classes("w-full")
+        pagination_wrap = ui.row().classes("w-full justify-center mt-4")
 
         def _search_blob(order: dict, fields: dict, recipient: dict) -> str:
             parts = [
@@ -131,26 +156,42 @@ def orders_page() -> None:
 
         def _render_cards():
             query = (search_input.value or "").strip().lower()
+            filtered = [e for e in state["enriched"] if not query or query in e["blob"]]
+
+            total_pages = max(1, math.ceil(len(filtered) / _PAGE_SIZE))
+            state["page"] = min(state["page"], total_pages)
+            page = state["page"]
+            page_items = filtered[(page - 1) * _PAGE_SIZE : page * _PAGE_SIZE]
+
             cards_wrap.clear()
-            filtered = [
-                e for e in state["enriched"]
-                if not query or query in e["blob"]
-            ]
             with cards_wrap:
                 if not state["enriched"]:
                     ui.label("조회된 주문이 없습니다.").classes("text-tbd-text-secondary")
                 elif not filtered:
                     ui.label("검색 결과가 없습니다.").classes("text-tbd-text-secondary")
                 else:
-                    for e in filtered:
+                    for e in page_items:
                         ui.html(e["html"], sanitize=False)
 
-        search_input.on("update:model-value", lambda: _render_cards())
+            pagination_wrap.clear()
+            if len(filtered) > _PAGE_SIZE:
+                with pagination_wrap:
+                    def _on_page_change(e):
+                        state["page"] = e.value
+                        _render_cards()
+
+                    ui.pagination(1, total_pages, value=page, on_change=_on_page_change)
+
+        def _on_search_change():
+            state["page"] = 1
+            _render_cards()
+
+        search_input.on("update:model-value", lambda: _on_search_change())
 
         async def load_orders():
             """주문 목록 로드 - 각 주문의 수령인 정보(우편번호/주소/연락처)를
-            네이버 주문 상세에서 함께 가져오고, Order_Fulfillment 데이터와
-            교차 참조해 배송 단계를 계산한다."""
+            네이버 주문 상세에서, 통관/국내배송 단계는 ACE Express 송장조회로
+            함께 가져와 Order_Fulfillment 데이터와 교차 참조한다."""
             order_status.text = "로딩 중..."
             refresh_btn.props("loading")
 
@@ -158,51 +199,85 @@ def orders_page() -> None:
                 # Lazy import - NAS에서는 시크릿이 없어도 대시보드가 기동되게 함
                 import naver_order_api
 
-                period = date_select.value
-                now = datetime.now()
+                try:
+                    from_date = date.fromisoformat(start_date_input.value)
+                except (TypeError, ValueError):
+                    from_date = date.today() - timedelta(days=30)
+                try:
+                    to_date = date.fromisoformat(end_date_input.value)
+                except (TypeError, ValueError):
+                    to_date = date.today()
 
-                if period == "today":
-                    windows = [of.day_window(now)]
-                elif period == "yesterday":
-                    windows = [of.day_window(now - timedelta(days=1))]
-                else:  # last7
-                    windows = [of.day_window(now - timedelta(days=i)) for i in range(7)]
+                windows = of.date_range_windows(from_date, to_date)
 
                 order_lists: list[list[dict]] = []
                 failed_days: list[str] = []
-                for from_date, to_date in windows:
+                for i, (from_dt, to_dt) in enumerate(windows):
+                    if i > 0:
+                        # 네이버 주문 API가 초당 호출 수 제한이 있어(30일 범위 연속
+                        # 조회 중 429 Too Many Requests가 실제로 관측됨) 호출 사이에
+                        # 짧게 텀을 둔다 - get_product_orders 자체의 429 재시도와
+                        # 함께 써야 넓은 기간에서도 안정적으로 전부 조회된다.
+                        await asyncio.sleep(0.8)
                     try:
                         data = await run.io_bound(
-                            lambda f=from_date, t=to_date: naver_order_api.get_product_orders(f, t)
+                            lambda f=from_dt, t=to_dt: naver_order_api.get_product_orders(f, t)
                         )
                         order_lists.append(data.get("content", []))
                     except Exception as e:  # noqa: BLE001
-                        print(f"주문 조회 실패 ({from_date.strftime('%m/%d')}): {e}")
-                        failed_days.append(from_date.strftime("%m/%d"))
+                        print(f"주문 조회 실패 ({from_dt.strftime('%m/%d')}): {e}")
+                        failed_days.append(from_dt.strftime("%m/%d"))
 
                 orders = list(of.merge_orders_by_id(order_lists).values())
 
-                fulfillment_by_id = {
-                    r["fields"].get("naver_product_order_id"): r["fields"]
-                    for r in of.get_all()
-                }
+                fulfillment_rows = of.get_all()
+                fulfillment_by_id = {r["fields"].get("naver_product_order_id"): r for r in fulfillment_rows}
 
                 enriched = []
+                stage_counts = [0] * 7
                 for o in orders:
                     order_id = o.get("productOrderId", "")
-                    fields = fulfillment_by_id.get(order_id, {})
+                    row = fulfillment_by_id.get(order_id)
+                    fields = row["fields"] if row else {}
                     try:
                         recipient = await run.io_bound(naver_order_api.get_recipient_info, order_id)
                     except Exception as e:  # noqa: BLE001
                         print(f"주문 카드 - 수령인 정보 조회 실패 ({order_id}): {e}")
                         recipient = {}
                     naver_status = o.get("orderStatus", "")
+
+                    live_intl_shipped = False
+                    intl_no = fields.get("intl_tracking_number")
+                    if row and intl_no and not fields.get("ace_domestic_started_at"):
+                        try:
+                            events = await run.io_bound(aet.get_tracking_events, intl_no)
+                        except Exception as e:  # noqa: BLE001
+                            print(f"ACE Express 조회 실패 ({order_id}/{intl_no}): {e}")
+                            events = None
+                        live_intl_shipped = bool(events)
+                        ace_stage = aet.derive_ace_stage(events)
+                        updates = {"ace_last_checked_at": datetime.now().isoformat()}
+                        if ace_stage["customs_started_at"] and not fields.get("ace_customs_started_at"):
+                            updates["ace_customs_started_at"] = ace_stage["customs_started_at"]
+                        if ace_stage["domestic_started_at"] and not fields.get("ace_domestic_started_at"):
+                            updates["ace_domestic_started_at"] = ace_stage["domestic_started_at"]
+                        if ace_stage["delivered"] and not fields.get("ace_delivered_at"):
+                            updates["ace_delivered_at"] = datetime.now().isoformat()
+                        of.update_fields(row["id"], updates)
+                        fields.update(updates)
+
+                    stage_index = _compute_stage_index(fields, naver_status, live_intl_shipped)
+                    stage_counts[stage_index] += 1
+
                     enriched.append({
                         "blob": _search_blob(o, fields, recipient),
-                        "html": _order_card_html(o, fields, recipient, naver_status),
+                        "html": _order_card_html(o, fields, recipient, stage_index),
                     })
 
                 state["enriched"] = enriched
+                state["stage_counts"] = stage_counts
+                state["page"] = 1
+                _render_stat_cards()
                 _render_cards()
 
                 if failed_days:
@@ -219,6 +294,8 @@ def orders_page() -> None:
                 refresh_btn.props(remove="loading")
 
         refresh_btn.on_click(load_orders)
+
+        _render_stat_cards()
 
         # 초기 로드
         ui.timer(0.1, load_orders, once=True)

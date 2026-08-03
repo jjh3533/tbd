@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import time
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -106,13 +107,22 @@ def get_product_orders(
         "type": order_type,
     }
 
-    resp = requests.get(
-        f"{BASE_URL}/external/v1/pay-order/seller/product-orders",
-        headers=_get_headers(),
-        params=params,
-        timeout=30,
-    )
-    resp.raise_for_status()
+    # /orders 페이지가 자유 날짜범위를 day_window 단위로 여러 번 순차 호출하면서
+    # 실제로 429 Too Many Requests가 간헐적으로 관측됨(30일 범위 연속 조회 테스트
+    # 중 재현) - 지수 백오프로 재시도한다.
+    max_attempts = 5
+    for attempt in range(max_attempts):
+        resp = requests.get(
+            f"{BASE_URL}/external/v1/pay-order/seller/product-orders",
+            headers=_get_headers(),
+            params=params,
+            timeout=30,
+        )
+        if resp.status_code == 429 and attempt < max_attempts - 1:
+            time.sleep(2**attempt)
+            continue
+        resp.raise_for_status()
+        break
     payload = resp.json()
     contents = ((payload.get("data") or {}).get("contents")) or []
     return {"content": [_flatten_order(e) for e in contents]}

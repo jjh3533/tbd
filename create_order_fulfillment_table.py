@@ -81,10 +81,16 @@ def main():
             # 국제배송/국내 발송 처리
             {"title": "intl_tracking_number", "uidt": "SingleLineText"},
             {"title": "intl_tracking_registered_at", "uidt": "DateTime"},
+            {"title": "intl_delivery_company", "uidt": "SingleLineText"},
             {"title": "naver_dispatch_date", "uidt": "Date"},
             {"title": "naver_dispatch_delivery_company", "uidt": "SingleLineText"},
             {"title": "naver_dispatched_at", "uidt": "DateTime"},
             {"title": "naver_dispatch_result", "uidt": "LongText"},
+            # ACE Express 송장 조회로 확인한 통관/국내배송/배달완료 단계
+            {"title": "ace_customs_started_at", "uidt": "DateTime"},
+            {"title": "ace_domestic_started_at", "uidt": "DateTime"},
+            {"title": "ace_delivered_at", "uidt": "DateTime"},
+            {"title": "ace_last_checked_at", "uidt": "DateTime"},
         ],
     }
     result = request("POST", f"/api/v2/meta/bases/{BASE_ID}/tables", body)

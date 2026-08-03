@@ -66,8 +66,12 @@ def _purchase_items_table_html(orders: list[dict], by_id: dict, nocodb_records: 
     else:
       status_html = '<span class="uic-pill check">발주대기</span>'
 
+    orderer_name = fulfillment.get("orderer_name") or o.get("ordererName", "") or "-"
+
     rows.append(
         "<tr>"
+        f'<td>{html_escape(order_id)}</td>'
+        f'<td>{html_escape(orderer_name)}</td>'
         f'<td class="uic-sku">{html_escape(sku[:40])}</td>'
         f'<td>{_price_cell(msrp, official_url)}</td>'
         f'<td>{_price_cell(amazon_usd, amazon_url)}</td>'
@@ -80,7 +84,7 @@ def _purchase_items_table_html(orders: list[dict], by_id: dict, nocodb_records: 
   <div class="uic-table-wrap">
     <div class="uic-table-scroll">
       <table class="uic-table">
-        <thead><tr><th>SKU / Model</th><th>공홈 ($)</th><th>Amazon ($)</th><th>Adorama ($)</th><th>B&H ($)</th><th>발주 상태</th></tr></thead>
+        <thead><tr><th>주문번호</th><th>성명</th><th>SKU / Model</th><th>공홈 ($)</th><th>Amazon ($)</th><th>Adorama ($)</th><th>B&H ($)</th><th>발주 상태</th></tr></thead>
         <tbody>{''.join(rows)}</tbody>
       </table>
     </div>
@@ -162,7 +166,7 @@ def purchase_orders_page() -> None:
         if items_html is None:
           ui.label("표시할 발주 항목이 없습니다.").classes("text-sm text-tbd-text-secondary")
         else:
-          ui.html(items_html, sanitize=False).classes("mb-8")
+          ui.html(items_html, sanitize=False).classes("w-full mb-8")
 
         components.section_header("신규 발주 대기", "현지(미국) 사이트에서 주문 완료 후 주문정보를 입력하세요.")
         if not awaiting_purchase:

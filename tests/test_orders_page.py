@@ -5,9 +5,13 @@ NiceGUI 페이지 자체(@ui.page 데코레이터가 붙은 함수)는 실행 �
 분리해서 검증한다. 이 헬퍼들은 원래 dashboard/pages/orders.py에 있었으나,
 purchase_orders.py도 동일한 로직이 필요해져서 order_fulfillment.py로 승격됐다.
 """
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
-from order_fulfillment import day_window as _day_window, merge_orders_by_id as _merge_orders_by_id
+from order_fulfillment import (
+    date_range_windows as _date_range_windows,
+    day_window as _day_window,
+    merge_orders_by_id as _merge_orders_by_id,
+)
 
 
 class TestDayWindow:
@@ -46,3 +50,20 @@ class TestMergeOrdersById:
   def test_orders_without_id_are_skipped(self):
     order_lists = [[{"productName": "no id here"}]]
     assert _merge_orders_by_id(order_lists) == {}
+
+
+class TestDateRangeWindows:
+  def test_single_day_range_returns_one_window(self):
+    d = date(2026, 8, 3)
+    windows = _date_range_windows(d, d)
+    assert len(windows) == 1
+    assert windows[0][0] == datetime(2026, 8, 3, 0, 0, 0)
+
+  def test_multi_day_range_returns_one_window_per_day(self):
+    windows = _date_range_windows(date(2026, 8, 1), date(2026, 8, 5))
+    assert len(windows) == 5
+    assert [w[0].day for w in windows] == [1, 2, 3, 4, 5]
+
+  def test_each_window_stays_within_24_hours(self):
+    windows = _date_range_windows(date(2026, 8, 1), date(2026, 8, 3))
+    assert all((end - start).total_seconds() <= 24 * 3600 for start, end in windows)

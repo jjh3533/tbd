@@ -99,25 +99,32 @@ def shipping_page() -> None:
       components.primary_button("📄 신청서 xlsx 생성", on_click=_generate).classes("mt-2")
 
     def _render_intl_tracking_section(rows: list[dict]):
-      components.section_header("국제배송 송장 등록", "배송대행지에서 국제배송 송장번호(ACE Express)가 나오면 입력하세요.")
+      components.section_header("국제배송 송장 등록", "배송대행지에서 국제배송 송장번호(ACE Express)가 나오면 택배사와 함께 입력하세요.")
       if not rows:
         ui.label("국제송장 등록 대기 중인 주문이 없습니다.").classes("text-sm text-tbd-text-secondary")
         return
+      company_options = naver_delivery_companies.delivery_company_options()
       for r in rows:
         f = r["fields"]
         with ui.row().classes("w-full gap-3 items-end tbd-card").style("padding: 16px;"):
           with ui.column().classes("gap-0 flex-1"):
             ui.label(f.get("naver_product_name", "")[:40]).classes("text-sm font-semibold")
             ui.label(f"로컬주문번호 {f.get('local_order_number', '')}").classes("text-xs text-tbd-text-secondary")
+          company_select = ui.select(
+              company_options,
+              value=naver_delivery_companies.DEFAULT_DELIVERY_COMPANY,
+              label="택배사",
+          ).classes("w-56")
           tracking_input = ui.input("국제배송 송장번호").classes("w-48")
 
-          def _save(r=r, tracking_input=tracking_input):
+          def _save(r=r, tracking_input=tracking_input, company_select=company_select):
             if not tracking_input.value:
               ui.notify("국제배송 송장번호를 입력하세요.", type="negative")
               return
             of.update_fields(r["id"], {
                 "intl_tracking_number": tracking_input.value,
                 "intl_tracking_registered_at": datetime.now().isoformat(),
+                "intl_delivery_company": company_select.value,
             })
             ui.notify("국제배송 송장 등록 완료", type="positive")
             _refresh()
@@ -158,27 +165,23 @@ def shipping_page() -> None:
         return
 
       preview_only = ui.checkbox("미리보기만 (실제 발송 처리 안 함)", value=True).classes("mb-2")
-      company_options = naver_delivery_companies.delivery_company_options()
 
       for r in rows:
         f = r["fields"]
+        delivery_company = f.get("intl_delivery_company") or naver_delivery_companies.DEFAULT_DELIVERY_COMPANY
         with ui.row().classes("w-full gap-3 items-center tbd-card").style("padding: 16px;"):
           with ui.column().classes("gap-0 flex-1"):
             ui.label(f.get("naver_product_name", "")[:40]).classes("text-sm font-semibold")
             ui.label(
-                f"주문번호 {f.get('naver_product_order_id', '')} · 국제송장 {f.get('intl_tracking_number', '')}"
+                f"주문번호 {f.get('naver_product_order_id', '')} · 국제송장 {f.get('intl_tracking_number', '')} "
+                f"· 택배사 {delivery_company} (국제배송 송장 등록 시 선택한 값)"
             ).classes("text-xs text-tbd-text-secondary")
-          company_select = ui.select(
-              company_options,
-              value=naver_delivery_companies.DEFAULT_DELIVERY_COMPANY,
-              label="택배사",
-          ).classes("w-56")
 
-          async def _dispatch(r=r, f=f, company_select=company_select):
+          async def _dispatch(r=r, f=f, delivery_company=delivery_company):
             payload = {
                 "product_order_id": f.get("naver_product_order_id", ""),
                 "dispatch_date": date.today().isoformat(),
-                "delivery_company": company_select.value,
+                "delivery_company": delivery_company,
                 "tracking_number": f.get("intl_tracking_number", ""),
             }
             if preview_only.value:

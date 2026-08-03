@@ -35,6 +35,20 @@ def day_window(dt: datetime) -> tuple[datetime, datetime]:
   return start, start + timedelta(hours=23, minutes=59, seconds=59)
 
 
+def date_range_windows(from_date, to_date) -> list[tuple[datetime, datetime]]:
+  """[from_date, to_date] 구간(둘 다 date 또는 datetime, 포함)을 day_window()
+  단위로 쪼갠 리스트. orders.py의 자유 날짜범위 조회가 네이버 API의 24시간
+  제한을 지키면서도 임의 길이의 기간을 조회할 수 있도록 하루씩 순회한다."""
+  start = datetime.combine(from_date, datetime.min.time()) if not isinstance(from_date, datetime) else from_date
+  end = datetime.combine(to_date, datetime.min.time()) if not isinstance(to_date, datetime) else to_date
+  windows = []
+  cur = start
+  while cur <= end:
+    windows.append(day_window(cur))
+    cur += timedelta(days=1)
+  return windows
+
+
 def merge_orders_by_id(order_lists: list[list[dict]]) -> dict[str, dict]:
   """여러 날짜 구간에서 받은 주문 목록을 productOrderId 기준으로 병합한다
   (같은 주문이 여러 구간에 걸쳐 겹쳐 나올 수 있어 중복 제거 필요)."""
