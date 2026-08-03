@@ -18,8 +18,9 @@ from dashboard.auth import AuthMiddleware, DASHBOARD_STORAGE_SECRET
 
 # 각 페이지 모듈을 import해야 @ui.page 데코레이터가 등록된다.
 from dashboard.pages import (  # noqa: F401
-    login, home, category, brand, register, inventory, needs_check, orders,
-    sync, smartstore, detail_page_builder, settings, purchase_orders, shipping,
+    login, home, products, register, inventory, needs_check, orders,
+    sync, smartstore, detail_page_builder, detail_page_editor,
+    detail_page_common, settings, purchase_orders, shipping,
 )
 
 app.add_middleware(AuthMiddleware)

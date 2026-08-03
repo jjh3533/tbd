@@ -2,11 +2,11 @@
 
 build_pages.py의 구조 헬퍼(head/hero/why_section/design_section/
 tech_specs_section/trust_to_footer)를 받아서, "콘텐츠 브리프" 딕셔너리 하나로
-.dc.html 조립 -> assets 반입 -> PNG export까지 처리한다. GL.iNet Slate 7을
+HTML 조립 -> assets 반입 -> PNG export까지 처리한다. GL.iNet Slate 7을
 만들 때 썼던 gen_glinet_slate7.py 같은 1회성 스크립트를 매번 새로 쓰지 않아도
 되도록, 그 패턴(Hero + Why 3카드 + Design + Tech Specs, Compare 없음)을
-일반화한 것. 대시보드 "➕ 신규등록 > 🖼️ 상세페이지 제작" 페이지가 이 모듈을
-직접 호출한다.
+일반화한 것. 대시보드 "➕ 신규등록" 하위메뉴 3개(🖼️ 상세페이지 제작/✏️ 상세페이지
+편집/🧩 공통영역 편집)가 전부 이 모듈을 직접 호출한다.
 
 브리프 스키마 (전부 dict):
     {
@@ -38,7 +38,6 @@ write_page()가 매번 assets/<slug>/ 아래로 다시 복사하므로 재생성
 """
 from __future__ import annotations
 
-import json
 import os
 import re
 import shutil
@@ -60,7 +59,7 @@ BRANDS = {"UniFi": UNIFI_BRAND, "GL.inet": GLINET_BRAND}
 PAGES_ROOT = os.path.dirname(_config.PRODUCT_PAGES_DIR)
 ASSETS_ROOT = os.path.join(PAGES_ROOT, "assets")
 EXPORTS_ROOT = _config.PRODUCT_PAGES_DIR
-BRIEFS_ROOT = os.path.join(PAGES_ROOT, "briefs")
+COMMON_ROOT = os.path.join(PAGES_ROOT, "common")
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -126,7 +125,7 @@ def build_html(brief: dict, slug: str) -> str:
         + why_html
         + design_html
         + tech_specs_section([tuple(row) for row in brief["specs"]])
-        + trust_to_footer(brand)
+        + trust_to_footer(brand, override_html=_read_common_footer_file(brief["brand"]))
     )
 
 
@@ -173,27 +172,10 @@ def export_pngs(html_path: str, slug: str) -> list[str]:
     return [os.path.join(export_dir, f) for f in files]
 
 
-# --- 브리프 저장/불러오기 (다음에 같은 제품을 고칠 때 처음부터 다시 안 써도 되게) ---
-
-def save_brief(brief: dict) -> str:
-    os.makedirs(BRIEFS_ROOT, exist_ok=True)
-    sku = (brief.get("sku") or brief["title"]).strip()
-    slug = slugify(sku)
-    path = os.path.join(BRIEFS_ROOT, f"{slug}.json")
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(brief, f, ensure_ascii=False, indent=2)
-    return path
-
-
-def list_briefs() -> list[str]:
-    if not os.path.isdir(BRIEFS_ROOT):
-        return []
-    return sorted(f[:-5] for f in os.listdir(BRIEFS_ROOT) if f.endswith(".json"))
-
-
 def list_completed_pages() -> list[str]:
-    """완성된 상세페이지 파일명 목록 (최근 수정순). detail_page_builder.py와
-    smartstore.py(등록대기 매칭용) 둘 다 이 함수가 필요해서 여기로 공유.
+    """완성된 상세페이지 파일명 목록 (최근 수정순). detail_page_builder.py,
+    detail_page_editor.py, smartstore.py(등록대기 매칭용) 전부 이 함수가
+    필요해서 여기로 공유.
 
     파일명은 "{SKU}.html"(2026-08-04부로 확장자 .dc.html에서 변경 - 기존
     파일도 전부 일괄 리네임함)."""
@@ -204,7 +186,72 @@ def list_completed_pages() -> list[str]:
     return files
 
 
-def load_brief(slug: str) -> dict:
-    path = os.path.join(BRIEFS_ROOT, f"{slug}.json")
-    with open(path, encoding="utf-8") as f:
-        return json.load(f)
+def read_page(filename: str) -> str:
+    with open(os.path.join(PAGES_ROOT, filename), encoding="utf-8") as f:
+        return f.read()
+
+
+def write_page_content(filename: str, html: str) -> None:
+    """detail_page_editor.py의 "저장하기" 버튼 - write_page()와 달리 브리프가
+    아니라 이미 완성된 HTML 텍스트 그대로를 같은 파일명에 덮어쓴다."""
+    with open(os.path.join(PAGES_ROOT, filename), "w", encoding="utf-8") as f:
+        f.write(html)
+
+
+# --- 공통영역(TBD Seoul 신뢰뱃지~통관안내~배송/반품 안내~FAQ~Footer) 편집 ---
+# build_pages.py의 __EYEBROW__/__STORE__ 같은 플레이스홀더 치환 템플릿 대신,
+# 완성된 HTML 텍스트를 브랜드별로 그대로 저장해뒀다가 build_html()이 그대로
+# 이어붙인다(공통영역 편집 페이지, 2026-08-04 신설).
+_COMMON_FOOTER_FILENAMES = {"UniFi": "unifi-footer.html", "GL.inet": "glinet-footer.html"}
+
+
+def _common_footer_path(brand_key: str) -> str:
+    filename = _COMMON_FOOTER_FILENAMES.get(brand_key)
+    if not filename:
+        raise ValueError(f"알 수 없는 브랜드: {brand_key}")
+    return os.path.join(COMMON_ROOT, filename)
+
+
+def _read_common_footer_file(brand_key: str) -> str | None:
+    """저장된 파일이 있으면 내용을, 없으면 None(호출부가 기존 템플릿으로
+    폴백)을 돌려준다."""
+    path = _common_footer_path(brand_key)
+    if os.path.isfile(path):
+        with open(path, encoding="utf-8") as f:
+            return f.read()
+    return None
+
+
+def read_common_footer(brand_key: str) -> str:
+    """공통영역 편집 페이지가 처음 열릴 때 쓰는 함수 - 저장된 게 있으면 그걸,
+    없으면 build_pages의 기본 템플릿(지금 라이브에 나가있는 문구)으로 시드해서
+    편집 시작점이 항상 "현재 상태"가 되게 한다."""
+    saved = _read_common_footer_file(brand_key)
+    if saved is not None:
+        return saved
+    return trust_to_footer(BRANDS[brand_key])
+
+
+def write_common_footer(brand_key: str, html: str) -> str:
+    os.makedirs(COMMON_ROOT, exist_ok=True)
+    path = _common_footer_path(brand_key)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(html)
+    return path
+
+
+def find_nocodb_record(records: list[dict], identity: str) -> dict | None:
+    """identity(보통 상세페이지 파일명에서 ".html"만 뗀 것 = SKU)로 NocoDB
+    Products 레코드를 찾는다. Model Number(필드명에 공백 있음 주의,
+    `Model_Number`가 아님)도 함께 확인 - 정확일치만 본다(부분일치 아님, 이
+    값 자체가 그 필드에서 그대로 복사돼왔기 때문에 느슨하게 볼 필요가 없음)."""
+    identity_norm = (identity or "").strip().lower()
+    if not identity_norm:
+        return None
+    for r in records:
+        f = r.get("fields", {})
+        model = (f.get("Model Number") or "").strip().lower()
+        sku = (f.get("SKU") or "").strip().lower()
+        if identity_norm in (model, sku) and identity_norm:
+            return r
+    return None

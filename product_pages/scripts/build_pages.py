@@ -43,17 +43,18 @@ try:
   import common_settings as _common_settings
   _settings = _common_settings.load()
   _brand_overrides = _settings.get("brands", {})
-  _common_copy = _settings.get("common_copy", {})
 except Exception:
   _brand_overrides = {}
-  _common_copy = {}
 
 UNIFI_BRAND = {**UNIFI_BRAND, **_brand_overrides.get("UniFi", {})}
 GLINET_BRAND = {**GLINET_BRAND, **_brand_overrides.get("GL.inet", {})}
 
-_RETURN_WINDOW_WEEKS = _common_copy.get("return_window_weeks", 2)
-_DELIVERY_MIN_DAYS = _common_copy.get("delivery_min_days", 7)
-_DELIVERY_MAX_DAYS = _common_copy.get("delivery_max_days", 14)
+# 초기불량 보장 기간/배송 소요일 - 예전엔 /settings에서 편집했지만
+# 공통영역 편집 페이지(브랜드별 완성 HTML 직접 편집)로 대체됨(2026-08-04) -
+# 이 상수는 이제 파일이 아직 없을 때 쓰는 폴백 템플릿에서만 쓰인다.
+_RETURN_WINDOW_WEEKS = 2
+_DELIVERY_MIN_DAYS = 7
+_DELIVERY_MAX_DAYS = 14
 
 
 def head(brand=UNIFI_BRAND):
@@ -220,7 +221,14 @@ class Component extends DCLogic {
 """
 
 
-def trust_to_footer(brand=UNIFI_BRAND):
+def trust_to_footer(brand=UNIFI_BRAND, override_html=None):
+    """override_html이 있으면(공통영역 편집 페이지가 저장해둔 완성된 HTML -
+    build_detail_page.build_html() 참고) 그걸 그대로 돌려주고, 없으면 기존
+    플레이스홀더 치환 템플릿을 쓴다. 이 함수 자체는 파일 I/O를 하지 않는다 -
+    naver_config 등 이 모듈이 지금까지 의존하지 않던 것에 새로 의존하지
+    않기 위해, 저장된 파일을 읽는 건 호출부(build_detail_page.py)의 몫이다."""
+    if override_html:
+        return override_html
     return (
         _TRUST_TO_FOOTER_TEMPLATE
         .replace("__EYEBROW__", brand["eyebrow_label"])

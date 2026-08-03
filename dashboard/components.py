@@ -19,31 +19,41 @@ _TONE_ICON = {
 }
 
 
-def stat_card(label: str, value, tone: str = "") -> None:
+def stat_card(label: str, value, tone: str = "", button_label: str | None = None, on_click=None) -> ui.button | None:
   """상단 통계 카드 1장. tone: "" | "success" | "danger" | "warning" | "accent"
   - tone이 있으면 카드 전체에 파스텔 배경(.tbd-card--{tone})을 입히고,
     숫자 색도 함께 맞춘다 (참고 디자인의 톤온톤 카드 스타일).
   - 우측 상단에 작은 아이콘 배지를 둬서 참고 디자인(ProductPal)의 코너
-    아이콘 디테일을 재현."""
+    아이콘 디테일을 재현.
+  - button_label을 주면 카드 안에 SYNC 버튼을 내장한다(가격 업데이트 페이지,
+    2026-08-04) - ui.html 단일 블록이 아니라 ui.element로 감싸는 이유는 버튼이
+    실제 NiceGUI 이벤트를 쏴야 해서(raw html로는 파이썬 콜백을 못 묶음). 만든
+    버튼을 그대로 돌려줘서 호출부가 disable/enable 대상 목록에 모을 수 있게
+    한다(button_label 없으면 None)."""
   card_class = f"tbd-card tbd-card--{tone}" if tone else "tbd-card"
   icon = _TONE_ICON.get(tone, "📦")
-  ui.html(f"""
-    <div class="{card_class}">
+  btn = None
+  with ui.element("div").classes(f"{card_class} w-full h-full"):
+    ui.html(f"""
       <div class="tbd-card-icon">{icon}</div>
       <div class="tbd-card-label">{label}</div>
       <div class="tbd-card-value {tone}">{value}</div>
-    </div>
-  """, sanitize=False).classes("w-full h-full")
+    """, sanitize=False)
+    if button_label:
+      btn = ui.button(button_label, on_click=on_click).props("unelevated rounded size=sm").classes(
+          f"mt-3 !bg-[{theme.BLACK_BTN_BG}] !text-[{theme.BLACK_BTN_TEXT}]"
+      )
+  return btn
 
 
 def category_card(name: str, count: int) -> None:
-  """카테고리 카드 1장 - 클릭하면 /category/{slug}로 이동하는 링크.
+  """카테고리 카드 1장 - 클릭하면 /products?category=...로 이동하는 링크.
   ui.link을 그대로 쓰지 않고 raw <a>로 만든 이유: 카드 전체를 클릭 영역으로
   만들면서 우리 커스텀 클래스(.tbd-cat-card)를 그대로 유지하기 위함."""
-  from dashboard.pages.category import category_slug
-  slug = category_slug(name)
+  import urllib.parse
+  query = urllib.parse.quote(name)
   ui.html(f"""
-    <a class="tbd-cat-card" href="/category/{slug}">
+    <a class="tbd-cat-card" href="/products?category={query}">
       <div class="tbd-cat-card-title">{name}</div>
       <div class="tbd-cat-card-count">
         <span class="tbd-cat-card-num">{count}</span>Products
@@ -262,8 +272,14 @@ def exchange_rate_line_card(history: list, current_rate: float) -> None:
     ui.echart(option).classes('w-full').style('height: 120px')
 
 
-def scrapedo_donut_card(usage: dict | None) -> None:
-  """Scrape.do 잔여 크레딧 원형 도넛 카드 (소형)."""
+def scrapedo_donut_card(usage: dict | None, orientation: str = "vertical") -> None:
+  """Scrape.do 잔여 크레딧 원형 도넛 카드.
+  orientation="horizontal"이면 가격 업데이트 페이지 2번째 줄처럼 도넛을 왼쪽에,
+  잔여/사용 숫자를 오른쪽에 나란히 배치한다(2026-08-04, 기존 세로형 카드와
+  옵션 스위치라 Main Dashboard의 기존 호출부는 그대로 유지됨)."""
+  if orientation == "horizontal":
+    _scrapedo_donut_card_horizontal(usage)
+    return
   if usage:
     remaining = usage.get("RemainingMonthlyRequest", 0)
     max_credits = usage.get("MaxMonthlyRequest", 1)
@@ -306,6 +322,60 @@ def scrapedo_donut_card(usage: dict | None) -> None:
     ui.label('Scrape.do 크레딧').classes('tbd-card-title px-4 pt-4 pb-0')
     ui.echart(option).classes('w-full').style('height: 148px')
     with ui.row().classes('px-4 pb-3 gap-4 w-full justify-center'):
+      for label, value, color in [
+          ('잔여', f'{remaining:,}', '#2f6df6'),
+          ('사용', f'{used:,}', '#c9d9f7'),
+      ]:
+        with ui.row().classes('items-center gap-1.5'):
+          ui.html(
+              f'<span style="width:8px;height:8px;border-radius:50%;background:{color};'
+              f'display:inline-block;flex-shrink:0"></span>',
+              sanitize=False,
+          )
+          ui.label(f'{label} {value}').classes('text-xs text-gray-500')
+
+
+def _scrapedo_donut_card_horizontal(usage: dict | None) -> None:
+  if usage:
+    remaining = usage.get('RemainingMonthlyRequest', 0)
+    max_credits = usage.get('MaxMonthlyRequest', 1)
+    used = max(max_credits - remaining, 0)
+    pct = remaining / max_credits if max_credits else 0
+  else:
+    remaining = used = 0
+    max_credits = 1
+    pct = 0
+
+  data = (
+      [
+          {'value': remaining, 'name': '잔여', 'itemStyle': {'color': '#2f6df6'}},
+          {'value': used,      'name': '사용', 'itemStyle': {'color': '#c9d9f7'}},
+      ] if usage else [
+          {'value': 1, 'itemStyle': {'color': '#e5e7eb'}},
+      ]
+  )
+  option = {
+      'animation': False,
+      'tooltip': {
+          'trigger': 'item',
+          'formatter': '{b}: {c}',
+          'backgroundColor': '#fff',
+          'borderColor': '#e5e7eb',
+          'textStyle': {'color': '#1A1B1E', 'fontSize': 11},
+      },
+      'graphic': {'elements': [
+          {'type': 'text', 'left': 'center', 'top': '40%',
+           'style': {'text': f'{pct:.0%}', 'fontSize': 16, 'fontWeight': 'bold',
+                     'fill': '#111827', 'textAlign': 'center'}},
+      ]},
+      'series': [{'type': 'pie', 'radius': ['58%', '80%'], 'center': ['50%', '50%'],
+                  'label': {'show': False}, 'labelLine': {'show': False},
+                  'emphasis': {'scale': False}, 'data': data}],
+  }
+  with ui.element('div').classes('tbd-card w-full h-full flex items-center'):
+    ui.echart(option).style('width: 88px; height: 88px; flex-shrink: 0')
+    with ui.column().classes('gap-1 ml-2'):
+      ui.label('Scrape.do 크레딧').classes('tbd-card-title')
       for label, value, color in [
           ('잔여', f'{remaining:,}', '#2f6df6'),
           ('사용', f'{used:,}', '#c9d9f7'),

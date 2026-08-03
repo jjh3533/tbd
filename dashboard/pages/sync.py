@@ -1,4 +1,9 @@
-"""Sync 제어 페이지 (/sync)."""
+"""가격 업데이트 (/sync) - Sync 버튼을 카드에 내장한 레이아웃(2026-08-04 개편).
+
+1번째 줄: 상품 수(전체 Sync)/판매 가능/품절/확인 필요(확인 필요만 Sync) 카운팅 카드.
+2번째 줄: 리테일러별(Adorama/Amazon/B&H) 개별 Sync 카드 + Scrape.do 크레딧 카드(가로형).
+예전에 따로 있던 "⚡ Sync All Retailers"/"🔍 Sync 확인 필요만"/리테일러별 버튼 행은
+전부 카드 안으로 흡수되어 제거됨."""
 from __future__ import annotations
 
 import asyncio
@@ -6,8 +11,8 @@ import asyncio
 from nicegui import ui
 
 import sync_engine
-from sync_engine import RETAILER_NAMES, safe_fetch_records, exclude_clone_rows, status_counts
-from dashboard import components, layout, theme
+from sync_engine import RETAILER_NAMES, get_scrapedo_usage, safe_fetch_records, exclude_clone_rows, status_counts
+from dashboard import components, layout
 from dashboard.components import NiceGuiLogAdapter
 
 
@@ -27,21 +32,13 @@ async def _run_sync(log: ui.log, retailers, only_needs_check=False, label=None):
 @ui.page("/sync")
 def sync_page() -> None:
   with layout.frame(active_path="/sync"):
-    components.topbar("Sync")
+    components.topbar("가격 업데이트")
 
     records = exclude_clone_rows(
         safe_fetch_records(on_error=lambda msg: ui.notify(msg, type="negative"))
     )
     active, out_stock, needs_check = status_counts(records)
-    with ui.row().classes("w-full gap-5 mb-10"):
-      with ui.column().classes("flex-1 min-w-0"):
-        components.stat_card("상품 수", len(records))
-      with ui.column().classes("flex-1 min-w-0"):
-        components.stat_card("판매 가능", active, "success")
-      with ui.column().classes("flex-1 min-w-0"):
-        components.stat_card("품절", out_stock, "danger")
-      with ui.column().classes("flex-1 min-w-0"):
-        components.stat_card("확인 필요", needs_check, "warning")
+    scrapedo_usage = get_scrapedo_usage()
 
     with ui.row().classes("w-full items-center gap-2 mb-4").style("display:none") as sync_status_row:
       ui.spinner(size="sm")
@@ -52,28 +49,36 @@ def sync_page() -> None:
 
     _sync_buttons = []
 
-    def _sync_button(text, on_click, extra_classes=""):
-      btn = ui.button(text, on_click=on_click).props("unelevated rounded").classes(
-          f"{extra_classes} !bg-[{theme.BLACK_BTN_BG}] !text-[{theme.BLACK_BTN_TEXT}]"
-      )
-      _sync_buttons.append(btn)
-      return btn
-
     def _start_sync(retailers, only_needs_check=False, label=None):
       for btn in _sync_buttons:
         btn.disable()
       asyncio.create_task(_run_sync(sync_log, retailers, only_needs_check, label))
 
-    _sync_button("⚡ Sync All Retailers", lambda: _start_sync(RETAILER_NAMES), "w-full")
-    _sync_button("🔍 Sync 확인 필요만", lambda: _start_sync(RETAILER_NAMES, only_needs_check=True), "w-full mt-2")
+    with ui.row().classes("w-full gap-5 mb-5 items-stretch"):
+      with ui.column().classes("flex-1 min-w-0"):
+        _sync_buttons.append(components.stat_card(
+            "상품 수", len(records),
+            button_label="SYNC", on_click=lambda: _start_sync(RETAILER_NAMES),
+        ))
+      with ui.column().classes("flex-1 min-w-0"):
+        components.stat_card("판매 가능", active, "success")
+      with ui.column().classes("flex-1 min-w-0"):
+        components.stat_card("품절", out_stock, "danger")
+      with ui.column().classes("flex-1 min-w-0"):
+        _sync_buttons.append(components.stat_card(
+            "확인 필요", needs_check, "warning",
+            button_label="SYNC", on_click=lambda: _start_sync(RETAILER_NAMES, only_needs_check=True),
+        ))
 
-    with ui.row().classes("w-full gap-1 no-wrap mt-2 mb-4"):
+    with ui.row().classes("w-full gap-5 mb-5 items-stretch"):
       for retailer in RETAILER_NAMES:
-        _sync_button(
-            retailer,
-            lambda r=retailer: _start_sync((r,)),
-            "flex-1",
-        ).props("size=sm")
+        with ui.column().classes("flex-1 min-w-0"):
+          _sync_buttons.append(components.stat_card(
+              retailer, "", button_label="SYNC",
+              on_click=lambda r=retailer: _start_sync((r,)),
+          ))
+      with ui.column().classes("flex-1 min-w-0"):
+        components.scrapedo_donut_card(scrapedo_usage, orientation="horizontal")
 
     sync_log = ui.log().classes("tbd-log tbd-log--fill w-full")
 

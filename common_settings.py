@@ -1,10 +1,14 @@
-"""브랜드 로고/문구 + 공통 구매·배송 안내를 코드 수정 없이 바꿀 수 있게 하는
-JSON 설정 저장소. 대시보드 `/settings` 페이지가 이 파일을 통해 읽고 쓰고,
+"""브랜드 로고/문구를 코드 수정 없이 바꿀 수 있게 하는 JSON 설정 저장소.
+대시보드 `/settings` 페이지가 이 파일을 통해 읽고 쓰고,
 `product_pages/scripts/build_pages.py`가 여기서 불러온 값을 UNIFI_BRAND/
-GLINET_BRAND/트러스트 템플릿 기본값 위에 덮어씌워 사용한다.
+GLINET_BRAND 기본값 위에 덮어씌워 사용한다.
 
-주의: 이미 생성된 .dc.html에는 소급 적용되지 않는다 - 값을 바꾼 뒤 해당
+주의: 이미 생성된 상세페이지에는 소급 적용되지 않는다 - 값을 바꾼 뒤 해당
 상품의 상세페이지를 다시 생성해야 반영된다.
+
+(초기불량 보장 기간/배송 소요일 등 공통 구매·배송 안내 문구는 더 이상 이
+파일이 다루지 않는다 - 공통영역 편집 페이지(`/detail-page-common`)에서
+브랜드별 완성 HTML로 직접 편집한다, 2026-08-04.)
 """
 from __future__ import annotations
 
@@ -39,12 +43,6 @@ DEFAULTS: dict = {
             "official_name": "GL.iNet",
             "store_line": "GLiNET Supply by TBD Seoul",
         },
-    },
-    "common_copy": {
-        # "2주 초기불량 전액 보장" 등 트러스트 섹션에 쓰이는 값들.
-        "return_window_weeks": 2,
-        "delivery_min_days": 7,
-        "delivery_max_days": 14,
     },
 }
 

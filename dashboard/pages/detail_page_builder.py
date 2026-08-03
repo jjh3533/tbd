@@ -1,17 +1,26 @@
-"""상세페이지 제작 (/detail-page-builder) - "➕ 신규등록" 하위 메뉴.
+"""상세페이지 제작 (/detail-page-builder) - "➕ 신규등록" 하위메뉴 1.
 
 product_pages/scripts/build_detail_page.py(브랜드 무관 상세페이지 생성 엔진)를
 폼으로 감싼 페이지. 오퍼레이터가 카피(태그라인/Why 카드/스펙 등)를 직접 채워
-넣으면 HTML 조립과 PNG export는 전부 코드가 처리한다 - 매 상품마다 AI
-대화로 전체 파이프라인을 새로 훑지 않아도 되게 하는 게 목적.
+넣으면 HTML 조립은 코드가 처리한다.
 
-my.tbd.kr(NAS)에서도 전체 기능(이미지 폴더 접근·PNG export 포함)이 동작한다
-(2026-08-03, NAS Dockerfile에 Playwright + 헤드리스 Chromium 추가 후 확인) -
-`naver_config`의 `TBD_SEOUL_ROOT` 오버라이드로 Product Images/Product
-Pages_html 경로가 이미 NAS에도 매핑돼 있었다. build_detail_page 임포트를
-버튼 핸들러 안으로 미뤄두는 건 여전한데(register.py의 image_uploader
-지연 임포트와 동일 패턴), 지금은 NAS 회피 목적이 아니라 build_detail_page가
-product_pages/scripts/에 있어 기본 sys.path에 없기 때문(`_load_bdp()` 참고)."""
+**2026-08-04 대개편**: 브리프를 파일로 저장/불러오지 않는다(이 페이지의
+`state` dict 안에서만 조립했다가 버림) - 상세페이지를 마지막으로 다듬는 건
+이 폼을 다시 채워서가 아니라 "HTML 편집"(하위메뉴 2, `/detail-page-editor`)의
+코드 에디터로 직접 하는 흐름으로 바뀌었기 때문. 이미지 업로드 기능도 뺐다 -
+이미지는 이제 "➕ 신규등록"(`/register`) 단계에서 히어로/디자인/스토어1~4
+역할로 미리 골라서 저장해두고, 여기서는 그 결과를 읽기만 한다. PNG export와
+NocoDB `Product_Page` 반영도 "HTML 편집" 페이지로 옮겨갔다 - "HTML 생성"은
+초안을 만드는 단계일 뿐, 실제로 완성됐다고 볼 수 있는 시점은 편집을 마치고
+PNG export까지 끝난 뒤이기 때문(사용자 확정).
+
+my.tbd.kr(NAS)에서도 전체 기능이 동작한다(2026-08-03, NAS Dockerfile에
+Playwright + 헤드리스 Chromium 추가 후 확인) - `naver_config`의
+`TBD_SEOUL_ROOT` 오버라이드로 Product Images/Product Pages_html 경로가 이미
+NAS에도 매핑돼 있었다. build_detail_page 임포트를 버튼 핸들러 안으로 미뤄두는
+건 여전한데(register.py의 image_uploader 지연 임포트와 동일 패턴), NAS 회피
+목적이 아니라 build_detail_page가 product_pages/scripts/에 있어 기본
+sys.path에 없기 때문(`_load_bdp()` 참고)."""
 from __future__ import annotations
 
 import asyncio
@@ -20,44 +29,20 @@ import re
 import sys
 import urllib.parse
 
-from nicegui import app, ui
+from nicegui import ui
 
-import naver_config
-from sync_engine import safe_fetch_records, table as products_table
+from sync_engine import safe_fetch_records
 from dashboard import components, layout
 
 _N_WHY_CARDS = 3
 
-
-def _find_nocodb_record(records: list[dict], identity: str) -> dict | None:
-  """identity(보통 state["sku"] - "🔎 NocoDB에서 불러오기"로 상품을 골랐을 때
-  그 레코드의 SKU를 고정해둔 값)로 NocoDB Products 레코드를 찾는다.
-  title_input.value(사람이 마케팅 문구로 자유롭게 다듬는 값)는 매칭 기준으로
-  쓰면 안 됨 - 정확히 그 값과 일치하는 레코드를 찾으면 된다(발주/주문
-  매칭처럼 부분일치가 아니라 정확일치 - 이 값 자체가 그 필드에서 그대로
-  복사돼왔기 때문에 굳이 느슨하게 볼 필요가 없음)."""
-  title_norm = (identity or "").strip().lower()
-  if not title_norm:
-    return None
-  for r in records:
-    f = r.get("fields", {})
-    model = (f.get("Model Number") or "").strip().lower()
-    sku = (f.get("SKU") or "").strip().lower()
-    if title_norm in (model, sku) and title_norm:
-      return r
-  return None
-
 _SCRIPTS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "product_pages", "scripts")
 
-# 완성된 HTML이 있는 폴더 - Synology CloudSync로 NAS에도 동기화되어
-# 있어(TBD_SEOUL_ROOT 참고, 다만 CloudSync 반영이 늦거나 안 될 때가 있었음
-# - CLAUDE.md 참고) my.tbd.kr에서도 미리보기가 그대로 동작한다. PNG export도
-# 2026-08-03부터 NAS Dockerfile에 Playwright를 추가해 my.tbd.kr에서 동작한다.
-_PAGES_ROOT = os.path.dirname(naver_config.PRODUCT_PAGES_DIR)
-_PREVIEW_URL_PREFIX = "/detail-pages"
-
-if os.path.isdir(_PAGES_ROOT):
-  app.add_static_files(_PREVIEW_URL_PREFIX, _PAGES_ROOT)
+# 이미지 파일명 역할 접미사 - register.py가 다운로드할 때 붙이는 규칙과 동일
+# ("01-hero.ext", "02-design.ext", "03-store-1.ext" ...). 이 접미사가 있으면
+# 자동으로 히어로/디자인을 프리셋하고, 없는(레거시) 이미지는 예전처럼 사람이
+# 직접 버튼으로 골라야 한다.
+_STORE_SUFFIX_RE = re.compile(r"-store-\d\.", re.IGNORECASE)
 
 
 def _load_bdp():
@@ -77,30 +62,18 @@ def detail_page_builder_page() -> None:
     state: dict = {
         "hero_source": None,
         "design_source": None,
-        "html_path": None,
-        "slug": None,
         "spec_rows": [],  # list[(label_input, value_input)]
+        "last_filename": None,
         # NocoDB 검색으로 상품을 골랐을 때의 SKU - title_input.value는 사람이
-        # 마케팅 문구로 자유롭게 다듬는 게 정상 워크플로우라, 파일명("{SKU}.html",
-        # 사용자 확정 2026-08-04)/NocoDB Product_Page 매칭은 title이 아니라
-        # 이 안정적인 식별자를 기준으로 한다(title만 쓰면 다듬을 때마다
-        # 파일명이 바뀌고 매칭도 깨짐 - 사용자가 실사용 중 발견, 2026-08-04).
+        # 마케팅 문구로 자유롭게 다듬는 게 정상 워크플로우라, 파일명("{SKU}.html")
+        # 기준은 title이 아니라 이 안정적인 식별자를 쓴다(title만 쓰면 다듬을
+        # 때마다 파일명이 바뀜 - 사용자가 실사용 중 발견, 2026-08-04).
         "sku": "",
     }
 
     # ------------------------------------------------------------------
-    # 📂 저장된 브리프 불러오기 (선택) - 이전에 만들었던 상품을 다시 고칠 때
-    # ------------------------------------------------------------------
-    components.section_header("📂 저장된 브리프 불러오기 (선택)")
-    with ui.row().classes("w-full gap-4 items-end mb-2"):
-      brief_select = ui.select([], label="저장된 브리프").classes("flex-1")
-      refresh_briefs_button = ui.button("목록 새로고침").props("outline")
-      load_brief_button = ui.button("불러오기").props("outline")
-
-    ui.separator().classes("my-4")
-
-    # ------------------------------------------------------------------
-    # 🔎 NocoDB에서 불러오기 (선택) - SKU로 검색해서 브랜드/상품명/이미지폴더 자동채움
+    # 🔎 NocoDB에서 불러오기 (선택) - SKU로 검색해서 브랜드/상품명/이미지폴더/
+    # 공홈 URL까지 자동채움
     # ------------------------------------------------------------------
     components.section_header("🔎 NocoDB에서 불러오기 (선택)")
     with ui.row().classes("w-full gap-4 items-end mb-2"):
@@ -152,10 +125,6 @@ def detail_page_builder_page() -> None:
           "제품이미지 폴더명", placeholder="e.g. GLiNET GL-BE3600"
       ).classes("flex-1")
       load_images_button = ui.button("이미지 불러오기").props("outline")
-    ui.upload(
-        label="직접 이미지 업로드 (공홈 크롤링/다운로드 대신 파일을 바로 추가)",
-        multiple=True, auto_upload=True, on_multi_upload=lambda e: _do_upload_images(e),
-    ).props('accept="image/*"').classes("w-full mb-2")
     image_gallery = ui.column().classes("w-full gap-2 mb-2")
     selection_status = ui.label("히어로/디자인 이미지를 아직 선택하지 않았습니다.").classes(
         "text-sm text-tbd-text-secondary"
@@ -229,51 +198,15 @@ def detail_page_builder_page() -> None:
     ui.separator().classes("my-4")
 
     # ------------------------------------------------------------------
-    # 5) 실행
+    # 5) 생성
     # ------------------------------------------------------------------
     components.section_header("5) 생성")
     with ui.row().classes("w-full gap-3 mb-2"):
-      save_brief_button = ui.button("💾 브리프 저장").props("outline")
-      generate_button = components.primary_button("1) HTML 생성")
-      export_button = components.primary_button("2) PNG로 Export")
-      export_button.disable()
+      generate_button = components.primary_button("HTML 생성")
+      edit_button = components.primary_button("✏️ HTML 편집")
+      edit_button.disable()
 
     build_log = ui.log(max_lines=100).classes("tbd-log tbd-log--sm w-full")
-    preview_gallery = ui.row().classes("w-full gap-3 flex-wrap")
-
-    ui.separator().classes("my-4")
-
-    # ------------------------------------------------------------------
-    # 6) 완성된 상세페이지 보기
-    # ------------------------------------------------------------------
-    components.section_header("6) 완성된 상세페이지 보기")
-    ui.label(
-        "지금까지 만든 HTML을 브라우저 새 탭에서 그대로 열어봅니다 - "
-        "PNG export 없이도 실제 레이아웃을 바로 확인할 수 있어요."
-    ).classes("text-sm text-tbd-text-secondary mb-2")
-
-    with ui.row().classes("w-full gap-4 items-end mb-2"):
-      completed_pages_select = ui.select(
-          _load_bdp().list_completed_pages(), label="완성된 상세페이지"
-      ).classes("flex-1")
-      refresh_completed_button = ui.button("목록 새로고침").props("outline")
-
-    def _do_refresh_completed():
-      completed_pages_select.options = _load_bdp().list_completed_pages()
-      completed_pages_select.update()
-      ui.notify(f"{len(completed_pages_select.options)}개 발견", type="positive")
-
-    refresh_completed_button.on_click(_do_refresh_completed)
-
-    def _do_preview_completed():
-      filename = completed_pages_select.value
-      if not filename:
-        ui.notify("미리볼 상세페이지를 선택하세요.", type="negative")
-        return
-      url = f"{_PREVIEW_URL_PREFIX}/{urllib.parse.quote(filename)}"
-      ui.navigate.to(url, new_tab=True)
-
-    components.primary_button("🔍 미리보기", on_click=_do_preview_completed)
 
     # -- NocoDB 검색 -----------------------------------------------------
     async def _do_nocodb_search():
@@ -302,127 +235,33 @@ def detail_page_builder_page() -> None:
             model_number = (fields.get("Model Number") or "").strip()
             title_input.value = model_number or fields.get("SKU", "")
             # title_input은 이후 사람이 마케팅 문구로 다듬을 수 있지만, SKU는
-            # 그대로 고정해서 파일명("{SKU}.html")/Product_Page 매칭에 쓴다.
+            # 그대로 고정해서 파일명("{SKU}.html")에 쓴다.
             state["sku"] = fields.get("SKU", "")
             folder_brand = {"UniFi": "UniFi", "GL.inet": "GLiNET"}.get(brand_select.value, brand_select.value)
             if model_number:
               image_folder_input.value = f"{folder_brand} {model_number}"
-              # 폴더명이 정해지자마자 기본 이미지 위치(제품이미지 루트/이 폴더)를
-              # 자동으로 불러온다 - 예전엔 "이미지 불러오기" 버튼을 한 번 더
-              # 눌러야만 갤러리가 떴음(사용자 요청 2026-08-03).
+              # 폴더명이 정해지자마자 이미지를 자동으로 불러온다 - 예전엔
+              # "이미지 불러오기" 버튼을 한 번 더 눌러야만 갤러리가 떴음
+              # (사용자 요청 2026-08-03).
               await _do_load_images()
+            official_url = (fields.get("Official_URL") or "").strip()
+            if official_url:
+              # 공홈 URL도 알고 있으면 참고자료까지 자동으로 크롤링해온다
+              # (사용자 요청 2026-08-04) - 예전엔 이것도 사람이 URL을 다시
+              # 붙여넣고 "가져오기"를 눌러야 했음.
+              reference_url_input.value = official_url
+              await _do_fetch_reference()
             ui.notify(f"[{fields.get('SKU')}] 적용됨", type="positive")
 
           ui.button(f"{fields.get('SKU', '')[:60]}", on_click=_apply).props("outline dense align=left").classes("w-full justify-start")
 
     nocodb_search_button.on_click(_do_nocodb_search)
 
-    # -- 저장된 브리프 목록/불러오기 ------------------------------------------
-    async def _do_refresh_briefs():
-      refresh_briefs_button.props("loading")
-      try:
-        bdp = _load_bdp()
-        loop = asyncio.get_event_loop()
-        slugs = await loop.run_in_executor(None, bdp.list_briefs)
-      except Exception as e:  # noqa: BLE001
-        ui.notify(f"브리프 목록 불러오기 실패: {e}", type="negative")
-        return
-      finally:
-        refresh_briefs_button.props(remove="loading")
-
-      brief_select.options = slugs
-      brief_select.update()
-      ui.notify(f"브리프 {len(slugs)}개 발견", type="positive")
-
-    refresh_briefs_button.on_click(_do_refresh_briefs)
-
-    async def _do_load_brief():
-      slug = brief_select.value
-      if not slug:
-        ui.notify("불러올 브리프를 선택하세요.", type="negative")
-        return
-
-      load_brief_button.props("loading")
-      try:
-        bdp = _load_bdp()
-        loop = asyncio.get_event_loop()
-        brief = await loop.run_in_executor(None, bdp.load_brief, slug)
-      except Exception as e:  # noqa: BLE001
-        ui.notify(f"브리프 불러오기 실패: {e}", type="negative")
-        return
-      finally:
-        load_brief_button.props(remove="loading")
-
-      brand_select.value = brief.get("brand", "UniFi")
-      title_input.value = brief.get("title", "")
-      state["sku"] = brief.get("sku", "")
-      tagline_input.value = brief.get("tagline", "")
-      state["hero_source"] = brief.get("hero_source")
-      state["design_source"] = brief.get("design_source")
-      _refresh_status()
-
-      # 브리프에 저장된 히어로/디자인 이미지 경로에서 제품이미지 폴더명을
-      # 역산해 기본 위치를 자동으로 채우고 갤러리도 바로 불러온다(사용자
-      # 요청 2026-08-03) - 예전엔 이 필드가 비어있어 "이미지 불러오기"를
-      # 다시 누르기 전엔 폴더명조차 안 보였음.
-      source_path = state["hero_source"] or state["design_source"]
-      if source_path:
-        image_folder_input.value = os.path.basename(os.path.dirname(source_path))
-        await _do_load_images()
-
-      why_headline_input.value = brief.get("why_headline", "")
-      why_sub_input.value = brief.get("why_sub", "")
-      why_bg_checkbox.value = bool(brief.get("why_bg_gray", True))
-      for i, (heading_input, body_input) in enumerate(why_card_inputs):
-        card = brief.get("why_cards", [])
-        heading_input.value = card[i][0] if i < len(card) else ""
-        body_input.value = card[i][1] if i < len(card) else ""
-
-      design_headline_input.value = brief.get("design_headline", "")
-      design_body_input.value = brief.get("design_body", "")
-
-      specs_column.clear()
-      state["spec_rows"].clear()
-      specs = brief.get("specs") or [["", ""]]
-      for label, value in specs:
-        _add_spec_row(label, value)
-
-      ui.notify(f"브리프 불러옴: {slug}", type="positive")
-
-    load_brief_button.on_click(_do_load_brief)
-
-    # -- 직접 이미지 업로드 (공홈 크롤링/다운로드 대신 파일을 바로 폴더에 추가) ------
-    _UPLOAD_IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp")
-
-    async def _do_upload_images(e):
-      folder_name = (image_folder_input.value or "").strip()
-      if not folder_name:
-        ui.notify("업로드 전에 제품이미지 폴더명을 먼저 입력하세요.", type="negative")
-        return
-
-      folder = os.path.join(naver_config.PRODUCT_IMAGES_DIR, folder_name)
-      os.makedirs(folder, exist_ok=True)
-
-      existing = [f for f in os.listdir(folder) if f.lower().endswith(_UPLOAD_IMAGE_EXTENSIONS)]
-      next_num = 1
-      for f in existing:
-        m = re.match(r"^(\d+)", f)
-        if m:
-          next_num = max(next_num, int(m.group(1)) + 1)
-
-      saved = 0
-      for i, file in enumerate(e.files):
-        ext = os.path.splitext(file.name)[1].lower() or ".jpg"
-        if ext not in _UPLOAD_IMAGE_EXTENSIONS:
-          continue
-        dest_name = f"{next_num + i:02d}{ext}"
-        await file.save(os.path.join(folder, dest_name))
-        saved += 1
-
-      ui.notify(f"이미지 {saved}장 업로드 완료", type="positive")
-      await _do_load_images()
-
     # -- 이미지 불러오기 ---------------------------------------------------
+    # 파일명이 "-hero."/"-design."로 끝나면(register.py의 신규 다운로드 규칙)
+    # 자동으로 히어로/디자인을 프리셋한다. "-store-N."인 4장은 참고용
+    # 썸네일로만 보여준다(상세페이지 생성에는 안 씀 - 네이버 등록용). 역할
+    # 접미사가 없는 레거시 폴더는 예전처럼 사람이 버튼으로 직접 고른다.
     async def _do_load_images():
       folder_name = (image_folder_input.value or "").strip()
       if not folder_name:
@@ -447,25 +286,60 @@ def detail_page_builder_page() -> None:
           ui.label("이미지를 찾을 수 없습니다. 폴더명을 확인하세요.").classes("text-sm text-tbd-text-secondary")
         return
 
+      store_images = []
+      manual_images = []
+      for path in images:
+        fname = os.path.basename(path).lower()
+        if "-hero." in fname:
+          state["hero_source"] = path
+        elif "-design." in fname:
+          state["design_source"] = path
+        elif _STORE_SUFFIX_RE.search(fname):
+          store_images.append(path)
+        else:
+          manual_images.append(path)
+      _refresh_status()
+
       with image_gallery:
-        with ui.row().classes("w-full gap-3 flex-wrap"):
-          for path in images:
-            with ui.column().classes("gap-1 items-center"):
-              ui.image(path).classes("w-28 h-28 object-cover rounded border")
+        if state["hero_source"] or state["design_source"]:
+          ui.label("자동 프리셋됨").classes("text-xs text-tbd-text-secondary")
+          with ui.row().classes("w-full gap-3 flex-wrap mb-2"):
+            for role_label, source_key in (("히어로", "hero_source"), ("디자인", "design_source")):
+              if state[source_key]:
+                with ui.column().classes("gap-1 items-center"):
+                  ui.image(state[source_key]).classes("w-28 h-28 object-cover rounded border-2 border-primary")
+                  ui.label(role_label).classes("text-xs text-primary font-medium")
 
-              def _use_hero(p=path):
-                state["hero_source"] = p
-                _refresh_status()
-                ui.notify("히어로 이미지로 선택됨", type="positive")
+        if manual_images:
+          ui.label("이미지 선택 (파일명에 역할이 없어 직접 골라주세요)").classes(
+              "text-xs text-tbd-text-secondary"
+          )
+          with ui.row().classes("w-full gap-3 flex-wrap mb-2"):
+            for path in manual_images:
+              with ui.column().classes("gap-1 items-center"):
+                ui.image(path).classes("w-28 h-28 object-cover rounded border")
 
-              def _use_design(p=path):
-                state["design_source"] = p
-                _refresh_status()
-                ui.notify("디자인 섹션 이미지로 선택됨", type="positive")
+                def _use_hero(p=path):
+                  state["hero_source"] = p
+                  _refresh_status()
+                  ui.notify("히어로 이미지로 선택됨", type="positive")
 
-              with ui.row().classes("gap-1"):
-                ui.button("히어로", on_click=_use_hero).props("dense outline size=sm")
-                ui.button("디자인", on_click=_use_design).props("dense outline size=sm")
+                def _use_design(p=path):
+                  state["design_source"] = p
+                  _refresh_status()
+                  ui.notify("디자인 섹션 이미지로 선택됨", type="positive")
+
+                with ui.row().classes("gap-1"):
+                  ui.button("히어로", on_click=_use_hero).props("dense outline size=sm")
+                  ui.button("디자인", on_click=_use_design).props("dense outline size=sm")
+
+        if store_images:
+          ui.label("스토어 이미지 (참고용 - 네이버 등록에 쓰임, 상세페이지엔 안 들어감)").classes(
+              "text-xs text-tbd-text-secondary"
+          )
+          with ui.row().classes("w-full gap-2 flex-wrap"):
+            for path in store_images:
+              ui.image(path).classes("w-20 h-20 object-cover rounded border")
 
       ui.notify(f"이미지 {len(images)}장 불러옴", type="positive")
 
@@ -549,7 +423,7 @@ def detail_page_builder_page() -> None:
 
     generate_brief_button.on_click(_do_generate_brief)
 
-    # -- 브리프 조립 -------------------------------------------------------
+    # -- 브리프 조립(파일로 저장하지 않고 write_page()에 바로 넘길 dict만 조립) --
     def _collect_brief() -> dict | None:
       title = (title_input.value or "").strip()
       if not title:
@@ -598,23 +472,14 @@ def detail_page_builder_page() -> None:
           "specs": specs,
       }
 
-    # -- 브리프 저장 -------------------------------------------------------
-    async def _do_save_brief():
-      brief = _collect_brief()
-      if not brief:
-        return
-      try:
-        bdp = _load_bdp()
-
-        loop = asyncio.get_event_loop()
-        path = await loop.run_in_executor(None, bdp.save_brief, brief)
-        ui.notify(f"브리프 저장됨: {path}", type="positive")
-      except Exception as e:  # noqa: BLE001
-        ui.notify(f"브리프 저장 실패: {e}", type="negative")
-
-    save_brief_button.on_click(_do_save_brief)
-
     # -- HTML 생성 -----------------------------------------------------
+    def _go_to_editor():
+      if not state["last_filename"]:
+        return
+      ui.navigate.to(f"/detail-page-editor?file={urllib.parse.quote(state['last_filename'])}")
+
+    edit_button.on_click(_go_to_editor)
+
     async def _do_generate():
       brief = _collect_brief()
       if not brief:
@@ -627,7 +492,7 @@ def detail_page_builder_page() -> None:
         bdp = _load_bdp()
 
         loop = asyncio.get_event_loop()
-        html_path, slug = await loop.run_in_executor(None, bdp.write_page, brief)
+        html_path, _slug = await loop.run_in_executor(None, bdp.write_page, brief)
       except Exception as e:  # noqa: BLE001
         build_log.push(f"실패: {e}")
         ui.notify(f"HTML 생성 실패: {e}", type="negative")
@@ -635,58 +500,10 @@ def detail_page_builder_page() -> None:
       finally:
         generate_button.props(remove="loading")
 
-      state["html_path"] = html_path
-      state["slug"] = slug
-      build_log.push(f"완료: {html_path}")
-      export_button.enable()
-      ui.notify("HTML 생성 완료 - PNG Export를 진행하세요.", type="positive")
-
-      # 상세페이지를 만들었으면 그 상품의 NocoDB Product_Page도 "Detail"로
-      # 반영한다(사용자 요청 2026-08-03) - 실패해도 HTML 생성 자체는 이미
-      # 끝난 상태라 best-effort로 처리하고 로그로만 알린다.
-      try:
-        records = await loop.run_in_executor(None, safe_fetch_records)
-        # title은 사람이 마케팅 문구로 다듬을 수 있어 매칭 기준으로 못 쓴다
-        # (실사용 중 발견 - 타이틀을 다듬으면 매칭이 깨졌음, 2026-08-04) -
-        # NocoDB 검색으로 상품을 골랐을 때 고정해둔 sku를 우선 쓴다.
-        match = _find_nocodb_record(records, brief.get("sku") or brief["title"])
-        if match is None:
-          build_log.push("⚠️ NocoDB에서 일치하는 상품을 못 찾아 Product_Page는 수동으로 반영해야 합니다.")
-        elif match["fields"].get("Product_Page") != "Detail":
-          await loop.run_in_executor(None, products_table.update, match["id"], {"Product_Page": "Detail"})
-          build_log.push(f"NocoDB Product_Page → Detail 반영됨 ({match['fields'].get('SKU', '')})")
-        else:
-          build_log.push("NocoDB Product_Page 이미 Detail 상태.")
-      except Exception as e:  # noqa: BLE001
-        build_log.push(f"⚠️ NocoDB Product_Page 반영 실패: {e}")
+      filename = os.path.basename(html_path)
+      state["last_filename"] = filename
+      build_log.push(f"완료: {filename}")
+      edit_button.enable()
+      ui.notify("HTML 생성 완료 - 'HTML 편집'을 눌러 마무리하세요.", type="positive")
 
     generate_button.on_click(_do_generate)
-
-    # -- PNG Export --------------------------------------------------------
-    async def _do_export():
-      if not state["html_path"]:
-        ui.notify("먼저 HTML을 생성하세요.", type="negative")
-        return
-
-      export_button.props("loading")
-      preview_gallery.clear()
-      build_log.push("PNG export 중...")
-      try:
-        bdp = _load_bdp()
-
-        loop = asyncio.get_event_loop()
-        pngs = await loop.run_in_executor(None, bdp.export_pngs, state["html_path"], state["slug"])
-      except Exception as e:  # noqa: BLE001
-        build_log.push(f"export 실패: {e}")
-        ui.notify(f"PNG export 실패: {e}", type="negative")
-        return
-      finally:
-        export_button.props(remove="loading")
-
-      build_log.push(f"완료: {len(pngs)}장")
-      with preview_gallery:
-        for p in pngs:
-          ui.image(p).classes("w-40 rounded border")
-      ui.notify(f"PNG {len(pngs)}장 export 완료", type="positive")
-
-    export_button.on_click(_do_export)

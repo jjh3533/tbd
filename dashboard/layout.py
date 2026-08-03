@@ -5,13 +5,7 @@ from contextlib import contextmanager
 
 from nicegui import ui
 
-from sync_engine import CATEGORIES
 from dashboard import theme
-
-
-def _category_href(name: str) -> str:
-  from dashboard.pages.category import category_slug
-  return f"/category/{category_slug(name)}"
 
 
 @contextmanager
@@ -27,26 +21,26 @@ def frame(active_path: str):
       else:
         ui.html('<div class="tbd-logo-wrap">⚡ TBD Dashboard</div>', sanitize=False)
 
-      products_expanded = (
-          active_path == "/"
-          or active_path.startswith("/category/")
-          or active_path.startswith("/brand/")
-      )
+      _register_sub_paths = ("/register", "/detail-page-builder", "/detail-page-editor", "/detail-page-common")
+      register_expanded = active_path in _register_sub_paths
       ui.html('<div class="tbd-nav-label">PRODUCTS</div>', sanitize=False)
       for label, href in [
           ("➕ 신규등록", "/register"),
-          ("🖼️ 상세페이지 제작", "/detail-page-builder"),
-          ("📋 상품 리스트", "/"),
+          ("📋 상품 리스트", "/products"),
           ("⚡ 가격 업데이트", "/sync"),
           ("📦 품절/변동", "/inventory"),
           ("🏪 스마트스토어", "/smartstore"),
       ]:
         active_cls = "tbd-nav-link active" if href == active_path else "tbd-nav-link"
         ui.html(f'<a class="{active_cls}" href="{href}">{label}</a>', sanitize=False)
-        if href == "/" and products_expanded:
-          for brand_label, brand_href in [("UniFi", "/brand/unifi"), ("GL.iNet", "/brand/glinet")]:
-            sub_cls = "tbd-nav-link tbd-nav-sub active" if brand_href == active_path else "tbd-nav-link tbd-nav-sub"
-            ui.html(f'<a class="{sub_cls}" href="{brand_href}">{brand_label}</a>', sanitize=False)
+        if href == "/register" and register_expanded:
+          for sub_label, sub_href in [
+              ("🖼️ 상세페이지 제작", "/detail-page-builder"),
+              ("✏️ 상세페이지 편집", "/detail-page-editor"),
+              ("🧩 공통영역 편집", "/detail-page-common"),
+          ]:
+            sub_cls = "tbd-nav-link tbd-nav-sub active" if sub_href == active_path else "tbd-nav-link tbd-nav-sub"
+            ui.html(f'<a class="{sub_cls}" href="{sub_href}">{sub_label}</a>', sanitize=False)
 
       ui.html('<div class="tbd-nav-label">SALES</div>', sanitize=False)
       for label, href in [

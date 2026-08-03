@@ -12,7 +12,14 @@ retailer_search가 아마존/B&H/Adorama 후보를 찾아준다. 크롤링/검�
 Phase B에서 추가됐던 "🛠️ 등록 파이프라인" 섹션(main.py/run_pipeline.py 등
 기존 스크립트를 버튼으로 실행)은 이후 `/smartstore` 페이지 상단으로
 옮겨졌다 - 등록 전 크롤링/검색과 등록 후 운영(가격/재고/배송) 작업이 한
-페이지에 섞여 있던 걸 분리."""
+페이지에 섞여 있던 걸 분리.
+
+2026-08-04부터 이미지 다운로드가 "역할 선택형"으로 바뀌었다: 예전엔 크롤링된
+이미지를 전부 01,02,03... 순번으로만 저장해서, 상세페이지 제작 단계에서
+매번 사람이 갤러리를 보고 히어로/디자인 이미지를 다시 골라야 했다. 이제
+등록 시점에 히어로/디자인/스토어1~4 역할을 미리 지정해서 파일명에 그대로
+인코딩해두면(`01-hero.ext`/`02-design.ext`/`03-store-1.ext`...), 상세페이지
+제작 단계가 파일명 패턴만 보고 자동으로 프리셋할 수 있다."""
 from __future__ import annotations
 
 import asyncio
@@ -28,6 +35,17 @@ from sync_engine import CATEGORIES, get_current_exchange_rate, table
 from dashboard import components, layout
 
 _UNSAFE_FOLDER_CHARS = re.compile(r'[\\/:*?"<>|]')
+
+# 이미지 역할 - 순서가 곧 다운로드 파일의 앞자리 번호(01~06)가 되어
+# list_source_images()의 정렬 순서와도 자연스럽게 맞는다.
+_IMAGE_ROLES = [
+    ("hero", "히어로"),
+    ("design", "디자인"),
+    ("store-1", "스토어1"),
+    ("store-2", "스토어2"),
+    ("store-3", "스토어3"),
+    ("store-4", "스토어4"),
+]
 
 # Product Images 폴더명에 쓸 브랜드 표기. "GL.inet"은 마침표가 파일시스템/
 # URL 등에서 오류를 일으킬 수 있어 폴더명에서는 생략한다. 표기는 사용자가
@@ -54,7 +72,12 @@ def _image_folder_name(brand: str, model_number: str) -> str:
   return _safe_folder_name(f"{brand_label} {model_number}".strip())
 
 
-def _download_images(image_urls: list[str], folder_name: str) -> tuple[str, int]:
+def _download_images(role_urls: dict[str, str], folder_name: str) -> tuple[str, int]:
+  """role_urls: {"hero": url, "design": url, "store-1": url, ...} (역할 미지정은
+  키 자체가 없음 - 히어로/디자인만 골라도 문제 없이 그 둘만 저장됨). 파일명은
+  `_IMAGE_ROLES` 순서를 앞자리 번호로 써서 01-hero.ext, 02-design.ext,
+  03-store-1.ext... 형태로 저장 - list_source_images()가 이 번호로 정렬하고,
+  상세페이지 제작 단계는 "-hero."/"-design." 접미사로 자동 프리셋한다."""
   # 지연 import: image_uploader -> naver_config는 NAVER_CLIENT_ID/SECRET을
   # 필수로 요구하고 PRODUCT_IMAGES_DIR도 맥의 Google Drive 동기화 폴더를
   # 가리킨다. NAS(도커/Linux) 배포본에는 둘 다 없어서, 상단에서 즉시
@@ -66,11 +89,14 @@ def _download_images(image_urls: list[str], folder_name: str) -> tuple[str, int]
   folder = image_uploader.resolve_product_image_folder(_safe_folder_name(folder_name))
   os.makedirs(folder, exist_ok=True)
   saved = 0
-  for i, url in enumerate(image_urls, start=1):
+  for i, (role_key, _role_label) in enumerate(_IMAGE_ROLES, start=1):
+    url = role_urls.get(role_key)
+    if not url:
+      continue
     ext = os.path.splitext(url.split("?")[0])[1] or ".jpg"
     resp = requests.get(url, timeout=30)
     resp.raise_for_status()
-    with open(os.path.join(folder, f"{i:02d}{ext}"), "wb") as fh:
+    with open(os.path.join(folder, f"{i:02d}-{role_key}{ext}"), "wb") as fh:
       fh.write(resp.content)
     saved += 1
   return folder, saved
@@ -81,7 +107,7 @@ def register_page() -> None:
   with layout.frame(active_path="/register"):
     components.topbar("Register Product")
 
-    crawl_state: dict = {"image_urls": []}
+    crawl_state: dict = {"image_urls": [], "role_urls": {}}
 
     # ------------------------------------------------------------------
     # 🔍 공홈에서 불러오기
@@ -171,6 +197,7 @@ def register_page() -> None:
         crawl_button.props(remove="loading")
 
       crawl_state["image_urls"] = product.image_urls
+      crawl_state["role_urls"] = {}
       title = product.title
       prefix = _BRAND_SKU_PREFIXES.get(brand_select.value)
       if prefix and not title.startswith(prefix):
@@ -180,22 +207,52 @@ def register_page() -> None:
         msrp_input.value = product.price_usd
       model_number_input.value = product.model_number
 
-      with preview_images_row:
-        for url_img in product.image_urls:
-          ui.image(url_img).classes("w-24 h-24 object-cover rounded")
+      _render_role_gallery(product.image_urls)
 
       description_area.value = product.description
       description_area.visible = True
       crawl_status.text = f"이미지 {len(product.image_urls)}장 · USD {product.price_usd:.2f}"
-      ui.notify("크롤링 완료 - 내용을 확인한 뒤 저장하세요.", type="positive")
+      ui.notify("크롤링 완료 - 히어로/디자인/스토어 이미지를 고르고 저장하세요.", type="positive")
 
     crawl_button.on_click(_do_crawl)
 
+    # -- 이미지 역할 선택 갤러리 -------------------------------------------
+    # 이미지마다 배지 라벨(현재 지정된 역할들)을 따로 들고 있다가, 역할 버튼을
+    # 누를 때마다 전체를 다시 계산해서 갱신한다(한 역할은 항상 이미지 하나에만
+    # 붙어야 하므로 - 새로 고르면 이전 이미지의 배지에서는 빠져야 함).
+    role_badges: dict[str, ui.label] = {}
+
+    def _refresh_role_badges():
+      url_to_roles: dict[str, list[str]] = {}
+      for role_key, url_img in crawl_state["role_urls"].items():
+        url_to_roles.setdefault(url_img, []).append(role_key)
+      role_label_by_key = dict(_IMAGE_ROLES)
+      for url_img, badge in role_badges.items():
+        roles = url_to_roles.get(url_img) or []
+        badge.text = " · ".join(role_label_by_key[r] for r in roles)
+
+    def _render_role_gallery(image_urls: list[str]):
+      preview_images_row.clear()
+      role_badges.clear()
+      with preview_images_row:
+        for url_img in image_urls:
+          with ui.column().classes("gap-1 items-center"):
+            ui.image(url_img).classes("w-24 h-24 object-cover rounded")
+            badge = ui.label("").classes("text-xs text-primary font-medium")
+            role_badges[url_img] = badge
+            with ui.row().classes("gap-1 flex-wrap justify-center").style("max-width: 96px;"):
+              for role_key, role_label in _IMAGE_ROLES:
+                def _assign(role_key=role_key, url_img=url_img):
+                  crawl_state["role_urls"][role_key] = url_img
+                  _refresh_role_badges()
+
+                ui.button(role_label, on_click=_assign).props("dense outline size=xs")
+
     # -- 이미지 다운로드 -------------------------------------------------
     async def _do_download_images():
-      image_urls = crawl_state.get("image_urls") or []
-      if not image_urls:
-        ui.notify("먼저 크롤링해서 이미지를 불러오세요.", type="negative")
+      role_urls = crawl_state.get("role_urls") or {}
+      if not role_urls:
+        ui.notify("먼저 히어로/디자인 등 이미지 역할을 하나 이상 골라주세요.", type="negative")
         return
       model_number = (model_number_input.value or "").strip()
       if not model_number:
@@ -208,7 +265,7 @@ def register_page() -> None:
       try:
         loop = asyncio.get_event_loop()
         folder, saved = await loop.run_in_executor(
-            None, _download_images, image_urls, folder_name
+            None, _download_images, role_urls, folder_name
         )
       except Exception as e:  # noqa: BLE001
         download_status.text = f"다운로드 실패: {e}"
@@ -303,7 +360,9 @@ def register_page() -> None:
         model_number_input.value = ""
         crawl_url_input.value = ""
         crawl_state["image_urls"] = []
+        crawl_state["role_urls"] = {}
         preview_images_row.clear()
+        role_badges.clear()
         description_area.visible = False
         candidates_column.clear()
       except Exception as e:  # noqa: BLE001

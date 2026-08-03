@@ -1,10 +1,13 @@
-"""공통 설정 (/settings) - 브랜드 로고/문구, 구매·배송 안내 문구를 코드 수정
-없이 바꾸는 페이지. 실제 값은 common_settings.json에 저장되고,
-product_pages/scripts/build_pages.py가 상세페이지 생성 시 이 값을 읽어
-UNIFI_BRAND/GLINET_BRAND/트러스트 템플릿 기본값 위에 덮어씌운다.
+"""공통 설정 (/settings) - 브랜드 로고/문구를 코드 수정 없이 바꾸는 페이지.
+실제 값은 common_settings.json에 저장되고, product_pages/scripts/build_pages.py가
+상세페이지 생성 시 이 값을 읽어 UNIFI_BRAND/GLINET_BRAND 기본값 위에
+덮어씌운다.
 
-주의: 이미 생성된 .dc.html에는 소급 적용되지 않는다 - 값을 바꾼 뒤 해당
-상품의 상세페이지를 다시 생성해야 반영된다."""
+주의: 이미 생성된 상세페이지에는 소급 적용되지 않는다 - 값을 바꾼 뒤 해당
+상품의 상세페이지를 다시 생성해야 반영된다.
+
+(구매·배송 안내 문구는 공통영역 편집 페이지(/detail-page-common)로
+이전됨, 2026-08-04.)"""
 from __future__ import annotations
 
 from nicegui import ui
@@ -32,9 +35,9 @@ def settings_page() -> None:
     components.topbar("공통 설정")
 
     ui.label(
-        "브랜드 로고/문구와 구매·배송 안내 문구를 여기서 바꾸면 다음에 생성하는 "
-        "상세페이지부터 반영됩니다. 이미 만든 .dc.html은 소급 적용되지 않으니 "
-        "값을 바꾼 뒤 해당 상품 상세페이지를 다시 생성해주세요."
+        "브랜드 로고/문구를 여기서 바꾸면 다음에 생성하는 상세페이지부터 반영됩니다. "
+        "이미 만든 상세페이지는 소급 적용되지 않으니 값을 바꾼 뒤 해당 상품 "
+        "상세페이지를 다시 생성해주세요."
     ).classes("text-sm text-tbd-text-secondary mb-6")
 
     settings = common_settings.load()
@@ -51,30 +54,11 @@ def settings_page() -> None:
 
     ui.separator().classes("my-6")
 
-    components.section_header("공통 구매·배송 안내 문구", "상세페이지 트러스트 섹션에 쓰이는 숫자 값들입니다.")
-    with ui.row().classes("w-full gap-4"):
-      return_weeks_input = ui.number(
-          "초기불량 보장 기간 (주)", value=settings["common_copy"].get("return_window_weeks", 2), min=1, step=1, precision=0
-      ).classes("w-56")
-      delivery_min_input = ui.number(
-          "배송 소요 최소 (일)", value=settings["common_copy"].get("delivery_min_days", 7), min=1, step=1, precision=0
-      ).classes("w-56")
-      delivery_max_input = ui.number(
-          "배송 소요 최대 (일)", value=settings["common_copy"].get("delivery_max_days", 14), min=1, step=1, precision=0
-      ).classes("w-56")
-
-    ui.separator().classes("my-6")
-
     def _do_save():
       new_settings = {
           "brands": {
               brand_key: {field_key: inp.value for field_key, inp in fields.items()}
               for brand_key, fields in brand_inputs.items()
-          },
-          "common_copy": {
-              "return_window_weeks": int(return_weeks_input.value or 2),
-              "delivery_min_days": int(delivery_min_input.value or 7),
-              "delivery_max_days": int(delivery_max_input.value or 14),
           },
       }
       common_settings.save(new_settings)
