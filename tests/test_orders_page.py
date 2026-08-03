@@ -1,12 +1,13 @@
-"""dashboard/pages/orders.py의 "최근 7일" 분할 조회 관련 순수 함수 테스트.
+"""주문 조회 "최근 7일" 분할 조회 관련 순수 함수 테스트.
 
 NiceGUI 페이지 자체(@ui.page 데코레이터가 붙은 함수)는 실행 컨텍스트가 필요해
-직접 테스트하지 않고, 그 안에서 쓰는 순수 헬퍼(_day_window, _merge_orders_by_id)
-만 분리해서 검증한다.
+직접 테스트하지 않고, 그 안에서 쓰는 순수 헬퍼(day_window, merge_orders_by_id)만
+분리해서 검증한다. 이 헬퍼들은 원래 dashboard/pages/orders.py에 있었으나,
+purchase_orders.py도 동일한 로직이 필요해져서 order_fulfillment.py로 승격됐다.
 """
 from datetime import datetime, timedelta
 
-from dashboard.pages.orders import _day_window, _merge_orders_by_id
+from order_fulfillment import day_window as _day_window, merge_orders_by_id as _merge_orders_by_id
 
 
 class TestDayWindow:

@@ -14,14 +14,78 @@ Order_Fulfillment 데이터는 NocoDB에만 쓰는 가벼운 작업이라(라이
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
+from html import escape as html_escape
 
 from nicegui import run, ui
 
 import order_fulfillment as of
-from sync_engine import safe_fetch_records
+from sync_engine import _adorama_url, _amazon_url, _bh_url, _unifi_store_url, fmt_usd, safe_fetch_records
 from dashboard import components, layout
 
 _PURCHASE_SITES = ["Amazon", "B&H", "Adorama", "공홈"]
+
+
+def _purchase_items_table_html(orders: list[dict], by_id: dict, nocodb_records: list[dict]) -> str | None:
+  """발주 항목 전체(대기+완료)를 리테일러 가격 비교와 함께 보여주는 표.
+  가격 셀은 클릭하면 새 탭으로 해당 상품 페이지가 열린다."""
+  if not orders:
+    return None
+  rows = []
+  for o in orders:
+    order_id = o.get("productOrderId", "")
+    product_name = o.get("productName", "")
+    match = of.match_sku_for_order(product_name, nocodb_records)
+    f = match["fields"] if match else {}
+    sku = f.get("SKU") or product_name
+
+    msrp = f.get("MSRP_USD", 0.0) or 0.0
+    amazon_usd = f.get("Amazon_USD", 0.0) or 0.0
+    adorama_usd = f.get("Adorama_USD", 0.0) or 0.0
+    bh_usd = f.get("BH_USD", 0.0) or 0.0
+
+    official_url = _unifi_store_url(f.get("SKU", "")) or f.get("Official_URL")
+    amazon_url = _amazon_url(f.get("ASIN"))
+    adorama_url = _adorama_url(f.get("ADORAMA_ID"))
+    bh_url = _bh_url(f.get("BH_ID"))
+
+    def _price_cell(price, url):
+      text = fmt_usd(price) if price else "-"
+      if url:
+        return f'<a href="{html_escape(url)}" target="_blank" rel="noopener noreferrer">{text}</a>'
+      return text
+
+    fulfillment_row = by_id.get(order_id)
+    fulfillment = fulfillment_row["fields"] if fulfillment_row else {}
+    purchase_status = fulfillment.get("purchase_status")
+    if purchase_status == "발주완료":
+      status_html = (
+          f'<span class="uic-pill ok">발주완료</span> '
+          f'{html_escape(fulfillment.get("purchase_site", "") or "")} '
+          f'{html_escape(fulfillment.get("local_order_number", "") or "")}'
+      )
+    else:
+      status_html = '<span class="uic-pill check">발주대기</span>'
+
+    rows.append(
+        "<tr>"
+        f'<td class="uic-sku">{html_escape(sku[:40])}</td>'
+        f'<td>{_price_cell(msrp, official_url)}</td>'
+        f'<td>{_price_cell(amazon_usd, amazon_url)}</td>'
+        f'<td>{_price_cell(adorama_usd, adorama_url)}</td>'
+        f'<td>{_price_cell(bh_usd, bh_url)}</td>'
+        f'<td>{status_html}</td>'
+        "</tr>"
+    )
+  return f"""
+  <div class="uic-table-wrap">
+    <div class="uic-table-scroll">
+      <table class="uic-table">
+        <thead><tr><th>SKU / Model</th><th>공홈 ($)</th><th>Amazon ($)</th><th>Adorama ($)</th><th>B&H ($)</th><th>발주 상태</th></tr></thead>
+        <tbody>{''.join(rows)}</tbody>
+      </table>
+    </div>
+  </div>
+  """
 
 
 @ui.page("/purchase")
@@ -91,6 +155,15 @@ def purchase_orders_page() -> None:
           components.stat_card("발주완료", purchased, "success")
 
       with content:
+        components.section_header(
+            "발주 항목 리스트", "리테일러별 가격을 비교하고 클릭하면 새 탭에서 해당 상품 페이지로 이동합니다. 발주완료된 항목도 계속 표시됩니다."
+        )
+        items_html = _purchase_items_table_html(orders, by_id, nocodb_records)
+        if items_html is None:
+          ui.label("표시할 발주 항목이 없습니다.").classes("text-sm text-tbd-text-secondary")
+        else:
+          ui.html(items_html, sanitize=False).classes("mb-8")
+
         components.section_header("신규 발주 대기", "현지(미국) 사이트에서 주문 완료 후 주문정보를 입력하세요.")
         if not awaiting_purchase:
           ui.label("발주 대기 중인 주문이 없습니다.").classes("text-sm text-tbd-text-secondary")

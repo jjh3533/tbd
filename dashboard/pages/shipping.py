@@ -15,6 +15,7 @@ from datetime import date, datetime
 from nicegui import ui
 
 import iecot_export
+import naver_config
 import order_fulfillment as of
 from dashboard import components, layout
 
@@ -171,7 +172,7 @@ def shipping_page() -> None:
             payload = {
                 "product_order_id": f.get("naver_product_order_id", ""),
                 "dispatch_date": date.today().isoformat(),
-                "delivery_company": "ACE",
+                "delivery_company": naver_config.DELIVERY_COMPANY,  # "ACE" (ACE Express Inc.) - naver_config.py 참고
                 "tracking_number": f.get("intl_tracking_number", ""),
             }
             if preview_only.value:

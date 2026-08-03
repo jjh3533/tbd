@@ -345,6 +345,45 @@ def build_head_html() -> str:
       font-size: 11px; font-weight: 700;
     }}
 
+    /* ---------- 주문 카드 (/orders) ---------- */
+    .tbd-order-card {{
+      background-color: var(--tbd-surface); border-radius: {RADIUS_MD};
+      padding: 22px 26px; box-shadow: var(--tbd-shadow); margin-bottom: 16px;
+    }}
+    .tbd-order-card-header {{
+      display: flex; justify-content: space-between; align-items: baseline;
+      margin-bottom: 14px; gap: 16px; flex-wrap: wrap;
+    }}
+    .tbd-order-card-title {{ font-size: 15.5px; font-weight: 700; }}
+    .tbd-order-card-id {{ font-size: 12px; color: var(--tbd-text-secondary); }}
+    .tbd-order-card-grid {{
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 32px;
+      font-size: 13px; margin-bottom: 18px;
+    }}
+    .tbd-order-card-grid .k {{ color: var(--tbd-text-secondary); margin-right: 6px; }}
+
+    /* ---------- 배송 단계 트래커 ---------- */
+    .tbd-stage-track {{ display: flex; align-items: flex-start; width: 100%; }}
+    .tbd-stage-step {{
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      flex: 0 0 auto; width: 60px;
+    }}
+    .tbd-stage-dot {{
+      width: 13px; height: 13px; border-radius: 50%;
+      background-color: var(--tbd-border);
+    }}
+    .tbd-stage-step.done .tbd-stage-dot {{ background-color: var(--tbd-accent); }}
+    .tbd-stage-label {{
+      font-size: 10.5px; color: var(--tbd-text-secondary); text-align: center;
+      white-space: nowrap;
+    }}
+    .tbd-stage-step.done .tbd-stage-label {{ color: var(--tbd-text); font-weight: 700; }}
+    .tbd-stage-connector {{
+      flex: 1 1 auto; height: 2px; background-color: var(--tbd-border);
+      margin-top: 6px;
+    }}
+    .tbd-stage-connector.done {{ background-color: var(--tbd-accent); }}
+
     /* ---------- 진행률 바 (향후 재고/입고 등에서 사용) ---------- */
     .tbd-progress {{
       height: 6px; border-radius: 3px; background-color: var(--tbd-surface-tint-strong);
