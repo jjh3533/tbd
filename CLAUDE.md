@@ -29,7 +29,9 @@
 | `update_product_names_with_keywords.py` | 기등록 상품명에 검색 키워드 일괄 추가 |
 | `run_pipeline.py` | main.py → sync_naver_ids_to_nocodb.py → update_price_stock.py 순차 실행 |
 | `sync_naver_ids_to_nocodb.py` | `TARGET_PRODUCTS` 매핑, 네이버 채널상품번호를 NocoDB에 반영 |
-| `update_price_stock.py` | NocoDB → 네이버 가격/재고 동기화 (영문 필드명 `sale_price` 사용). `{SKU} Black` 짝 로우가 있으면 화이트/블랙 옵션별로 다른 가격/재고 반영 - 옵션이 이미 있으면 갱신, 없으면 신규 생성 |
+| `update_price_stock.py` | NocoDB → 네이버 가격/재고 동기화 (영문 필드명 `sale_price` 사용). `{SKU} Black` 짝 로우가 있으면 화이트/블랙 옵션별로 다른 가격/재고 반영 - 옵션이 이미 있으면 갱신, 없으면 신규 생성. `TARGET_PRODUCTS`(수작업 등록 리스트)에 있는 상품만 대상 |
+| `sync_naver_price.py` | `/smartstore` 페이지의 "가격/재고 업데이트" 버튼용 - `update_price_stock.py`와 로직은 동일(그 안의 함수를 그대로 재사용)하지만 `TARGET_PRODUCTS` 없이 `Naver_Product_No`가 있는 전체 상품이 대상. `dry_run`/`limit` 파라미터로 안전장치 있음 |
+| `sync_naver_status.py` | 네이버의 실제 `saleStatus`를 조회해 NocoDB `SalesStatus` 필드에 미러링(반대 방향은 안 함). `/smartstore` 페이지 통계·필터가 이 필드를 사용 |
 | `create_color_variant_rows.py` | 화이트 기준 로우에서 `{SKU} Black`/`{Model Number}-B` 블랙 변형 로우를 생성하는 스크립트 (Category/Weight_KG/MSRP_USD/Naver_Product_No는 화이트와 동일하게 복사, 구매처 ID는 비워둠) |
 | `search_amazon_candidates.py` | ASIN 없는 상품을 상품명+모델명으로 아마존 검색해(Scrape.do Amazon Search 플러그인) 후보를 CSV로 뽑아주는 스크립트. NocoDB에 자동으로 쓰지 않고 사람이 검토하는 용도. 실제 검색 로직은 `retailer_search.py`로 이관됨 |
 | `official_scrapers/` | 구매대행 신규 브랜드 공홈 크롤러 레지스트리 (`fetch_product(brand, url)`). `shopify.py`(Shopify `.json` 엔드포인트, 브랜드 무관 공용) / `unifi.py`(store.ui.com `__NEXT_DATA__` 파싱). 현재 UniFi/GL.inet만 등록됨, 새 브랜드는 `__init__.py`의 `_BRAND_SCRAPERS`에 한 줄 추가 |
@@ -56,18 +58,20 @@
 
 ## 3. 현재 상태
 
-알려진 미해결 버그: 클레임 조회 API 엔드포인트가 404(정확한 경로 미확인, 아래 항목 참고). 그 외 진행 중인 작업 없음. 세부 경위는 `HISTORY.md` 참고 (항목 42~62).
+알려진 미해결 버그: 클레임 조회 API 엔드포인트가 404(정확한 경로 미확인, 아래 항목 참고). 그 외 진행 중인 작업 없음. 세부 경위는 `HISTORY.md` 참고 (항목 42~63).
 
 - **코드 리뷰 기반 수정 완료**: `CODE_REVIEW.md`(ChatGPT 검토, 2026-08-02)를 실제 코드와 대조 검증 후 우선순위를 다시 매겨 전부 대응함:
   - P0 대시보드 로그인 인증 (아래 항목 참고), P1 NocoDB 갱신 실패 전파+Price History 순서, Sync 취소 후 세대(generation) 기반 레이스 방지, 주문 "최근 7일" 하루 단위 분할 조회 — 커밋 완료.
   - P2 주문/클레임 API 시간대 정규화(`naver_order_api._to_kst`)+클레임 24시간 검증 — 커밋 완료.
-  - P2 공홈 크롤링 3중 호출→1회 통합 + 공홈 실패의 Needs_Check 반영, 그리고 등록 파이프라인(`/register`) 동시실행 방지(프로세스 전역 락)+dry-run 확인창 스킵은 **구현·검증 완료했지만 별도 커밋은 못 함** — 둘 다 아직 미커밋인 Phase B(신규 브랜드 자동추적)/파이프라인 UI 코드 자체를 고치는 것이라, HEAD에 그 기반 코드가 없어 격리 커밋이 불가능함. 작업 트리에는 반영돼 있고 Phase B를 커밋할 때 함께 커밋될 예정.
+  - P2 공홈 크롤링 3중 호출→1회 통합 + 공홈 실패의 Needs_Check 반영, 그리고 등록 파이프라인(`/register`) 동시실행 방지(프로세스 전역 락)+dry-run 확인창 스킵 — Phase B 커밋 때 함께 반영 완료 (아래 항목 참고).
   - P3 `tests/`에 pytest 단위 테스트 28개 추가(핵심 순수 함수 mock 기반 회귀 테스트) — 커밋 완료. `python3 -m pytest tests/` (requirements-dev.txt 참고).
 
 - **대시보드 로그인 인증 추가**: Cloudflare Tunnel로 my.tbd.kr을 외부에 노출 중인데 대시보드에 인증이 전혀 없어 URL만 알면 누구나 /register(실제 네이버 API 실행)·/orders(고객 주문정보)를 포함한 모든 페이지에 접근 가능했던 문제를 수정함(CODE_REVIEW.md 검토 중 발견). `dashboard/auth.py`의 `AuthMiddleware`가 `app.storage.user` 세션 기준으로 미인증 요청을 `/login`으로 리다이렉트. 단일 관리자 비밀번호 `DASHBOARD_PASSWORD`, 세션 서명 키 `DASHBOARD_STORAGE_SECRET` 둘 다 환경변수 필수(로컬/NAS `.env` 각각 설정 필요, 값이 없으면 대시보드 기동 자체가 실패함 — required 시크릿이므로 NAS 배포 전 반드시 추가). 로그아웃은 사이드바 LINKS 하단 링크(`/logout`).
 - **Price_History**: `NOCODB_HISTORY_TABLE_ID=mi258r3q4g5wu69`로 로컬/NAS 연결 완료, `/inventory`에서 운영 중. 이력이 막 쌓이기 시작한 단계라 "15일 이상 품절" 섹션은 아직 비어있음(정상, Sync가 쌓일수록 채워짐).
 - **자동 동기화 스케줄러**: NAS에서 가동 중(매일 09:00 KST 전체 + 4시간마다 확인 필요만). 트리거는 `sync_engine.start_background_scheduler()`의 `CronTrigger`/`IntervalTrigger`.
 - **Sync 겹침 방지**: `sync_engine.run_sync_guarded()`가 수동 버튼/스케줄러 공통 진입점(`_sync_lock`/`_sync_status`/`_sync_cancel_event`). 대시보드에 진행중 스피너+"⏹️ 중지" 버튼 있음, Sync 중엔 모든 버튼 비활성화.
+- **구매대행 서비스 확장 로드맵 Phase B(상품관리 확장) 완료**: 작업 트리에 미리 구현돼 있던 코드를 검토·검증 후 커밋. `sync_engine.process_single_record()`이 Brand 필드로 분기해 UniFi는 기존 리테일러 크롤링, 그 외 브랜드는 `official_scrapers`(Official_URL 필드) 공홈 크롤링을 우선 사용. 공홈 크롤링 실패도 Needs_Check에 반영되도록 수정(전엔 Check_Note에만 남고 확인 필요 목록에서 빠짐). `/register`에 "🛠️ 등록 파이프라인" 섹션 추가 - `main.py`/`run_pipeline.py`/`update_price_stock.py`/`fix_delivery_settings.py`를 dry-run(기본값)/limit/확인 다이얼로그/동시실행 방지 락과 함께 버튼으로 실행. `product_keywords.py`에 GL.inet 등 신규 브랜드용 카테고리(Mobile Router/Router) 매핑 추가. 검토 중 `sync_engine._run_naver_status_sync()`가 존재하지 않는 `_send_telegram_message()`를 호출하던 버그(정확한 이름은 `send_telegram_msg`) 발견/수정 - 스케줄러에 아직 미등록이라 실제 크래시는 없었음.
+- **⚠️ /smartstore "가격/재고 업데이트" 버튼 안전성 수정**: 같은 검토 중 발견 - 새로 추가된 `/smartstore` 페이지의 버튼이 호출하던 `sync_naver_price.py`가 하드코딩된 환율(1446.6)과 임의 재고값(999/0)으로 네이버 API에 필드 2개만 직접 PATCH하고 있었고, 다른 모든 데이터 수정 스크립트가 지키는 `--dry-run`/`--limit` 안전장치가 전혀 없어 클릭 즉시 라이브 상품 가격/재고를 잘못된 값으로 덮어쓸 위험이 있었음. `update_price_stock.py`의 검증된 GET-전체조회→PUT-전체 로직(`sale_price`/`In_Stock` 필드, 화이트/블랙 옵션 처리)을 재사용하도록 전면 재작성하고, 대시보드에 dry-run(기본값 켜짐)/limit/확인 다이얼로그를 추가함. Dry-run으로 실제 100개 상품 미리보기까지 검증 완료.
 - **화이트/블랙 색상 옵션**: 35개 Black 클론 로우 운영 중(`Product_Page="Clone"` 태깅, `create_color_variant_rows.py`가 생성). 27/35 B&H 코드 입력 완료, 색상 옵션이 필요한 15개 중 14개 네이버 반영 완료(`UniFi Reader Pro`만 화이트/블랙 둘 다 품절이라 보류). **`Product_Page == "Clone"` 로우는 독립된 상세페이지/등록이 필요 없는 "다른 로우의 색상 옵션"** — 대시보드 카운트나 상세페이지 생성 대상을 다룰 때 항상 감안할 것.
 - **대시보드 카운트**: `sync_engine.exclude_clone_rows()`로 Clone 로우를 제외한 실제 등록 상품(100개) 기준으로 집계(`home.py`/`category.py`/`needs_check.py`). `/inventory`처럼 색상별 추적이 목적인 곳만 원본 그대로 사용.
 - **ASIN 커버리지**: 84개 보유(화이트 73 + 블랙 11). 검토 원본은 `archive/data/asin_candidates.csv`.
@@ -103,10 +107,9 @@
 ## 4. 다음 작업 계획 (우선순위 순은 아니며, 이전에 합의된 로드맵)
 
 1. **검색 키워드 일괄 추가 완료**: 네이버 커머스API 센터에서 현재 IP 재등록 후 `update_product_names_with_keywords.py` 재실행 — 실패한 38개 상품 키워드 추가
-2. **구매대행 서비스 확장 로드맵** (상품등록→상품관리→주문관리→발주배송관리 4단계, Phase A/C 완료 — 3번 현재 상태 참고):
-   - **Phase B(상품관리 확장)**: `official_scrapers`/`retailer_search` 크롤러를 `sync_engine`의 자동 스케줄러/needs_check 로직에 연결해 신규 브랜드 상품도 자동 추적되게 하기. 신규 브랜드 상품이 `product_keywords.py`의 카테고리 자동선택 로직을 못 타는 경우 예외 처리. 대시보드 "상품 등록" 페이지에서 `main.py`/`run_pipeline.py`/`update_price_stock.py`/`fix_delivery_settings.py`를 버튼으로 실행(dry-run/limit 안전장치 포함)하는 것도 이 단계에 포함(예전엔 "대시보드 Phase 2"로 불렀던 항목)
-   - **Phase D(발주 및 배송관리)**: 포워더 에코트랜스(API 없음, xlsx 대량등록 가능) 신청서 자동생성 + 송장 조회 자동화, 카카오 알림톡 연동(비즈니스 채널·발신프로필·템플릿 사전승인 필요 — 승인 대기시간이 기니 착수 전 미리 신청 권장)
-   - **브랜드 확장**: UniFi+GL.inet 다음 브랜드(헤드폰 등)는 `official_scrapers`에 어댑터 추가로 온보딩 (Shopify 기반이면 `shopify.py` 그대로 재사용 가능)
+2. **구매대행 서비스 확장 로드맵** (상품등록→상품관리→주문관리→발주배송관리 4단계, Phase A/B/C 완료 — 3번 현재 상태 참고):
+   - **Phase D(발주 및 배송관리, 남은 유일한 단계)**: 포워더 에코트랜스(API 없음, xlsx 대량등록 가능) 신청서 자동생성 + 송장 조회 자동화, 카카오 알림톡 연동(비즈니스 채널·발신프로필·템플릿 사전승인 필요 — 승인 대기시간이 기니 착수 전 미리 신청 권장)
+   - **브랜드 확장**: UniFi+GL.inet 다음 브랜드(헤드폰 등)는 `official_scrapers`에 어댑터 추가로 온보딩 (Shopify 기반이면 `shopify.py` 그대로 재사용 가능). Phase B가 Brand 필드 분기까지 갖춰뒀으니 새 브랜드는 NocoDB에 Brand/Official_URL만 채우면 자동 추적됨
 3. **대시보드 디자인 디테일 폴리싱**: 호버 상태, 아바타칩 실사용 등 (위 구매대행 로드맵과 무관한 별도 작업, 예전 "대시보드 Phase 3")
 4. NocoDB에 다른 카테고리(Gateway, Routing 등)에도 미등록(`Naver_Product_No` 없음) 상품이 더 있는지 확인 — 사용자가 원하면 계속 등록 확장
 5. **가격/재고 이력 기능 관찰**: NAS 배포는 완료됐으니, 앞으로 몇 차례 Sync를 돌려서 `Price_History`에 실제 이력이 잘 쌓이는지, `/inventory`의 "15일 이상 품절" 섹션이 시간이 지나며 의도대로 채워지는지 확인
