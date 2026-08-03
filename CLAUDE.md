@@ -74,7 +74,7 @@
 - **Price_History**: `NOCODB_HISTORY_TABLE_ID=mi258r3q4g5wu69`로 로컬/NAS 연결 완료, `/inventory`에서 운영 중. 이력이 막 쌓이기 시작한 단계라 "15일 이상 품절" 섹션은 아직 비어있음(정상, Sync가 쌓일수록 채워짐).
 - **자동 동기화 스케줄러**: NAS에서 가동 중(매일 09:00 KST 전체 + 4시간마다 확인 필요만). 트리거는 `sync_engine.start_background_scheduler()`의 `CronTrigger`/`IntervalTrigger`.
 - **Sync 겹침 방지**: `sync_engine.run_sync_guarded()`가 수동 버튼/스케줄러 공통 진입점(`_sync_lock`/`_sync_status`/`_sync_cancel_event`), 취소 직후 재시작 시 구세대 워커가 덮어쓰지 않도록 세대(generation) 번호로도 보호됨. 대시보드에 진행중 스피너+"⏹️ 중지" 버튼, Sync 중엔 모든 버튼 비활성화. (55, 64)
-- **구매대행 서비스 확장 로드맵**: Phase A(상품등록 공홈 크롤링)/B(상품관리)/C(주문관리)/D(발주·배송, 카카오 메시지 제외) 전부 완료. 로컬에서 실제 주문으로 검증까지 끝남 - **my.tbd.kr 배포는 아직**(NAS `.env`에 `NOCODB_ORDER_TABLE_ID` 추가 + `docker-compose up -d --build` 필요, Dockerfile에 `openpyxl` 추가함). 남은 건 카카오 알림톡(API 키/템플릿 승인 대기)뿐 — 계획은 4번 참고. (58-59, 60, 71-72, 74, 80)
+- **구매대행 서비스 확장 로드맵**: Phase A(상품등록 공홈 크롤링)/B(상품관리)/C(주문관리)/D(발주·배송, 카카오 메시지 제외) 전부 완료 + **my.tbd.kr 배포/검증까지 끝남**(NAS `.env`에 `NOCODB_ORDER_TABLE_ID` 추가, Dockerfile에 `openpyxl` 추가 후 `docker-compose up -d --build` 완료 — `/purchase`/`/shipping`/`/settings` 전부 my.tbd.kr에서 실제 주문 데이터로 확인함). 남은 건 카카오 알림톡(API 키/템플릿 승인 대기)뿐 — 계획은 4번 참고. (58-59, 60, 71-72, 74, 80)
 - **화이트/블랙 색상 옵션**: 35개 Black 클론 로우 운영 중(`Product_Page="Clone"` 태깅, `create_color_variant_rows.py`가 생성). 27/35 B&H 코드 입력 완료, 색상 옵션이 필요한 15개 중 14개 네이버 반영 완료(`UniFi Reader Pro`만 화이트/블랙 둘 다 품절이라 보류). **`Product_Page == "Clone"` 로우는 독립된 상세페이지/등록이 필요 없는 "다른 로우의 색상 옵션"** — 대시보드 카운트나 상세페이지 생성 대상을 다룰 때 항상 감안할 것.
 - **대시보드 카운트**: `sync_engine.exclude_clone_rows()`로 Clone 로우를 제외한 실제 등록 상품(100개) 기준으로 집계(`home.py`/`category.py`/`needs_check.py`). `/inventory`처럼 색상별 추적이 목적인 곳만 원본 그대로 사용.
 - **ASIN 커버리지**: 84개 보유(화이트 73 + 블랙 11). 검토 원본은 `archive/data/asin_candidates.csv`.
@@ -103,9 +103,8 @@
 ## 4. 다음 작업 계획 (우선순위 순은 아니며, 이전에 합의된 로드맵)
 
 1. **검색 키워드 일괄 추가 완료**: 네이버 커머스API 센터에서 현재 IP 재등록 후 `update_product_names_with_keywords.py` 재실행 — 실패한 38개 상품 키워드 추가
-2. **구매대행 서비스 확장 로드맵** (상품등록→상품관리→주문관리→발주배송관리 4단계, Phase A/B/C/D(발주·배송) 완료 — 3번 현재 상태 참고):
-   - **my.tbd.kr 배포**: NAS `.env`에 `NOCODB_ORDER_TABLE_ID` 추가 + `docker-compose up -d --build`(Dockerfile에 `openpyxl` 추가됨, 재빌드 필요) — 로컬 검증만 끝난 상태
-   - **카카오 알림톡 연동(Phase D 나머지)**: 비즈니스 채널·발신프로필·템플릿 사전승인 필요 — 승인 대기시간이 기니 착수 전 미리 신청 권장. 승인 나면 `order_fulfillment.py`의 상태 전환 지점(발주완료/현지배송시작/배송대행지신청/국제배송/발송완료)에 알림 발송 훅을 추가하면 됨
+2. **구매대행 서비스 확장 로드맵** (상품등록→상품관리→주문관리→발주배송관리 4단계, Phase A/B/C/D(발주·배송) 완료 + my.tbd.kr 배포/검증까지 끝남 — 3번 현재 상태 참고):
+   - **카카오 알림톡 연동(Phase D 나머지, 로드맵상 유일하게 남은 항목)**: 비즈니스 채널·발신프로필·템플릿 사전승인 필요 — 승인 대기시간이 기니 착수 전 미리 신청 권장. 승인 나면 `order_fulfillment.py`의 상태 전환 지점(발주완료/현지배송시작/배송대행지신청/국제배송/발송완료)에 알림 발송 훅을 추가하면 됨
    - **브랜드 확장**: UniFi+GL.inet 다음 브랜드(헤드폰 등)는 `official_scrapers`에 어댑터 추가로 온보딩 (Shopify 기반이면 `shopify.py` 그대로 재사용 가능). Phase B가 Brand 필드 분기까지 갖춰뒀으니 새 브랜드는 NocoDB에 Brand/Official_URL만 채우면 자동 추적됨
 3. **대시보드 디자인 디테일 폴리싱**: 호버 상태, 아바타칩 실사용 등 (위 구매대행 로드맵과 무관한 별도 작업, 예전 "대시보드 Phase 3")
 4. NocoDB에 다른 카테고리(Gateway, Routing 등)에도 미등록(`Naver_Product_No` 없음) 상품이 더 있는지 확인 — 사용자가 원하면 계속 등록 확장
