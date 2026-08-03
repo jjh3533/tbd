@@ -48,17 +48,14 @@ def frame(active_path: str):
             sub_cls = "tbd-nav-link tbd-nav-sub active" if brand_href == active_path else "tbd-nav-link tbd-nav-sub"
             ui.html(f'<a class="{sub_cls}" href="{brand_href}">{brand_label}</a>', sanitize=False)
 
-      sales_expanded = active_path in ("/orders", "/purchase", "/shipping")
       ui.html('<div class="tbd-nav-label">SALES</div>', sanitize=False)
       for label, href in [
           ("🛒 주문", "/orders"),
+          ("📝 발주", "/purchase"),
+          ("🚚 배송", "/shipping"),
       ]:
         active_cls = "tbd-nav-link active" if href == active_path else "tbd-nav-link"
         ui.html(f'<a class="{active_cls}" href="{href}">{label}</a>', sanitize=False)
-        if href == "/orders" and sales_expanded:
-          for sub_label, sub_href in [("📝 발주", "/purchase"), ("🚚 배송", "/shipping")]:
-            sub_cls = "tbd-nav-link tbd-nav-sub active" if sub_href == active_path else "tbd-nav-link tbd-nav-sub"
-            ui.html(f'<a class="{sub_cls}" href="{sub_href}">{sub_label}</a>', sanitize=False)
 
       ui.html('<div class="tbd-nav-label">COMMON</div>', sanitize=False)
       for label, href in [
