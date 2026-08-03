@@ -56,7 +56,7 @@
 
 ## 3. 현재 상태
 
-알려진 미해결 버그나 진행 중인 작업 없음. 세부 경위는 `HISTORY.md` 참고 (항목 42~61).
+알려진 미해결 버그: 클레임 조회 API 엔드포인트가 404(정확한 경로 미확인, 아래 항목 참고). 그 외 진행 중인 작업 없음. 세부 경위는 `HISTORY.md` 참고 (항목 42~62).
 
 - **코드 리뷰 기반 수정 완료**: `CODE_REVIEW.md`(ChatGPT 검토, 2026-08-02)를 실제 코드와 대조 검증 후 우선순위를 다시 매겨 전부 대응함:
   - P0 대시보드 로그인 인증 (아래 항목 참고), P1 NocoDB 갱신 실패 전파+Price History 순서, Sync 취소 후 세대(generation) 기반 레이스 방지, 주문 "최근 7일" 하루 단위 분할 조회 — 커밋 완료.
@@ -74,7 +74,8 @@
 - **UniFi Store 링크**: `product_slug_map.json` 매칭으로 160/160 전부 연결(로컬/NAS 양쪽). 이 파일은 NAS 배포 시 누락되기 쉬우니 코드 배포할 때 항상 같이 올릴 것.
 - **구매대행 서비스 확장 로드맵 Phase A(상품등록 공홈 크롤링) 완료**: `/register`에서 크롤링→미리보기→리테일러 후보 검색→저장까지 my.tbd.kr에 실제 배포/검증 완료(UniFi/GL.inet). 이미지 다운로드는 `/app/dev/smartstore`(위 외부 폴더 참고)에 "{Brand} {Model Number}" 폴더명으로 저장됨(위 Product Images 폴더 규칙 참고). 기존 Product Images 폴더 전체도 이 규칙으로 정리 완료(154개 이름변경 + 19개 중복 삭제, NocoDB에 없는 33개는 보류). 전체 로드맵과 남은 단계(B/D)는 4번 참고
 - **GL.iNet 브랜드 지원 추가**: `dashboard/pages/brand.py` 신규 추가. `/brand/unifi`, `/brand/glinet` 라우트로 브랜드별 상품 리스트 제공. 검색·정렬(카테고리순/이름A-Z·Z-A/가격낮은순·높은순)·카테고리 필터 포함, 필터 변경 시 테이블 즉시 갱신. Brand 필드 기준 필터링(Brand 미설정 시 Category 폴백). 사이드바 "📋 상품 리스트" 서브메뉴가 카테고리 목록 대신 UniFi/GL.iNet 브랜드 링크로 교체됨. GL.iNet 크롤링 시 SKU에 "GLiNet " 접두사 자동 추가(`register.py`의 `_BRAND_SKU_PREFIXES`). **GL.iNet 신규 상품 등록 시 NocoDB Category는 "WiFi"로 설정** — `/brand/glinet` 페이지는 Category 무관하게 Brand 필드로 필터링하므로 정상 조회됨
-- **구매대행 서비스 확장 로드맵 Phase C(주문관리) 완료**: `/orders` 페이지에서 네이버 Pay-Order/Claims API로 주문 목록 및 클레임 조회 기능 구현 완료. `naver_order_api.py`(API 클라이언트) + `dashboard/pages/orders.py`(UI) 추가. **로컬 전용 기능**(NAS는 네이버 시크릿 없음) — `orders.py`가 lazy import로 `naver_order_api`를 함수 내부에서만 불러와 NAS 기동 시 에러 방지. Dockerfile에 `bcrypt` 의존성 추가 (auth.py의 전자서명용)
+- **구매대행 서비스 확장 로드맵 Phase C(주문관리)**: `/orders` 페이지에서 네이버 Pay-Order/Claims API로 주문 목록 및 클레임 조회 기능 구현. `naver_order_api.py`(API 클라이언트) + `dashboard/pages/orders.py`(UI) 추가. **로컬 전용 기능**(NAS는 네이버 시크릿 없음) — `orders.py`가 lazy import로 `naver_order_api`를 함수 내부에서만 불러와 NAS 기동 시 에러 방지. Dockerfile에 `bcrypt` 의존성 추가 (auth.py의 전자서명용). **주의**: 최초 구현 당시 실제 주문으로 검증을 못 해봐서 주문 목록 조회가 처음부터 동작한 적이 없었음(2026-08-03에 실제 주문 미표시 제보로 발견/수정 - 아래 항목 참고). 클레임 조회(`/product-order-claims`)는 아직도 404 - 정확한 엔드포인트 경로 미확인(공식 문서 사이트 `apicenter.commerce.naver.com` 접근 불가라 WebFetch로 확인 못함), 클레임 기능이 실제로 필요해지면 그때 재조사 필요
+- **주문 목록 미표시 버그 수정**: `naver_order_api.get_product_orders()`가 실제 API 응답 구조(`{"data": {"contents": [...]}}`로 중첩·래핑됨)를 잘못 가정해 항상 0건으로 파싱되던 문제 + `dashboard/pages/orders.py`가 설치된 NiceGUI(3.15.0)엔 없는 `ui.run.io_bound`를 호출해(→ `nicegui.run.io_bound`가 맞음) 매번 `AttributeError`가 나던 문제, 두 개를 동시에 수정. 실제 주문(2026080346978511)으로 정상 표시 확인. bare `except Exception`이 에러를 조용히 삼켜서 오래 못 알아챘던 사례 - 이후 실패 시 최소 print 로그를 남기도록 함
 - **상세페이지 제작 대시보드 도구 추가 (2026-08-03, my.tbd.kr 배포 완료)**: 지금까지 상세페이지(`.dc.html`)는 매번 대화로 `build_pages.py` 헬퍼를 손으로 조합하는 1회성 스크립트(`gen_*.py`)를 짜야 해서 상품 하나당 비용이 컸음 — 이걸 사이드바 "➕ 신규등록" 하위 메뉴 "🖼️ 상세페이지 제작"(`/detail-page-builder`)으로 옮겨서, 카피라이팅(태그라인/Why 3카드/Design/Tech Specs)만 사람이 폼에 채우면 `.dc.html` 조립·PNG export는 코드가 처리하게 만듦. 엔진은 `product_pages/scripts/build_detail_page.py`(브랜드 무관, "콘텐츠 브리프" dict 하나로 동작). 저장된 브리프는 `Product Pages_html/briefs/<slug>.json`에 남아서 나중에 같은 상품을 다시 고칠 때 "저장된 브리프 불러오기"로 처음부터 안 타이핑해도 됨. NocoDB SKU 검색으로 브랜드/상품명/이미지폴더명 자동채움도 지원.
   - 이 작업 중 `build_pages.py`(`HEAD`/`TRUST_TO_FOOTER`/`hero()`/`why_section()`)를 브랜드 파라미터화함(`UNIFI_BRAND`/`GLINET_BRAND`) — 기존 100개 UniFi 페이지 재생성 결과가 리팩터 전후 byte-identical임을 diff로 확인했고, 새 GL.iNet 로고 에셋(`assets/common/common_logo-glinet(-white).svg`, 사용자 제공)도 이때 반입함.
   - **GL.iNet 최초 상세페이지 제작 완료**: Slate 7(GL-BE3600), `GLiNET Supply - Slate 7.dc.html`. 스펙은 NocoDB에 없어서(크롤링 설명은 미리보기용, 저장 안 됨) 공식 문서/리뷰를 재조사해서 채움.
