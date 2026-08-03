@@ -149,10 +149,11 @@ def get_recipient_info(product_order_id: str) -> dict:
     네이버 Pay-Order API 응답을 직접 확인한 결과, 우편번호/주소/연락처/
     수령인명은 productOrder.shippingAddress에 구조화된 필드로 들어있지만
     **개인통관고유부호는 이 API 어디에도 없다**(order/productOrder 키를
-    전부 확인함 - 없음). 이 상품이 네이버에 "일반" 배송 타입으로 등록돼
-    있어서(해외구매대행 전용 배송 타입이 아니라) 네이버가 애초에 그 값을
-    수집/노출하지 않는 것으로 보인다. 그래서 personal_customs_code는 여기서
-    채우지 않고 항상 빈 문자열로 돌려준다 - 수동 입력이 필요하다.
+    전부 확인함 - 없음). 사용자 확인: 네이버 스마트스토어센터의 "해외" 상품
+    항목이 아직 활성화되지 않아서 그렇다 - 활성화되면 개인통관고유부호를
+    수집하는 필드가 주문에 생길 것으로 예상됨(그때 이 함수에 파싱 추가
+    필요). 그 전까지 personal_customs_code는 항상 빈 문자열로 돌려준다 -
+    수동 입력이 필요하다.
 
     Returns:
         dict: {recipient_name_kr, recipient_phone, recipient_postal_code,
