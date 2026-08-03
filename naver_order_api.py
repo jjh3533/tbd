@@ -38,6 +38,25 @@ def _to_kst(dt: datetime) -> datetime:
     return dt.astimezone(_KST)
 
 
+def _flatten_order(entry: dict) -> dict:
+  """API가 돌려주는 중첩 구조({"productOrderId": ..., "content": {"order": {...},
+  "productOrder": {...}}})를 dashboard/pages/orders.py가 기대하는 평평한 필드
+  (productOrderId/orderDate/productName/quantity/totalPaymentAmount/ordererName/
+  orderStatus)로 펼친다."""
+  content = entry.get("content") or {}
+  order = content.get("order") or {}
+  product_order = content.get("productOrder") or {}
+  return {
+      "productOrderId": entry.get("productOrderId") or product_order.get("productOrderId", ""),
+      "orderDate": order.get("orderDate", ""),
+      "productName": product_order.get("productName", ""),
+      "quantity": product_order.get("quantity", 0),
+      "totalPaymentAmount": product_order.get("totalPaymentAmount", 0),
+      "ordererName": order.get("ordererName", ""),
+      "orderStatus": product_order.get("productOrderStatus", ""),
+  }
+
+
 def get_product_orders(
     from_date: Optional[datetime] = None,
     to_date: Optional[datetime] = None,
@@ -53,7 +72,11 @@ def get_product_orders(
         order_type: 변경 유형 (PAY_DATE, ORDER_DATE, DISPATCH_DATE 등)
 
     Returns:
-        dict: {"content": [...], "page": {...}} 형식의 응답
+        dict: {"content": [...]} 형식 - 실제 API 응답은
+        {"data": {"contents": [{"productOrderId": ..., "content": {"order": {...},
+        "productOrder": {...}}}]}} 처럼 중첩·래핑되어 있어(문서와 다름 - 실제
+        주문으로 검증하기 전까진 몰랐음, 이 때문에 항상 0건으로 조회되고 있었음),
+        여기서 언래핑 + 평탄화해서 돌려준다.
     """
     if from_date is None:
         from_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -80,7 +103,9 @@ def get_product_orders(
         timeout=30,
     )
     resp.raise_for_status()
-    return resp.json()
+    payload = resp.json()
+    contents = ((payload.get("data") or {}).get("contents")) or []
+    return {"content": [_flatten_order(e) for e in contents]}
 
 
 def get_product_order_detail(product_order_id: str) -> dict:

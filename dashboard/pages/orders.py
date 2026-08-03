@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from nicegui import ui
+from nicegui import run, ui
 
 from dashboard import components, layout
 
@@ -124,12 +124,16 @@ def orders_page() -> None:
                 failed_days: list[str] = []
                 for from_date, to_date in windows:
                     try:
-                        loop = ui.run.io_bound(
+                        loop = run.io_bound(
                             lambda f=from_date, t=to_date: naver_order_api.get_product_orders(f, t)
                         )
                         data = await loop
                         order_lists.append(data.get("content", []))
-                    except Exception:
+                    except Exception as e:  # noqa: BLE001
+                        # 예전엔 여기서 원인을 아예 버려서, ui.run.io_bound가
+                        # 이 NiceGUI 버전엔 없는 API(정확히는 nicegui.run.io_bound)라
+                        # 매번 조회가 조용히 실패하고 있던 걸 한참 못 알아챘다.
+                        print(f"주문 조회 실패 ({from_date.strftime('%m/%d')}): {e}")
                         failed_days.append(from_date.strftime("%m/%d"))
 
                 orders = list(_merge_orders_by_id(order_lists).values())
@@ -172,7 +176,7 @@ def orders_page() -> None:
                 from_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
                 to_date = from_date + timedelta(hours=23, minutes=59, seconds=59)
 
-                loop = ui.run.io_bound(lambda: naver_order_api.get_product_order_claims(from_date, to_date))
+                loop = run.io_bound(lambda: naver_order_api.get_product_order_claims(from_date, to_date))
                 data = await loop
 
                 claims = data.get("content", [])
