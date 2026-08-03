@@ -299,18 +299,3 @@ def reject_claim(claim_no: str, reason: str) -> dict:
     )
     resp.raise_for_status()
     return resp.json()
-
-
-# 택배사 코드 매핑 (주요 업체만)
-DELIVERY_COMPANIES = {
-    "CJ대한통운": "CJGLS",
-    "우체국택배": "EPOST",
-    "로젠택배": "LOGEN",
-    "한진택배": "HANJIN",
-    "롯데택배": "LOTTE",
-    "경동택배": "KDEXP",
-    "대신택배": "DAESIN",
-    "일양로지스": "ILYANG",
-    "합동택배": "HDEXP",
-    "CVSnet": "CVSNET",
-}

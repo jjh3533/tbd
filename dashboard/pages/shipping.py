@@ -15,7 +15,7 @@ from datetime import date, datetime
 from nicegui import ui
 
 import iecot_export
-import naver_config
+import naver_delivery_companies
 import order_fulfillment as of
 from dashboard import components, layout
 
@@ -158,6 +158,7 @@ def shipping_page() -> None:
         return
 
       preview_only = ui.checkbox("미리보기만 (실제 발송 처리 안 함)", value=True).classes("mb-2")
+      company_options = naver_delivery_companies.delivery_company_options()
 
       for r in rows:
         f = r["fields"]
@@ -167,12 +168,17 @@ def shipping_page() -> None:
             ui.label(
                 f"주문번호 {f.get('naver_product_order_id', '')} · 국제송장 {f.get('intl_tracking_number', '')}"
             ).classes("text-xs text-tbd-text-secondary")
+          company_select = ui.select(
+              company_options,
+              value=naver_delivery_companies.DEFAULT_DELIVERY_COMPANY,
+              label="택배사",
+          ).classes("w-56")
 
-          async def _dispatch(r=r, f=f):
+          async def _dispatch(r=r, f=f, company_select=company_select):
             payload = {
                 "product_order_id": f.get("naver_product_order_id", ""),
                 "dispatch_date": date.today().isoformat(),
-                "delivery_company": naver_config.DELIVERY_COMPANY,  # "ACE" (ACE Express Inc.) - naver_config.py 참고
+                "delivery_company": company_select.value,
                 "tracking_number": f.get("intl_tracking_number", ""),
             }
             if preview_only.value:
