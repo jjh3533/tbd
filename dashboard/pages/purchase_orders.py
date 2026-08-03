@@ -1,9 +1,12 @@
 """발주 (/purchase) - 주문관리 2단계.
 
 스마트스토어에 들어온 신규 주문 중 아직 현지(미국) 사이트에서 발주하지 않은
-건을 찾아 주문정보(발주 사이트/로컬 주문번호/단가)를 등록하고, 이미 발주한
-건은 현지배송 시작 시 현지 배송번호를 입력한다. 현지배송 송장이 입력되면
-"현지배송 시작"으로 간주한다 (TBD Pipeline.md의 규칙 그대로).
+건을 찾아 주문정보(발주 사이트/로컬 주문번호/단가)를 등록한다.
+
+**현지배송 등록은 이 페이지가 아니라 /shipping에 있다** - 현지(미국) 배송
+송장은 실제로는 배송대행지 신청서 생성·국제배송 송장 등록보다 나중에 나오는
+경우가 많아서, 등록 시점 순서상 /shipping의 "국제배송 송장 등록" 다음
+단계로 옮겨져 있다.
 
 Order_Fulfillment 데이터는 NocoDB에만 쓰는 가벼운 작업이라(라이브 네이버 API
 호출 없음) primary_button을 쓴다 - 되돌리기 쉬움(NocoDB UI에서 바로 삭제 가능).
@@ -71,26 +74,21 @@ def purchase_orders_page() -> None:
       nocodb_records = safe_fetch_records(on_error=lambda msg: ui.notify(msg, type="negative"))
 
       awaiting_purchase = []  # 로컬 주문번호 없음
-      awaiting_shipping = []  # 로컬 주문번호는 있는데 현지배송번호 없음
-      in_progress = 0
+      purchased = 0  # 로컬 주문번호 있음 (이후 단계는 /shipping에서 진행)
       for o in orders:
         order_id = o.get("productOrderId")
         row = by_id.get(order_id)
         fields = row["fields"] if row else {}
         if not fields.get("local_order_number"):
           awaiting_purchase.append(o)
-        elif not fields.get("local_tracking_number"):
-          awaiting_shipping.append((o, row))
         else:
-          in_progress += 1
+          purchased += 1
 
       with stat_row:
         with ui.column().classes("flex-1 min-w-0"):
           components.stat_card("발주대기", len(awaiting_purchase), "warning")
         with ui.column().classes("flex-1 min-w-0"):
-          components.stat_card("현지배송 등록대기", len(awaiting_shipping), "accent")
-        with ui.column().classes("flex-1 min-w-0"):
-          components.stat_card("현지배송중 이후", in_progress, "success")
+          components.stat_card("발주완료", purchased, "success")
 
       with content:
         components.section_header("신규 발주 대기", "현지(미국) 사이트에서 주문 완료 후 주문정보를 입력하세요.")
@@ -98,14 +96,6 @@ def purchase_orders_page() -> None:
           ui.label("발주 대기 중인 주문이 없습니다.").classes("text-sm text-tbd-text-secondary")
         for o in awaiting_purchase:
           _render_purchase_row(o, nocodb_records)
-
-        ui.separator().classes("my-6")
-
-        components.section_header("현지배송 등록", "현지배송 송장을 입력하면 '현지배송중'으로 전환됩니다.")
-        if not awaiting_shipping:
-          ui.label("현지배송 등록 대기 중인 주문이 없습니다.").classes("text-sm text-tbd-text-secondary")
-        for o, row in awaiting_shipping:
-          _render_shipping_row(o, row)
 
     def _render_purchase_row(order: dict, nocodb_records: list[dict]):
       order_id = order.get("productOrderId", "")
@@ -148,32 +138,5 @@ def purchase_orders_page() -> None:
           await _refresh()
 
         components.primary_button("발주 등록", on_click=_save)
-
-    def _render_shipping_row(order: dict, row: dict):
-      order_id = order.get("productOrderId", "")
-      product_name = order.get("productName", "")
-      fields = row["fields"]
-
-      with ui.row().classes("w-full gap-3 items-end tbd-card").style("padding: 16px;"):
-        with ui.column().classes("gap-0"):
-          ui.label(product_name[:40]).classes("text-sm font-semibold")
-          ui.label(
-              f"주문번호 {order_id} · {fields.get('purchase_site', '')} · "
-              f"로컬주문번호 {fields.get('local_order_number', '')}"
-          ).classes("text-xs text-tbd-text-secondary")
-        tracking_input = ui.input("현지 배송번호").classes("w-48")
-
-        async def _save(row=row, tracking_input=tracking_input):
-          if not tracking_input.value:
-            ui.notify("현지 배송번호를 입력하세요.", type="negative")
-            return
-          of.update_fields(row["id"], {
-              "local_tracking_number": tracking_input.value,
-              "purchase_status": "현지배송중",
-          })
-          ui.notify("현지배송 등록 완료 - 현지배송중으로 전환됩니다.", type="positive")
-          await _refresh()
-
-        components.primary_button("배송 등록", on_click=_save)
 
     ui.timer(0.1, _refresh, once=True)
