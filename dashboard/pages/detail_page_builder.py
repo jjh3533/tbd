@@ -2,7 +2,7 @@
 
 product_pages/scripts/build_detail_page.py(브랜드 무관 상세페이지 생성 엔진)를
 폼으로 감싼 페이지. 오퍼레이터가 카피(태그라인/Why 카드/스펙 등)를 직접 채워
-넣으면 .dc.html 조립과 PNG export는 전부 코드가 처리한다 - 매 상품마다 AI
+넣으면 HTML 조립과 PNG export는 전부 코드가 처리한다 - 매 상품마다 AI
 대화로 전체 파이프라인을 새로 훑지 않아도 되게 하는 게 목적.
 
 my.tbd.kr(NAS)에서도 전체 기능(이미지 폴더 접근·PNG export 포함)이 동작한다
@@ -30,9 +30,8 @@ _N_WHY_CARDS = 3
 
 
 def _find_nocodb_record(records: list[dict], identity: str) -> dict | None:
-  """identity(보통 state["model_number"] - "🔎 NocoDB에서 불러오기"로 상품을
-  골랐을 때 그 레코드의 "Model Number"(없으면 SKU)를 고정해둔 값, 필드명에
-  공백이 있음 주의: `Model_Number`가 아님)로 NocoDB Products 레코드를 찾는다.
+  """identity(보통 state["sku"] - "🔎 NocoDB에서 불러오기"로 상품을 골랐을 때
+  그 레코드의 SKU를 고정해둔 값)로 NocoDB Products 레코드를 찾는다.
   title_input.value(사람이 마케팅 문구로 자유롭게 다듬는 값)는 매칭 기준으로
   쓰면 안 됨 - 정확히 그 값과 일치하는 레코드를 찾으면 된다(발주/주문
   매칭처럼 부분일치가 아니라 정확일치 - 이 값 자체가 그 필드에서 그대로
@@ -50,7 +49,7 @@ def _find_nocodb_record(records: list[dict], identity: str) -> dict | None:
 
 _SCRIPTS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "product_pages", "scripts")
 
-# 완성된 .dc.html이 있는 폴더 - Synology CloudSync로 NAS에도 동기화되어
+# 완성된 HTML이 있는 폴더 - Synology CloudSync로 NAS에도 동기화되어
 # 있어(TBD_SEOUL_ROOT 참고, 다만 CloudSync 반영이 늦거나 안 될 때가 있었음
 # - CLAUDE.md 참고) my.tbd.kr에서도 미리보기가 그대로 동작한다. PNG export도
 # 2026-08-03부터 NAS Dockerfile에 Playwright를 추가해 my.tbd.kr에서 동작한다.
@@ -81,12 +80,12 @@ def detail_page_builder_page() -> None:
         "html_path": None,
         "slug": None,
         "spec_rows": [],  # list[(label_input, value_input)]
-        # NocoDB 검색으로 상품을 골랐을 때의 "Model Number"(없으면 SKU) -
-        # title_input.value는 사람이 마케팅 문구로 자유롭게 다듬는 게 정상
-        # 워크플로우라, 파일명/NocoDB Product_Page 매칭은 title이 아니라
+        # NocoDB 검색으로 상품을 골랐을 때의 SKU - title_input.value는 사람이
+        # 마케팅 문구로 자유롭게 다듬는 게 정상 워크플로우라, 파일명("{SKU}.html",
+        # 사용자 확정 2026-08-04)/NocoDB Product_Page 매칭은 title이 아니라
         # 이 안정적인 식별자를 기준으로 한다(title만 쓰면 다듬을 때마다
         # 파일명이 바뀌고 매칭도 깨짐 - 사용자가 실사용 중 발견, 2026-08-04).
-        "model_number": "",
+        "sku": "",
     }
 
     # ------------------------------------------------------------------
@@ -235,7 +234,7 @@ def detail_page_builder_page() -> None:
     components.section_header("5) 생성")
     with ui.row().classes("w-full gap-3 mb-2"):
       save_brief_button = ui.button("💾 브리프 저장").props("outline")
-      generate_button = components.primary_button("1) .dc.html 생성")
+      generate_button = components.primary_button("1) HTML 생성")
       export_button = components.primary_button("2) PNG로 Export")
       export_button.disable()
 
@@ -249,7 +248,7 @@ def detail_page_builder_page() -> None:
     # ------------------------------------------------------------------
     components.section_header("6) 완성된 상세페이지 보기")
     ui.label(
-        "지금까지 만든 .dc.html을 브라우저 새 탭에서 그대로 열어봅니다 - "
+        "지금까지 만든 HTML을 브라우저 새 탭에서 그대로 열어봅니다 - "
         "PNG export 없이도 실제 레이아웃을 바로 확인할 수 있어요."
     ).classes("text-sm text-tbd-text-secondary mb-2")
 
@@ -302,9 +301,9 @@ def detail_page_builder_page() -> None:
             brand_select.value = brand if brand in ("UniFi", "GL.inet") else "UniFi"
             model_number = (fields.get("Model Number") or "").strip()
             title_input.value = model_number or fields.get("SKU", "")
-            # title_input은 이후 사람이 마케팅 문구로 다듬을 수 있지만, 이
-            # 식별자는 그대로 고정해서 파일명/Product_Page 매칭에 쓴다.
-            state["model_number"] = model_number or fields.get("SKU", "")
+            # title_input은 이후 사람이 마케팅 문구로 다듬을 수 있지만, SKU는
+            # 그대로 고정해서 파일명("{SKU}.html")/Product_Page 매칭에 쓴다.
+            state["sku"] = fields.get("SKU", "")
             folder_brand = {"UniFi": "UniFi", "GL.inet": "GLiNET"}.get(brand_select.value, brand_select.value)
             if model_number:
               image_folder_input.value = f"{folder_brand} {model_number}"
@@ -356,7 +355,7 @@ def detail_page_builder_page() -> None:
 
       brand_select.value = brief.get("brand", "UniFi")
       title_input.value = brief.get("title", "")
-      state["model_number"] = brief.get("model_number", "")
+      state["sku"] = brief.get("sku", "")
       tagline_input.value = brief.get("tagline", "")
       state["hero_source"] = brief.get("hero_source")
       state["design_source"] = brief.get("design_source")
@@ -586,7 +585,7 @@ def detail_page_builder_page() -> None:
       return {
           "brand": brand_select.value,
           "title": title,
-          "model_number": state["model_number"],
+          "sku": state["sku"],
           "tagline": tagline_input.value or "",
           "hero_source": state["hero_source"],
           "why_headline": why_headline_input.value or "",
@@ -615,7 +614,7 @@ def detail_page_builder_page() -> None:
 
     save_brief_button.on_click(_do_save_brief)
 
-    # -- .dc.html 생성 -----------------------------------------------------
+    # -- HTML 생성 -----------------------------------------------------
     async def _do_generate():
       brief = _collect_brief()
       if not brief:
@@ -631,7 +630,7 @@ def detail_page_builder_page() -> None:
         html_path, slug = await loop.run_in_executor(None, bdp.write_page, brief)
       except Exception as e:  # noqa: BLE001
         build_log.push(f"실패: {e}")
-        ui.notify(f".dc.html 생성 실패: {e}", type="negative")
+        ui.notify(f"HTML 생성 실패: {e}", type="negative")
         return
       finally:
         generate_button.props(remove="loading")
@@ -640,17 +639,17 @@ def detail_page_builder_page() -> None:
       state["slug"] = slug
       build_log.push(f"완료: {html_path}")
       export_button.enable()
-      ui.notify(".dc.html 생성 완료 - PNG Export를 진행하세요.", type="positive")
+      ui.notify("HTML 생성 완료 - PNG Export를 진행하세요.", type="positive")
 
       # 상세페이지를 만들었으면 그 상품의 NocoDB Product_Page도 "Detail"로
-      # 반영한다(사용자 요청 2026-08-03) - 실패해도 .dc.html 생성 자체는 이미
+      # 반영한다(사용자 요청 2026-08-03) - 실패해도 HTML 생성 자체는 이미
       # 끝난 상태라 best-effort로 처리하고 로그로만 알린다.
       try:
         records = await loop.run_in_executor(None, safe_fetch_records)
         # title은 사람이 마케팅 문구로 다듬을 수 있어 매칭 기준으로 못 쓴다
         # (실사용 중 발견 - 타이틀을 다듬으면 매칭이 깨졌음, 2026-08-04) -
-        # NocoDB 검색으로 상품을 골랐을 때 고정해둔 model_number를 우선 쓴다.
-        match = _find_nocodb_record(records, brief.get("model_number") or brief["title"])
+        # NocoDB 검색으로 상품을 골랐을 때 고정해둔 sku를 우선 쓴다.
+        match = _find_nocodb_record(records, brief.get("sku") or brief["title"])
         if match is None:
           build_log.push("⚠️ NocoDB에서 일치하는 상품을 못 찾아 Product_Page는 수동으로 반영해야 합니다.")
         elif match["fields"].get("Product_Page") != "Detail":
@@ -666,7 +665,7 @@ def detail_page_builder_page() -> None:
     # -- PNG Export --------------------------------------------------------
     async def _do_export():
       if not state["html_path"]:
-        ui.notify("먼저 .dc.html을 생성하세요.", type="negative")
+        ui.notify("먼저 HTML을 생성하세요.", type="negative")
         return
 
       export_button.props("loading")

@@ -12,12 +12,12 @@ tech_specs_section/trust_to_footer)를 받아서, "콘텐츠 브리프" 딕셔�
     {
       "brand": "UniFi" | "GL.inet",
       "title": "Slate 7",
-      "model_number": "GL-BE3600",              # 선택 - 있으면 파일명/브리프
-                                                 # 파일명/에셋 slug의 기준이
-                                                 # 됨(title은 사람이 자유롭게
-                                                 # 다듬는 마케팅 문구라 파일
-                                                 # 식별자로 안 씀). 없으면 title
-                                                 # 로 대체(기존 동작과 동일).
+      "sku": "GLiNet Slate 7 (GL-BE3600)",       # 선택 - 있으면 파일명
+                                                 # ({sku}.html)/브리프 파일명/
+                                                 # 에셋 slug의 기준이 됨(title은
+                                                 # 사람이 자유롭게 다듬는 마케팅
+                                                 # 문구라 파일 식별자로 안 씀).
+                                                 # 없으면 title로 대체.
       "tagline": "...<br>...",
       "hero_source": "/절대/경로/원본이미지.jpg",
       "hero_alt": "...",                      # 생략 시 title로 대체
@@ -131,21 +131,23 @@ def build_html(brief: dict, slug: str) -> str:
 
 
 def write_page(brief: dict) -> tuple[str, str]:
-    """브리프로 .dc.html을 생성해서 저장. (html_path, slug)를 돌려준다.
+    """브리프로 상세페이지를 생성해서 저장. (html_path, slug)를 돌려준다.
 
-    파일명/slug(에셋 폴더명)는 title이 아니라 model_number(NocoDB 검색으로
-    상품을 골랐을 때의 "Model Number"/SKU - 상품의 안정적인 식별자)를 우선
-    쓴다. title은 페이지에 실제로 노출되는 마케팅 문구라 사람이 자유롭게
-    다듬는 게 정상 워크플로우인데, 예전엔 title을 파일명에도 그대로 써서
-    "타이틀을 다듬으면 파일명이 매번 바뀌고 이미 있던 페이지 대신 새 파일이
-    생기는" 문제가 있었다(사용자 실사용 중 발견, 2026-08-04)."""
+    파일명은 "{SKU}.html"(사용자 확정, 2026-08-04) - 예: "GLiNet Slate 7
+    (GL-BE3600).html", "UniFi Pro Max 16.html". title이 아니라 sku(NocoDB
+    검색으로 상품을 골랐을 때의 SKU - 상품의 안정적인 식별자)를 쓰는 이유는
+    title이 페이지에 실제로 노출되는 마케팅 문구라 사람이 자유롭게 다듬는 게
+    정상 워크플로우인데, title을 파일명에도 그대로 쓰면 "타이틀을 다듬으면
+    파일명이 매번 바뀌고 이미 있던 페이지 대신 새 파일이 생기는" 문제가
+    있었기 때문(사용자 실사용 중 발견, 2026-08-04). slug(에셋 폴더명)도 SKU
+    기준으로 통일."""
     brand = BRANDS[brief["brand"]]
     title = brief["title"]
-    identity = (brief.get("model_number") or title).strip()
-    slug = slugify(f"{brand['supply_label']} {identity}")
+    sku = (brief.get("sku") or title).strip()
+    slug = slugify(sku)
 
     html = build_html(brief, slug)
-    filename = f"{brand['supply_label']} - {identity}.dc.html"
+    filename = f"{sku}.html"
     html_path = os.path.join(PAGES_ROOT, filename)
     with open(html_path, "w", encoding="utf-8") as f:
         f.write(html)
@@ -175,9 +177,8 @@ def export_pngs(html_path: str, slug: str) -> list[str]:
 
 def save_brief(brief: dict) -> str:
     os.makedirs(BRIEFS_ROOT, exist_ok=True)
-    brand = BRANDS[brief["brand"]]
-    identity = (brief.get("model_number") or brief["title"]).strip()
-    slug = slugify(f"{brand['supply_label']} {identity}")
+    sku = (brief.get("sku") or brief["title"]).strip()
+    slug = slugify(sku)
     path = os.path.join(BRIEFS_ROOT, f"{slug}.json")
     with open(path, "w", encoding="utf-8") as f:
         json.dump(brief, f, ensure_ascii=False, indent=2)
@@ -191,11 +192,14 @@ def list_briefs() -> list[str]:
 
 
 def list_completed_pages() -> list[str]:
-    """완성된 .dc.html 파일명 목록 (최근 수정순). detail_page_builder.py와
-    smartstore.py(등록대기 매칭용) 둘 다 이 함수가 필요해서 여기로 공유."""
+    """완성된 상세페이지 파일명 목록 (최근 수정순). detail_page_builder.py와
+    smartstore.py(등록대기 매칭용) 둘 다 이 함수가 필요해서 여기로 공유.
+
+    파일명은 "{SKU}.html"(2026-08-04부로 확장자 .dc.html에서 변경 - 기존
+    파일도 전부 일괄 리네임함)."""
     if not os.path.isdir(PAGES_ROOT):
         return []
-    files = [f for f in os.listdir(PAGES_ROOT) if f.endswith(".dc.html")]
+    files = [f for f in os.listdir(PAGES_ROOT) if f.endswith(".html")]
     files.sort(key=lambda f: os.path.getmtime(os.path.join(PAGES_ROOT, f)), reverse=True)
     return files
 

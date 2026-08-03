@@ -27,7 +27,7 @@ from dashboard import components, layout
 _pipeline_lock = threading.Lock()
 _pipeline_status = {"running": False, "script": None}
 
-# 완성된 .dc.html 목록(등록대기 매칭용) - detail_page_builder.py와 동일한
+# 완성된 상세페이지 목록(등록대기 매칭용) - detail_page_builder.py와 동일한
 # 지연 로드 패턴. build_detail_page 자체는 Playwright 의존성이 없어(PNG export
 # 함수를 호출할 때만 subprocess로 쓰임) NAS에서도 안전하게 import 가능하다.
 _SCRIPTS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "product_pages", "scripts")
@@ -49,23 +49,18 @@ def get_pipeline_script():
 
 
 def _match_detail_page(fields: dict, completed_filenames: list[str]) -> str | None:
-  """Model_Number/SKU로 완성된 .dc.html 파일명과 best-effort 매칭.
-  파일명은 "{브랜드 supply_label} - {title}.dc.html" 형태(build_detail_page.write_page
-  참고)라 " - " 뒤 부분만 떼어 비교한다. 확실하지 않으면 None(미매칭)을 돌려준다."""
-  candidates = [
-      (fields.get("Model_Number") or "").strip().lower(),
-      (fields.get("SKU") or "").strip().lower(),
-  ]
-  candidates = [c for c in candidates if c]
-  if not candidates:
+  """SKU로 완성된 상세페이지 파일명과 매칭. 파일명은 "{SKU}.html" 형태
+  (build_detail_page.write_page 참고, 2026-08-04부로 확장자가 .dc.html에서
+  .html로, 파일명 기준도 title에서 SKU로 바뀜) - 확장자만 떼면 정확일치로
+  비교할 수 있다(예전엔 " - " 뒤의 title 부분끼리 부분일치로 비교했는데,
+  title이 SKU와 표기가 다를 수 있어 느슨하게 볼 수밖에 없었음)."""
+  sku = (fields.get("SKU") or "").strip().lower()
+  if not sku:
     return None
   for fname in completed_filenames:
-    stem = fname[:-len(".dc.html")] if fname.endswith(".dc.html") else fname
-    title_part = stem.partition(" - ")[2] or stem
-    title_part = title_part.lower()
-    for cand in candidates:
-      if cand in title_part or title_part in cand:
-        return fname
+    stem = fname[:-len(".html")] if fname.endswith(".html") else fname
+    if stem.strip().lower() == sku:
+      return fname
   return None
 
 
@@ -349,7 +344,7 @@ def smartstore_page() -> None:
     fourth_value = suspension_count if suspension_count > 0 else unknown_count
     fourth_tone = "warning" if suspension_count > 0 else "accent"
 
-    # 등록대기: Naver_Product_No가 없는(=미등록) 상품 중 완성된 .dc.html이
+    # 등록대기: Naver_Product_No가 없는(=미등록) 상품 중 완성된 상세페이지가
     # 있는 것들 (Clone 색상옵션 로우는 독립 등록 대상이 아니라 제외).
     def _has_naver_id(fields: dict) -> bool:
       v = fields.get("Naver_Product_No")
