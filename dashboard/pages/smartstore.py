@@ -54,7 +54,8 @@ def smartstore_page() -> None:
     # ------------------------------------------------------------------
     ui.label("🛠️ 등록 파이프라인").classes("text-lg font-semibold mb-2")
     ui.label(
-        "엑셀 템플릿 기반 등록 및 운영 도구입니다. 모든 작업은 실제 네이버 API를 호출하니 신중히 사용하세요."
+        "엑셀 템플릿 기반 등록/운영 스크립트를 버튼으로 실행합니다. 모든 작업은 실제 네이버 API를 호출하니 신중히 사용하세요. "
+        "(가격/재고 반영은 아래 \"네이버 동기화\" 섹션의 버튼 하나로 통합됨)"
     ).classes("text-sm text-tbd-text-secondary mb-4")
 
     with ui.row().classes("w-full gap-4 items-end mb-4"):
@@ -65,13 +66,24 @@ def smartstore_page() -> None:
       ui.spinner(size="sm")
       pipeline_status_label = ui.label("실행 중...").classes("text-xs flex-1")
 
-    with ui.row().classes("w-full gap-3 mb-4"):
-      btn_main = ui.button("상품 등록 (main.py)").props("outline")
-      btn_pipeline = ui.button("전체 파이프라인").props("outline")
-      btn_price = ui.button("가격/재고 갱신").props("outline")
-      btn_delivery = ui.button("배송 설정 수정").props("outline")
+    with ui.row().classes("w-full gap-4 mb-4 items-start"):
+      with ui.column().classes("gap-1"):
+        btn_main = ui.button("상품 등록 (main.py)").props("outline")
+        ui.label("엑셀 템플릿(naver_상품등록_템플릿.xlsx)의 신규 상품을 네이버에 등록합니다.").classes(
+            "text-xs text-tbd-text-secondary max-w-56"
+        )
+      with ui.column().classes("gap-1"):
+        btn_pipeline = ui.button("전체 파이프라인").props("outline")
+        ui.label("상품 등록 → 채널상품번호 동기화 → 가격/재고 반영을 순서대로 한 번에 실행합니다.").classes(
+            "text-xs text-tbd-text-secondary max-w-56"
+        )
+      with ui.column().classes("gap-1"):
+        btn_delivery = ui.button("배송 설정 수정").props("outline")
+        ui.label("이미 등록된 상품의 배송사/배송비/원산지를 일괄 수정합니다.").classes(
+            "text-xs text-tbd-text-secondary max-w-56"
+        )
 
-    _pipeline_buttons = [btn_main, btn_pipeline, btn_price, btn_delivery]
+    _pipeline_buttons = [btn_main, btn_pipeline, btn_delivery]
 
     pipeline_log = ui.log(max_lines=200).classes("w-full h-64")
 
@@ -144,11 +156,6 @@ def smartstore_page() -> None:
         return
       await _run_script("run_pipeline")
 
-    async def _on_price():
-      if not pipeline_dry_run.value and not await _confirm("가격/재고 갱신을 실행합니다. 계속하시겠습니까?"):
-        return
-      await _run_script("update_price_stock")
-
     async def _on_delivery():
       if not pipeline_dry_run.value and not await _confirm("배송 설정을 수정합니다. 계속하시겠습니까?"):
         return
@@ -156,7 +163,6 @@ def smartstore_page() -> None:
 
     btn_main.on_click(_on_main)
     btn_pipeline.on_click(_on_pipeline)
-    btn_price.on_click(_on_price)
     btn_delivery.on_click(_on_delivery)
 
     def _poll_pipeline_status():
@@ -186,10 +192,18 @@ def smartstore_page() -> None:
       price_limit = ui.number("Limit (빈칸 = 전체)", min=0, step=1, precision=0).classes("w-40")
 
     # 동기화 버튼 및 상태 표시
-    with ui.row().classes("gap-4 mb-4 items-center"):
-      sync_status_button = ui.button("네이버 상태 동기화").classes("!bg-[#03c75a] text-white")
-      update_price_button = ui.button("가격/재고 업데이트").classes("!bg-blue-600 text-white")
-      sync_status_label = ui.label("").classes("text-sm text-gray-500")
+    with ui.row().classes("gap-4 mb-1 items-start"):
+      with ui.column().classes("gap-1"):
+        sync_status_button = ui.button("네이버 상태 동기화").classes("!bg-[#03c75a] text-white")
+        ui.label("네이버 → NocoDB (읽기 전용): 네이버의 실제 판매상태를 조회해 NocoDB에 반영만 합니다. 네이버 쪽 데이터는 바뀌지 않아 안전하게 아무 때나 눌러도 됩니다.").classes(
+            "text-xs text-tbd-text-secondary max-w-72"
+        )
+      with ui.column().classes("gap-1"):
+        update_price_button = ui.button("가격/재고 업데이트").classes("!bg-blue-600 text-white")
+        ui.label("NocoDB → 네이버 (라이브 반영): 등록된 상품 전체의 판매가/재고를 네이버에 실제로 씁니다. 되돌리기 어려우니 먼저 Dry-run으로 확인 후 실행하세요.").classes(
+            "text-xs text-tbd-text-secondary max-w-72"
+        )
+      sync_status_label = ui.label("").classes("text-sm text-gray-500 self-center")
 
     async def run_sync():
       """네이버 상태 동기화 실행 (조회만 하고 SalesStatus를 NocoDB에 반영,
