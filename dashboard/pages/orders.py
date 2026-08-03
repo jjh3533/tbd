@@ -5,29 +5,85 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from html import escape as html_escape
 
 from nicegui import run, ui
 
+from sync_engine import _adorama_url, _amazon_url, _bh_url, _unifi_store_url, safe_fetch_records
+from order_fulfillment import day_window as _day_window, match_sku_for_order, merge_orders_by_id as _merge_orders_by_id
 from dashboard import components, layout
 
 
-def _day_window(dt: datetime) -> tuple[datetime, datetime]:
-    """dt가 속한 하루(00:00~23:59:59)의 (시작, 끝) 튜플. 네이버 API가 최대
-    24시간 범위만 허용하므로, 여러 날짜를 조회할 땐 이 단위로 나눠 호출한다."""
-    start = dt.replace(hour=0, minute=0, second=0, microsecond=0)
-    return start, start + timedelta(hours=23, minutes=59, seconds=59)
+def _price_link_html(product_name: str, records: list[dict]) -> str:
+    """주문의 상품명 셀 - 매칭되는 리테일러 URL이 있으면 링크로, 없으면 텍스트로."""
+    label = html_escape(product_name[:30])
+    record = match_sku_for_order(product_name, records)
+    if not record:
+        return label
+    f = record["fields"]
+    url = (
+        _unifi_store_url(f.get("SKU", ""))
+        or _bh_url(f.get("BH_ID"))
+        or _adorama_url(f.get("ADORAMA_ID"))
+        or _amazon_url(f.get("ASIN"))
+    )
+    if not url:
+        return label
+    return f'<a href="{html_escape(url)}" target="_blank" rel="noopener noreferrer">{label}</a>'
 
 
-def _merge_orders_by_id(order_lists: list[list[dict]]) -> dict[str, dict]:
-    """여러 날짜 구간에서 받은 주문 목록을 productOrderId 기준으로 병합한다
-    (같은 주문이 여러 구간에 걸쳐 겹쳐 나올 수 있어 중복 제거 필요)."""
-    merged: dict[str, dict] = {}
-    for orders in order_lists:
-        for o in orders:
-            order_id = o.get("productOrderId")
-            if order_id:
-                merged[order_id] = o
-    return merged
+def _orders_table_html(orders: list[dict], records: list[dict]) -> str | None:
+    if not orders:
+        return None
+    rows = []
+    for o in orders:
+        rows.append(
+            "<tr>"
+            f'<td class="uic-sku">{html_escape(o.get("productOrderId", ""))}</td>'
+            f'<td>{html_escape(o.get("orderDate", "")[:16])}</td>'
+            f'<td>{_price_link_html(o.get("productName", ""), records)}</td>'
+            f'<td>{o.get("quantity", 0)}</td>'
+            f'<td>₩{o.get("totalPaymentAmount", 0):,}</td>'
+            f'<td>{html_escape(o.get("ordererName", ""))}</td>'
+            f'<td>{html_escape(_format_order_status(o.get("orderStatus", "")))}</td>'
+            "</tr>"
+        )
+    return f"""
+  <div class="uic-table-wrap">
+    <div class="uic-table-scroll">
+      <table class="uic-table">
+        <thead><tr><th>주문번호</th><th>주문일시</th><th>상품명</th><th>수량</th><th>결제금액</th><th>주문자</th><th>상태</th></tr></thead>
+        <tbody>{''.join(rows)}</tbody>
+      </table>
+    </div>
+  </div>
+  """
+
+
+def _claims_table_html(claims: list[dict]) -> str | None:
+    if not claims:
+        return None
+    rows = []
+    for c in claims:
+        rows.append(
+            "<tr>"
+            f'<td class="uic-sku">{html_escape(c.get("claimNo", ""))}</td>'
+            f'<td>{html_escape(c.get("productOrderId", ""))}</td>'
+            f'<td>{html_escape(_format_claim_type(c.get("claimType", "")))}</td>'
+            f'<td>{html_escape(_format_claim_status(c.get("claimStatus", "")))}</td>'
+            f'<td>{html_escape(c.get("claimRequestDate", "")[:16])}</td>'
+            "</tr>"
+        )
+    return f"""
+  <div class="uic-table-wrap">
+    <div class="uic-table-scroll">
+      <table class="uic-table">
+        <thead><tr><th>클레임번호</th><th>주문번호</th><th>유형</th><th>상태</th><th>신청일시</th></tr></thead>
+        <tbody>{''.join(rows)}</tbody>
+      </table>
+    </div>
+  </div>
+  """
 
 
 @ui.page("/orders")
@@ -42,10 +98,13 @@ def orders_page() -> None:
             "selected_date": datetime.now(),
         }
 
+        # 주문 상품명 → 리테일러 링크 매칭용 NocoDB 레코드 (읽기 전용, 가볍게 1회 조회)
+        nocodb_records = safe_fetch_records(on_error=lambda msg: ui.notify(msg, type="negative"))
+
         # ------------------------------------------------------------------
         # 📦 주문 목록
         # ------------------------------------------------------------------
-        ui.label("📦 주문 목록").classes("text-lg font-semibold mb-2")
+        components.section_header("📦 주문 목록")
 
         with ui.row().classes("w-full gap-4 items-end mb-4"):
             # 날짜 선택
@@ -62,38 +121,15 @@ def orders_page() -> None:
             refresh_btn = ui.button("🔄 새로고침").props("outline")
             order_status = ui.label("").classes("text-sm text-tbd-text-secondary")
 
-        # 주문 테이블
-        order_table = ui.table(
-            columns=[
-                {"name": "productOrderId", "label": "주문번호", "field": "productOrderId", "align": "left"},
-                {"name": "orderDate", "label": "주문일시", "field": "orderDate", "align": "left"},
-                {"name": "productName", "label": "상품명", "field": "productName", "align": "left"},
-                {"name": "quantity", "label": "수량", "field": "quantity", "align": "center"},
-                {"name": "totalPaymentAmount", "label": "결제금액", "field": "totalPaymentAmount", "align": "right"},
-                {"name": "ordererName", "label": "주문자", "field": "ordererName", "align": "left"},
-                {"name": "orderStatus", "label": "상태", "field": "orderStatus", "align": "center"},
-            ],
-            rows=[],
-            row_key="productOrderId",
-        ).classes("w-full")
+        order_table_wrap = ui.element("div").classes("w-full")
 
         # ------------------------------------------------------------------
         # 🔁 클레임 목록
         # ------------------------------------------------------------------
         ui.separator().classes("my-8")
-        ui.label("🔁 클레임 목록").classes("text-lg font-semibold mb-2")
+        components.section_header("🔁 클레임 목록")
 
-        claim_table = ui.table(
-            columns=[
-                {"name": "claimNo", "label": "클레임번호", "field": "claimNo", "align": "left"},
-                {"name": "productOrderId", "label": "주문번호", "field": "productOrderId", "align": "left"},
-                {"name": "claimType", "label": "유형", "field": "claimType", "align": "center"},
-                {"name": "claimStatus", "label": "상태", "field": "claimStatus", "align": "center"},
-                {"name": "claimRequestDate", "label": "신청일시", "field": "claimRequestDate", "align": "left"},
-            ],
-            rows=[],
-            row_key="claimNo",
-        ).classes("w-full mb-4")
+        claim_table_wrap = ui.element("div").classes("w-full mb-4")
 
         # ------------------------------------------------------------------
         # 데이터 로드 함수
@@ -140,18 +176,13 @@ def orders_page() -> None:
                 state["orders"] = orders
 
                 # 테이블 업데이트
-                order_table.rows = [
-                    {
-                        "productOrderId": o.get("productOrderId", ""),
-                        "orderDate": o.get("orderDate", "")[:16],  # 시간까지만
-                        "productName": o.get("productName", "")[:30],  # 최대 30자
-                        "quantity": o.get("quantity", 0),
-                        "totalPaymentAmount": f"₩{o.get('totalPaymentAmount', 0):,}",
-                        "ordererName": o.get("ordererName", ""),
-                        "orderStatus": _format_order_status(o.get("orderStatus", "")),
-                    }
-                    for o in orders
-                ]
+                order_table_wrap.clear()
+                with order_table_wrap:
+                    table_html = _orders_table_html(orders, nocodb_records)
+                    if table_html is None:
+                        ui.label("조회된 주문이 없습니다.").classes("text-tbd-text-secondary")
+                    else:
+                        ui.html(table_html, sanitize=False)
 
                 if failed_days:
                     order_status.text = f"총 {len(orders)}건 (⚠️ {', '.join(failed_days)} 조회 실패 - 일부 누락 가능)"
@@ -182,16 +213,13 @@ def orders_page() -> None:
                 claims = data.get("content", [])
                 state["claims"] = claims
 
-                claim_table.rows = [
-                    {
-                        "claimNo": c.get("claimNo", ""),
-                        "productOrderId": c.get("productOrderId", ""),
-                        "claimType": _format_claim_type(c.get("claimType", "")),
-                        "claimStatus": _format_claim_status(c.get("claimStatus", "")),
-                        "claimRequestDate": c.get("claimRequestDate", "")[:16],
-                    }
-                    for c in claims
-                ]
+                claim_table_wrap.clear()
+                with claim_table_wrap:
+                    table_html = _claims_table_html(claims)
+                    if table_html is None:
+                        ui.label("조회된 클레임이 없습니다.").classes("text-tbd-text-secondary")
+                    else:
+                        ui.html(table_html, sanitize=False)
 
                 ui.notify(f"클레임 {len(claims)}건 조회 완료", type="positive")
 

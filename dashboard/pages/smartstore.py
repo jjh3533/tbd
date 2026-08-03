@@ -7,23 +7,37 @@ import asyncio
 import os
 import sys
 import threading
+from html import escape as html_escape
 
 from nicegui import ui
 
 from sync_engine import (
     build_products_table_html,
+    exclude_clone_rows,
     get_latest_price_deltas,
     safe_fetch_records,
 )
 from dashboard import components, layout
 
-# 등록 파이프라인(main.py/run_pipeline.py/update_price_stock.py/
-# fix_delivery_settings.py) 버튼들의 동시 실행 방지용 프로세스 전역 락.
-# 실행 중 재클릭하거나 여러 브라우저 탭에서 동시에 눌러도 상품 중복 등록이나
-# 가격/배송 설정 갱신이 겹치지 않도록, sync_engine._sync_lock과 동일한
-# 패턴(non-blocking acquire + 전역 상태)을 여기서도 사용한다.
+# 등록 파이프라인(main.py/run_pipeline.py/update_price_stock.py) 버튼들의 동시
+# 실행 방지용 프로세스 전역 락. 실행 중 재클릭하거나 여러 브라우저 탭에서
+# 동시에 눌러도 상품 중복 등록이나 가격 갱신이 겹치지 않도록,
+# sync_engine._sync_lock과 동일한 패턴(non-blocking acquire + 전역 상태)을
+# 여기서도 사용한다.
 _pipeline_lock = threading.Lock()
 _pipeline_status = {"running": False, "script": None}
+
+# 완성된 .dc.html 목록(등록대기 매칭용) - detail_page_builder.py와 동일한
+# 지연 로드 패턴. build_detail_page 자체는 Playwright 의존성이 없어(PNG export
+# 함수를 호출할 때만 subprocess로 쓰임) NAS에서도 안전하게 import 가능하다.
+_SCRIPTS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "product_pages", "scripts")
+
+
+def _load_bdp():
+  if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+  import build_detail_page as bdp
+  return bdp
 
 
 def is_pipeline_running() -> bool:
@@ -34,14 +48,52 @@ def get_pipeline_script():
   return _pipeline_status["script"]
 
 
-async def _confirm(message: str) -> bool:
-  """예/아니오 확인 다이얼로그."""
-  with ui.dialog() as dialog, ui.card():
-    ui.label(message)
-    with ui.row().classes("w-full justify-end gap-2 mt-2"):
-      ui.button("취소", on_click=lambda: dialog.submit(False)).props("flat")
-      ui.button("확인", on_click=lambda: dialog.submit(True)).props("unelevated color=negative")
-  return bool(await dialog)
+def _match_detail_page(fields: dict, completed_filenames: list[str]) -> str | None:
+  """Model_Number/SKU로 완성된 .dc.html 파일명과 best-effort 매칭.
+  파일명은 "{브랜드 supply_label} - {title}.dc.html" 형태(build_detail_page.write_page
+  참고)라 " - " 뒤 부분만 떼어 비교한다. 확실하지 않으면 None(미매칭)을 돌려준다."""
+  candidates = [
+      (fields.get("Model_Number") or "").strip().lower(),
+      (fields.get("SKU") or "").strip().lower(),
+  ]
+  candidates = [c for c in candidates if c]
+  if not candidates:
+    return None
+  for fname in completed_filenames:
+    stem = fname[:-len(".dc.html")] if fname.endswith(".dc.html") else fname
+    title_part = stem.partition(" - ")[2] or stem
+    title_part = title_part.lower()
+    for cand in candidates:
+      if cand in title_part or title_part in cand:
+        return fname
+  return None
+
+
+def _pending_registration_table_html(entries: list[dict]) -> str | None:
+  """상세페이지는 있지만 아직 네이버에 등록 안 된 상품 목록 (inventory.py의
+  _long_oos_table_html과 동일한 uic-table HTML 패턴)."""
+  if not entries:
+    return None
+  rows = []
+  for entry in entries:
+    rows.append(
+        "<tr>"
+        f'<td class="uic-sku">{html_escape(entry["sku"])}</td>'
+        f'<td><span class="uic-pill cat">{html_escape(entry["brand"] or "-")}</span></td>'
+        f'<td><span class="uic-pill cat">{html_escape(entry["category"] or "-")}</span></td>'
+        f'<td>{html_escape(entry["filename"])}</td>'
+        "</tr>"
+    )
+  return f"""
+  <div class="uic-table-wrap">
+    <div class="uic-table-scroll">
+      <table class="uic-table">
+        <thead><tr><th>SKU / Model</th><th>Brand</th><th>Category</th><th>상세페이지 파일</th></tr></thead>
+        <tbody>{''.join(rows)}</tbody>
+      </table>
+    </div>
+  </div>
+  """
 
 
 @ui.page("/smartstore")
@@ -52,7 +104,7 @@ def smartstore_page() -> None:
     # ------------------------------------------------------------------
     # 🛠️ 등록 파이프라인
     # ------------------------------------------------------------------
-    ui.label("🛠️ 등록 파이프라인").classes("text-lg font-semibold mb-2")
+    components.section_header("🛠️ 등록 파이프라인")
     ui.label(
         "엑셀 템플릿 기반 등록/운영 스크립트를 버튼으로 실행합니다. 모든 작업은 실제 네이버 API를 호출하니 신중히 사용하세요. "
         "(가격/재고 반영은 아래 \"네이버 동기화\" 섹션의 버튼 하나로 통합됨)"
@@ -68,24 +120,19 @@ def smartstore_page() -> None:
 
     with ui.row().classes("w-full gap-4 mb-4 items-start"):
       with ui.column().classes("gap-1"):
-        btn_main = ui.button("상품 등록 (main.py)").props("outline")
+        btn_main = components.live_write_button("상품 등록 (main.py)")
         ui.label("엑셀 템플릿(naver_상품등록_템플릿.xlsx)의 신규 상품을 네이버에 등록합니다.").classes(
             "text-xs text-tbd-text-secondary max-w-56"
         )
       with ui.column().classes("gap-1"):
-        btn_pipeline = ui.button("전체 파이프라인").props("outline")
+        btn_pipeline = components.live_write_button("전체 파이프라인")
         ui.label("상품 등록 → 채널상품번호 동기화 → 가격/재고 반영을 순서대로 한 번에 실행합니다.").classes(
             "text-xs text-tbd-text-secondary max-w-56"
         )
-      with ui.column().classes("gap-1"):
-        btn_delivery = ui.button("배송 설정 수정").props("outline")
-        ui.label("이미 등록된 상품의 배송사/배송비/원산지를 일괄 수정합니다.").classes(
-            "text-xs text-tbd-text-secondary max-w-56"
-        )
 
-    _pipeline_buttons = [btn_main, btn_pipeline, btn_delivery]
+    _pipeline_buttons = [btn_main, btn_pipeline]
 
-    pipeline_log = ui.log(max_lines=200).classes("w-full h-64")
+    pipeline_log = ui.log(max_lines=200).classes("tbd-log tbd-log--md w-full")
 
     async def _run_script(script_name: str, extra_args: list = None):
       """스크립트 실행 헬퍼 - 백그라운드에서 subprocess 실행하고 로그 스트리밍.
@@ -147,23 +194,17 @@ def smartstore_page() -> None:
 
     async def _on_main():
       # dry-run은 미리보기일 뿐 실제 API를 호출하지 않으니 확인 없이 바로 실행
-      if not pipeline_dry_run.value and not await _confirm("실제 네이버 API를 호출합니다. 계속하시겠습니까?"):
+      if not pipeline_dry_run.value and not await components.confirm_dialog("실제 네이버 API를 호출합니다. 계속하시겠습니까?"):
         return
       await _run_script("main")
 
     async def _on_pipeline():
-      if not pipeline_dry_run.value and not await _confirm("전체 파이프라인을 실행합니다. 계속하시겠습니까?"):
+      if not pipeline_dry_run.value and not await components.confirm_dialog("전체 파이프라인을 실행합니다. 계속하시겠습니까?"):
         return
       await _run_script("run_pipeline")
 
-    async def _on_delivery():
-      if not pipeline_dry_run.value and not await _confirm("배송 설정을 수정합니다. 계속하시겠습니까?"):
-        return
-      await _run_script("fix_delivery_settings")
-
     btn_main.on_click(_on_main)
     btn_pipeline.on_click(_on_pipeline)
-    btn_delivery.on_click(_on_delivery)
 
     def _poll_pipeline_status():
       running = is_pipeline_running()
@@ -180,10 +221,7 @@ def smartstore_page() -> None:
 
     ui.separator().classes("my-8")
 
-    ui.label("네이버 스마트스토어에 등록된 상품 목록").classes("text-lg font-bold mb-1")
-    ui.label("판매 상태별 필터링 및 상품 정보를 확인할 수 있어요.").classes(
-        "text-sm text-tbd-text-secondary mb-4"
-    )
+    components.section_header("네이버 스마트스토어에 등록된 상품 목록", "판매 상태별 필터링 및 상품 정보를 확인할 수 있어요.")
 
     # 가격/재고 업데이트 안전장치 - 다른 데이터 수정 스크립트와 동일하게
     # dry-run 기본값 + limit + (실제 반영 시) 확인 다이얼로그를 거친다.
@@ -194,12 +232,12 @@ def smartstore_page() -> None:
     # 동기화 버튼 및 상태 표시
     with ui.row().classes("gap-4 mb-1 items-start"):
       with ui.column().classes("gap-1"):
-        sync_status_button = ui.button("네이버 상태 동기화").classes("!bg-[#03c75a] text-white")
+        sync_status_button = components.safe_button("네이버 상태 동기화")
         ui.label("네이버 → NocoDB (읽기 전용): 네이버의 실제 판매상태를 조회해 NocoDB에 반영만 합니다. 네이버 쪽 데이터는 바뀌지 않아 안전하게 아무 때나 눌러도 됩니다.").classes(
             "text-xs text-tbd-text-secondary max-w-72"
         )
       with ui.column().classes("gap-1"):
-        update_price_button = ui.button("가격/재고 업데이트").classes("!bg-blue-600 text-white")
+        update_price_button = components.live_write_button("가격/재고 업데이트")
         ui.label("NocoDB → 네이버 (라이브 반영): 등록된 상품 전체의 판매가/재고를 네이버에 실제로 씁니다. 되돌리기 어려우니 먼저 Dry-run으로 확인 후 실행하세요.").classes(
             "text-xs text-tbd-text-secondary max-w-72"
         )
@@ -244,7 +282,7 @@ def smartstore_page() -> None:
       """네이버 가격/재고 업데이트 실행 - 실제로 라이브 API에 쓰는 작업이라
       dry-run이 꺼져있으면 확인 다이얼로그를 먼저 거친다."""
       dry_run = bool(price_dry_run.value)
-      if not dry_run and not await _confirm(
+      if not dry_run and not await components.confirm_dialog(
           "실제 네이버 가격/재고를 업데이트합니다. 되돌리기 어려우니 먼저 "
           "Dry-run으로 결과를 확인했는지 다시 확인하세요. 계속하시겠습니까?"
       ):
@@ -307,22 +345,46 @@ def smartstore_page() -> None:
     out_count = len([r for r in naver_records if r["fields"].get("SalesStatus") == "OUTOFSTOCK"])
     suspension_count = len([r for r in naver_records if r["fields"].get("SalesStatus") == "SUSPENSION"])
     unknown_count = total - sale_count - out_count - suspension_count
+    fourth_label = "판매중지" if suspension_count > 0 else "상태 미동기화"
+    fourth_value = suspension_count if suspension_count > 0 else unknown_count
+    fourth_tone = "warning" if suspension_count > 0 else "accent"
+
+    # 등록대기: Naver_Product_No가 없는(=미등록) 상품 중 완성된 .dc.html이
+    # 있는 것들 (Clone 색상옵션 로우는 독립 등록 대상이 아니라 제외).
+    def _has_naver_id(fields: dict) -> bool:
+      v = fields.get("Naver_Product_No")
+      return bool(v) and str(v).strip() not in ("", "-")
+
+    unregistered = [r for r in exclude_clone_rows(records) if not _has_naver_id(r["fields"])]
+    completed_filenames = _load_bdp().list_completed_pages()
+    pending_registration = []
+    for r in unregistered:
+      fname = _match_detail_page(r["fields"], completed_filenames)
+      if fname:
+        pending_registration.append({
+            "sku": r["fields"].get("SKU", "") or r["fields"].get("Model_Number", ""),
+            "brand": r["fields"].get("Brand", ""),
+            "category": r["fields"].get("Category", ""),
+            "filename": fname,
+        })
 
     # 통계 카드 (가로 배치)
-    with ui.row().classes("w-full gap-4 mb-6"):
-      with ui.column().classes("flex-1"):
+    with ui.row().classes("w-full gap-5 mb-10"):
+      with ui.column().classes("flex-1 min-w-0"):
         components.stat_card("전체", total, "")
-      with ui.column().classes("flex-1"):
+      with ui.column().classes("flex-1 min-w-0"):
         components.stat_card("판매중", sale_count, "success")
-      with ui.column().classes("flex-1"):
+      with ui.column().classes("flex-1 min-w-0"):
         components.stat_card("품절", out_count, "danger")
-      with ui.column().classes("flex-1"):
-        if suspension_count > 0:
-          components.stat_card("판매중지", suspension_count, "warning")
-        elif unknown_count > 0:
-          components.stat_card("상태 미동기화", unknown_count, "accent")
-        else:
-          ui.element("div")  # 빈 공간
+      with ui.column().classes("flex-1 min-w-0"):
+        components.stat_card(fourth_label, fourth_value, fourth_tone)
+      with ui.column().classes("flex-1 min-w-0"):
+        components.stat_card("등록대기", len(pending_registration), "accent")
+
+    if pending_registration:
+      components.section_header("상세페이지는 있지만 아직 등록되지 않은 상품", "완성된 상세페이지를 참고해 등록 파이프라인으로 등록하세요.")
+      pending_html = _pending_registration_table_html(pending_registration)
+      ui.html(pending_html, sanitize=False).classes("mb-8")
 
     # 필터 UI
     with ui.row().classes("w-full gap-4 mb-4 items-center"):

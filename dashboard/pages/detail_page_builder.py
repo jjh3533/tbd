@@ -14,16 +14,28 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 import sys
+import urllib.parse
 
-from nicegui import ui
+from nicegui import app, ui
 
+import naver_config
 from sync_engine import safe_fetch_records
 from dashboard import components, layout
 
 _N_WHY_CARDS = 3
 
 _SCRIPTS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "product_pages", "scripts")
+
+# 완성된 .dc.html이 있는 폴더 - PNG export(Playwright, 로컬 전용)와 달리 이
+# 폴더 자체는 Synology Drive로 NAS에도 동기화되어 있어(TBD_SEOUL_ROOT 참고)
+# my.tbd.kr에서도 미리보기가 그대로 동작한다.
+_PAGES_ROOT = os.path.dirname(naver_config.PRODUCT_PAGES_DIR)
+_PREVIEW_URL_PREFIX = "/detail-pages"
+
+if os.path.isdir(_PAGES_ROOT):
+  app.add_static_files(_PREVIEW_URL_PREFIX, _PAGES_ROOT)
 
 
 def _load_bdp():
@@ -51,7 +63,7 @@ def detail_page_builder_page() -> None:
     # ------------------------------------------------------------------
     # 📂 저장된 브리프 불러오기 (선택) - 이전에 만들었던 상품을 다시 고칠 때
     # ------------------------------------------------------------------
-    ui.label("📂 저장된 브리프 불러오기 (선택)").classes("text-lg font-semibold mb-2")
+    components.section_header("📂 저장된 브리프 불러오기 (선택)")
     with ui.row().classes("w-full gap-4 items-end mb-2"):
       brief_select = ui.select([], label="저장된 브리프").classes("flex-1")
       refresh_briefs_button = ui.button("목록 새로고침").props("outline")
@@ -62,7 +74,7 @@ def detail_page_builder_page() -> None:
     # ------------------------------------------------------------------
     # 🔎 NocoDB에서 불러오기 (선택) - SKU로 검색해서 브랜드/상품명/이미지폴더 자동채움
     # ------------------------------------------------------------------
-    ui.label("🔎 NocoDB에서 불러오기 (선택)").classes("text-lg font-semibold mb-2")
+    components.section_header("🔎 NocoDB에서 불러오기 (선택)")
     with ui.row().classes("w-full gap-4 items-end mb-2"):
       nocodb_search_input = ui.input("SKU 검색", placeholder="e.g. Slate 7").classes("flex-1")
       nocodb_search_button = ui.button("검색").props("outline")
@@ -73,7 +85,7 @@ def detail_page_builder_page() -> None:
     # ------------------------------------------------------------------
     # 1) 기본 정보
     # ------------------------------------------------------------------
-    ui.label("1) 기본 정보").classes("text-lg font-semibold mb-2")
+    components.section_header("1) 기본 정보")
     with ui.row().classes("w-full gap-4"):
       brand_select = ui.select(["UniFi", "GL.inet"], value="UniFi", label="Brand").classes("w-40")
       title_input = ui.input("상품명 (Title)", placeholder="e.g. Slate 7").classes("flex-1")
@@ -86,6 +98,10 @@ def detail_page_builder_page() -> None:
           "제품이미지 폴더명", placeholder="e.g. GLiNET GL-BE3600"
       ).classes("flex-1")
       load_images_button = ui.button("이미지 불러오기").props("outline")
+    ui.upload(
+        label="직접 이미지 업로드 (공홈 크롤링/다운로드 대신 파일을 바로 추가)",
+        multiple=True, auto_upload=True, on_multi_upload=lambda e: _do_upload_images(e),
+    ).props('accept="image/*"').classes("w-full mb-2")
     image_gallery = ui.column().classes("w-full gap-2 mb-2")
     selection_status = ui.label("히어로/디자인 이미지를 아직 선택하지 않았습니다.").classes(
         "text-sm text-tbd-text-secondary"
@@ -101,7 +117,7 @@ def detail_page_builder_page() -> None:
     # ------------------------------------------------------------------
     # 🤖 Claude로 브리프 초안 생성 (선택)
     # ------------------------------------------------------------------
-    ui.label("🤖 Claude로 브리프 초안 생성 (선택)").classes("text-lg font-semibold mb-2")
+    components.section_header("🤖 Claude로 브리프 초안 생성 (선택)")
     ui.label(
         "공홈 설명/스펙을 참고 자료 칸에 붙여넣거나 URL로 가져온 뒤 생성하면 "
         "태그라인/Why 3카드/Design/Tech Specs를 Claude가 초안으로 채워줍니다. "
@@ -120,14 +136,14 @@ def detail_page_builder_page() -> None:
     ).classes("w-full").props("rows=6")
 
     with ui.row().classes("w-full gap-3 mb-2"):
-      generate_brief_button = ui.button("🤖 브리프 초안 생성").props("unelevated color=primary")
+      generate_brief_button = components.primary_button("🤖 브리프 초안 생성")
 
     ui.separator().classes("my-4")
 
     # ------------------------------------------------------------------
     # 2) Why 섹션 (3카드)
     # ------------------------------------------------------------------
-    ui.label("2) Why 섹션").classes("text-lg font-semibold mb-2")
+    components.section_header("2) Why 섹션")
     with ui.row().classes("w-full gap-4"):
       why_headline_input = ui.input("헤드라인 (<br> 가능)").classes("flex-1")
       why_bg_checkbox = ui.checkbox("회색 배경", value=True)
@@ -147,7 +163,7 @@ def detail_page_builder_page() -> None:
     # ------------------------------------------------------------------
     # 3) Design 섹션
     # ------------------------------------------------------------------
-    ui.label("3) Design 섹션").classes("text-lg font-semibold mb-2")
+    components.section_header("3) Design 섹션")
     ui.label("이미지는 위 갤러리에서 \"디자인 섹션 이미지로 사용\"으로 고른 걸 그대로 씁니다.").classes(
         "text-sm text-tbd-text-secondary mb-2"
     )
@@ -159,7 +175,7 @@ def detail_page_builder_page() -> None:
     # ------------------------------------------------------------------
     # 4) Tech Specs
     # ------------------------------------------------------------------
-    ui.label("4) Tech Specs").classes("text-lg font-semibold mb-2")
+    components.section_header("4) Tech Specs")
     specs_column = ui.column().classes("w-full gap-2 mb-2")
 
     def _add_spec_row(label: str = "", value: str = ""):
@@ -187,15 +203,49 @@ def detail_page_builder_page() -> None:
     # ------------------------------------------------------------------
     # 5) 실행
     # ------------------------------------------------------------------
-    ui.label("5) 생성").classes("text-lg font-semibold mb-2")
+    components.section_header("5) 생성")
     with ui.row().classes("w-full gap-3 mb-2"):
       save_brief_button = ui.button("💾 브리프 저장").props("outline")
-      generate_button = ui.button("1) .dc.html 생성").props("unelevated color=primary")
-      export_button = ui.button("2) PNG로 Export").props("unelevated color=primary")
+      generate_button = components.primary_button("1) .dc.html 생성")
+      export_button = components.primary_button("2) PNG로 Export")
       export_button.disable()
 
-    build_log = ui.log(max_lines=100).classes("w-full h-32")
+    build_log = ui.log(max_lines=100).classes("tbd-log tbd-log--sm w-full")
     preview_gallery = ui.row().classes("w-full gap-3 flex-wrap")
+
+    ui.separator().classes("my-4")
+
+    # ------------------------------------------------------------------
+    # 6) 완성된 상세페이지 보기
+    # ------------------------------------------------------------------
+    components.section_header("6) 완성된 상세페이지 보기")
+    ui.label(
+        "지금까지 만든 .dc.html을 브라우저 새 탭에서 그대로 열어봅니다 - "
+        "PNG export 없이도(로컬 전용 기능이라 my.tbd.kr에선 안 됨) 실제 레이아웃을 바로 확인할 수 있어요."
+    ).classes("text-sm text-tbd-text-secondary mb-2")
+
+    with ui.row().classes("w-full gap-4 items-end mb-2"):
+      completed_pages_select = ui.select(
+          _load_bdp().list_completed_pages(), label="완성된 상세페이지"
+      ).classes("flex-1")
+      refresh_completed_button = ui.button("목록 새로고침").props("outline")
+
+    def _do_refresh_completed():
+      completed_pages_select.options = _load_bdp().list_completed_pages()
+      completed_pages_select.update()
+      ui.notify(f"{len(completed_pages_select.options)}개 발견", type="positive")
+
+    refresh_completed_button.on_click(_do_refresh_completed)
+
+    def _do_preview_completed():
+      filename = completed_pages_select.value
+      if not filename:
+        ui.notify("미리볼 상세페이지를 선택하세요.", type="negative")
+        return
+      url = f"{_PREVIEW_URL_PREFIX}/{urllib.parse.quote(filename)}"
+      ui.navigate.to(url, new_tab=True)
+
+    components.primary_button("🔍 미리보기", on_click=_do_preview_completed)
 
     # -- NocoDB 검색 -----------------------------------------------------
     async def _do_nocodb_search():
@@ -295,6 +345,37 @@ def detail_page_builder_page() -> None:
       ui.notify(f"브리프 불러옴: {slug}", type="positive")
 
     load_brief_button.on_click(_do_load_brief)
+
+    # -- 직접 이미지 업로드 (공홈 크롤링/다운로드 대신 파일을 바로 폴더에 추가) ------
+    _UPLOAD_IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp")
+
+    async def _do_upload_images(e):
+      folder_name = (image_folder_input.value or "").strip()
+      if not folder_name:
+        ui.notify("업로드 전에 제품이미지 폴더명을 먼저 입력하세요.", type="negative")
+        return
+
+      folder = os.path.join(naver_config.PRODUCT_IMAGES_DIR, folder_name)
+      os.makedirs(folder, exist_ok=True)
+
+      existing = [f for f in os.listdir(folder) if f.lower().endswith(_UPLOAD_IMAGE_EXTENSIONS)]
+      next_num = 1
+      for f in existing:
+        m = re.match(r"^(\d+)", f)
+        if m:
+          next_num = max(next_num, int(m.group(1)) + 1)
+
+      saved = 0
+      for i, file in enumerate(e.files):
+        ext = os.path.splitext(file.name)[1].lower() or ".jpg"
+        if ext not in _UPLOAD_IMAGE_EXTENSIONS:
+          continue
+        dest_name = f"{next_num + i:02d}{ext}"
+        await file.save(os.path.join(folder, dest_name))
+        saved += 1
+
+      ui.notify(f"이미지 {saved}장 업로드 완료", type="positive")
+      await _do_load_images()
 
     # -- 이미지 불러오기 ---------------------------------------------------
     async def _do_load_images():

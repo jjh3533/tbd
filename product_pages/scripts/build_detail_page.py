@@ -139,9 +139,15 @@ def write_page(brief: dict) -> tuple[str, str]:
 
 
 def export_pngs(html_path: str, slug: str) -> list[str]:
-    """export_sections.py로 섹션별 PNG를 뽑아서 절대경로 목록을 돌려준다."""
+    """export_sections.py로 섹션별 PNG를 뽑아서 절대경로 목록을 돌려준다.
+
+    재생성 시 섹션 개수/번호가 바뀔 수 있어(예: 헤더 섹션 추가), 기존 PNG를
+    먼저 지워야 이전 번호 체계의 파일이 안 지워지고 섞여 남는 걸 막는다."""
     export_dir = os.path.join(EXPORTS_ROOT, slug)
     os.makedirs(export_dir, exist_ok=True)
+    for f in os.listdir(export_dir):
+        if f.lower().endswith(".png"):
+            os.remove(os.path.join(export_dir, f))
     script = os.path.join(_SCRIPT_DIR, "export_sections.py")
     subprocess.run(
         [sys.executable, script, html_path, export_dir],
@@ -167,6 +173,16 @@ def list_briefs() -> list[str]:
     if not os.path.isdir(BRIEFS_ROOT):
         return []
     return sorted(f[:-5] for f in os.listdir(BRIEFS_ROOT) if f.endswith(".json"))
+
+
+def list_completed_pages() -> list[str]:
+    """완성된 .dc.html 파일명 목록 (최근 수정순). detail_page_builder.py와
+    smartstore.py(등록대기 매칭용) 둘 다 이 함수가 필요해서 여기로 공유."""
+    if not os.path.isdir(PAGES_ROOT):
+        return []
+    files = [f for f in os.listdir(PAGES_ROOT) if f.endswith(".dc.html")]
+    files.sort(key=lambda f: os.path.getmtime(os.path.join(PAGES_ROOT, f)), reverse=True)
+    return files
 
 
 def load_brief(slug: str) -> dict:

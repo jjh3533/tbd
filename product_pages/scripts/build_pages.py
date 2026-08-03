@@ -34,6 +34,27 @@ GLINET_BRAND = {
     "store_line": "GLiNET Supply by TBD Seoul",
 }
 
+# /settings 페이지(common_settings.json)에서 브랜드 로고/문구를 코드 수정 없이
+# 바꿀 수 있게 오버라이드를 병합한다. common_settings는 저장소 루트 모듈이라
+# 이 스크립트를 product_pages/scripts/에서 단독 실행할 때는(sys.path에 루트가
+# 없어) import가 실패할 수 있음 - 그 경우 조용히 기본값 그대로 사용한다
+# (대시보드 프로세스에서는 app.py가 이미 루트를 sys.path에 넣어두므로 정상 로드됨).
+try:
+  import common_settings as _common_settings
+  _settings = _common_settings.load()
+  _brand_overrides = _settings.get("brands", {})
+  _common_copy = _settings.get("common_copy", {})
+except Exception:
+  _brand_overrides = {}
+  _common_copy = {}
+
+UNIFI_BRAND = {**UNIFI_BRAND, **_brand_overrides.get("UniFi", {})}
+GLINET_BRAND = {**GLINET_BRAND, **_brand_overrides.get("GL.inet", {})}
+
+_RETURN_WINDOW_WEEKS = _common_copy.get("return_window_weeks", 2)
+_DELIVERY_MIN_DAYS = _common_copy.get("delivery_min_days", 7)
+_DELIVERY_MAX_DAYS = _common_copy.get("delivery_max_days", 14)
+
 
 def head(brand=UNIFI_BRAND):
     return f"""<!DOCTYPE html>
@@ -60,7 +81,7 @@ def head(brand=UNIFI_BRAND):
 <div style="background:#E8E8ED;display:flex;justify-content:center;padding:40px 0 120px;font-family:'UI Sans','Pretendard',-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;color:#212326;">
 <div style="width:860px;background:#ffffff;box-shadow:0 0 40px rgba(0,0,0,0.08);" data-screen-label="상세페이지">
 
-  <div style="padding:22px 60px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #E4E4E9;">
+  <div style="padding:22px 60px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #E4E4E9;" data-screen-label="Header">
     <div style="display:flex;align-items:center;gap:14px;">
       <img src="{brand['header_logo_src']}" alt="{brand['header_logo_alt']}" style="height:20px;width:auto;display:block;">
       <div style="width:1px;height:16px;background:#E4E4E9;"></div>
@@ -87,13 +108,13 @@ _TRUST_TO_FOOTER_TEMPLATE = """
       </div>
       <div style="flex:1;padding:28px 24px;border-radius:16px;background:#fff;border:1px solid #E4E4E9;text-align:left;">
         <div style="width:36px;height:36px;border-radius:10px;background:#F5F4F7;display:flex;align-items:center;justify-content:center;margin-bottom:14px;font-size:16px;">↻</div>
-        <h4 style="font-size:15.5px;font-weight:600;margin-bottom:6px;">2주 초기불량 전액 보장</h4>
-        <p style="font-size:13.5px;color:#696F78;line-height:1.55;">구매 후 2주 이내 초기불량은<br><b style="color: rgb(33, 35, 38);">TBD Seoul이 전액 부담</b>하여 처리합니다. 왕복 배송비, 진단, 교환<br>까지 별도 비용이 없습니다.</p>
+        <h4 style="font-size:15.5px;font-weight:600;margin-bottom:6px;">__RETURN_WEEKS__주 초기불량 전액 보장</h4>
+        <p style="font-size:13.5px;color:#696F78;line-height:1.55;">구매 후 __RETURN_WEEKS__주 이내 초기불량은<br><b style="color: rgb(33, 35, 38);">TBD Seoul이 전액 부담</b>하여 처리합니다. 왕복 배송비, 진단, 교환<br>까지 별도 비용이 없습니다.</p>
       </div>
       <div style="flex:1;padding:28px 24px;border-radius:16px;background:#fff;border:1px solid #E4E4E9;text-align:left;">
         <div style="width:36px;height:36px;border-radius:10px;background:#F5F4F7;display:flex;align-items:center;justify-content:center;margin-bottom:14px;font-size:16px;">⏱</div>
         <h4 style="font-size:15.5px;font-weight:600;margin-bottom:6px;">배송 소요 안내</h4>
-        <p style="font-size:13.5px;color:#696F78;line-height:1.55;">미국의 해외직구 특성상 보통<br>7일에서 14일 정도 소요됩니다.<br>(미국 현지의 __PRODUCT__ 재고 상황에<br>따라 더 길어질 수 있습니다.)</p>
+        <p style="font-size:13.5px;color:#696F78;line-height:1.55;">미국의 해외직구 특성상 보통<br>__DELIVERY_MIN__일에서 __DELIVERY_MAX__일 정도 소요됩니다.<br>(미국 현지의 __PRODUCT__ 재고 상황에<br>따라 더 길어질 수 있습니다.)</p>
       </div>
     </div>
   </section>
@@ -136,7 +157,7 @@ _TRUST_TO_FOOTER_TEMPLATE = """
     <div style="max-width:740px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#E4E4E9;border:1px solid #E4E4E9;border-radius:18px;overflow:hidden;">
       <div style="background:#fff;padding:28px 30px;">
         <h4 style="font-size:14.5px;font-weight:700;margin-bottom:10px;">배송 안내</h4>
-        <p style="font-size:13.5px;color:#696F78;line-height:1.7;">해외 발송 후 통관을 거쳐 순차 배송됩니다. 보통 7-14일<br>정도 소요되며, 미국 창고에서 출고되면 배송 및 통관<br>조회가 가능합니다.</p>
+        <p style="font-size:13.5px;color:#696F78;line-height:1.7;">해외 발송 후 통관을 거쳐 순차 배송됩니다. 보통 __DELIVERY_MIN__-__DELIVERY_MAX__일<br>정도 소요되며, 미국 창고에서 출고되면 배송 및 통관<br>조회가 가능합니다.</p>
       </div>
       <div style="background:#fff;padding:28px 30px;">
         <h4 style="font-size:14.5px;font-weight:700;margin-bottom:10px;">단순변심 반품</h4>
@@ -173,7 +194,7 @@ _TRUST_TO_FOOTER_TEMPLATE = """
       </div>
       <div style="padding:22px 0;border-bottom:1px solid #E4E4E9;">
         <div style="font-size:15.5px;font-weight:600;margin-bottom:8px;">A/S는 어떻게 진행되나요?</div>
-        <div style="font-size:14px;color:#696F78;line-height:1.7;">구매 후 2주 이내 초기불량은 TBD Seoul이 왕복 배송비를 포함해 전액 부담합니다. 2주 이후에는 __OFFICIAL__ 미국 무상 A/S 기간·항목에 해당하는 경우, 고객이 왕복 배송료만 부담하면 TBD Seoul이 해외 A/S까지 대행해 드립니다.</div>
+        <div style="font-size:14px;color:#696F78;line-height:1.7;">구매 후 __RETURN_WEEKS__주 이내 초기불량은 TBD Seoul이 왕복 배송비를 포함해 전액 부담합니다. __RETURN_WEEKS__주 이후에는 __OFFICIAL__ 미국 무상 A/S 기간·항목에 해당하는 경우, 고객이 왕복 배송료만 부담하면 TBD Seoul이 해외 A/S까지 대행해 드립니다.</div>
       </div>
     </div>
   </section>
@@ -208,6 +229,9 @@ def trust_to_footer(brand=UNIFI_BRAND):
         .replace("__PRODUCT__", brand["product_name"])
         .replace("__OFFICIAL__", brand["official_name"])
         .replace("__STORE__", brand["store_line"])
+        .replace("__RETURN_WEEKS__", str(_RETURN_WINDOW_WEEKS))
+        .replace("__DELIVERY_MIN__", str(_DELIVERY_MIN_DAYS))
+        .replace("__DELIVERY_MAX__", str(_DELIVERY_MAX_DAYS))
     )
 
 
