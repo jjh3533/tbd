@@ -20,7 +20,17 @@ _KST = pytz.timezone("Asia/Seoul")
 
 
 def _get_headers() -> dict:
-    """인증 헤더 생성."""
+    """인증 헤더 생성.
+
+    NAS 등 네이버 시크릿이 없는 환경에서 이 모듈의 함수를 호출하면
+    get_bearer_token()이 CLIENT_SECRET=None으로 bcrypt 해싱을 시도하다가
+    "'NoneType' object has no attribute 'encode'"라는 알아보기 힘든 에러를
+    내고 있었다 - 이 함수(모든 호출의 공통 진입점)에서 미리 체크해 명확한
+    메시지로 바꾼다."""
+    if not CLIENT_ID or not CLIENT_SECRET:
+        raise RuntimeError(
+            "네이버 커머스 API 시크릿이 설정되지 않았습니다 - 이 기능은 로컬 환경에서만 사용 가능합니다."
+        )
     token = get_bearer_token(CLIENT_ID, CLIENT_SECRET)
     return {"Authorization": f"Bearer {token}"}
 
