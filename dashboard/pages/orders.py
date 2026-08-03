@@ -42,6 +42,11 @@ _STAGE_LABELS = ["주문", "발주", "현지배송", "국제배송", "통관", "
 _STAGE_TONES = ["", "warning", "accent", "accent", "accent", "accent", "success"]
 _PAGE_SIZE = 15
 
+_RECIPIENT_KEYS = (
+    "recipient_name_kr", "recipient_phone", "recipient_postal_code",
+    "recipient_address", "personal_customs_code",
+)
+
 # 네이버 주문 상태 중 "배송완료"로 간주할 값들.
 _DELIVERED_STATUSES = ("DELIVERED", "PURCHASE_DECIDED")
 
@@ -108,6 +113,55 @@ def _order_card_html(order: dict, fields: dict, recipient: dict, stage_index: in
     {_stage_tracker_html(stage_index)}
   </div>
   """
+
+
+async def _fetch_order_extras(order: dict, fields: dict) -> tuple[dict, dict | None, bool, dict | None]:
+    """주문 1건에 필요한 수령인정보/ACE 배송조회를 가져온다.
+
+    수령인정보(주소/전화/이름 - 주문 시점에 확정되어 이후 안 바뀜)는
+    Order_Fulfillment에 이미 캐시돼 있으면 그대로 쓰고 네트워크 호출을
+    생략한다(사용자 제안 - "배송 크롤링 데이터를 DB에 저장 후 재사용").
+    새로 조회한 경우에만 두 번째 반환값(recipient_fresh)에 담아 호출부가
+    DB에 써서 다음 로드부턴 캐시가 적중하게 한다.
+
+    이 함수는 여러 주문에 대해 asyncio.gather로 동시에 호출되어야 한다 -
+    한 주문씩 순서대로 await하면 전체 로딩 시간이 모든 주문의 네트워크
+    왕복시간 합산이 되어버린다(느린 원인의 핵심)."""
+    import naver_order_api  # noqa: PLC0415 - lazy import, 위 load_orders 주석 참고
+
+    order_id = order.get("productOrderId", "")
+
+    recipient_fresh: dict | None = None
+    if fields.get("recipient_name_kr") or fields.get("recipient_address"):
+        recipient = {k: fields.get(k, "") for k in _RECIPIENT_KEYS}
+    else:
+        try:
+            recipient = await run.io_bound(naver_order_api.get_recipient_info, order_id)
+            recipient_fresh = recipient
+        except Exception as e:  # noqa: BLE001
+            print(f"주문 카드 - 수령인 정보 조회 실패 ({order_id}): {e}")
+            recipient = {}
+
+    live_intl_shipped = False
+    ace_updates: dict | None = None
+    intl_no = fields.get("intl_tracking_number")
+    if intl_no and not fields.get("ace_domestic_started_at"):
+        try:
+            events = await run.io_bound(aet.get_tracking_events, intl_no)
+        except Exception as e:  # noqa: BLE001
+            print(f"ACE Express 조회 실패 ({order_id}/{intl_no}): {e}")
+            events = None
+        live_intl_shipped = bool(events)
+        ace_stage = aet.derive_ace_stage(events)
+        ace_updates = {"ace_last_checked_at": datetime.now().isoformat()}
+        if ace_stage["customs_started_at"] and not fields.get("ace_customs_started_at"):
+            ace_updates["ace_customs_started_at"] = ace_stage["customs_started_at"]
+        if ace_stage["domestic_started_at"] and not fields.get("ace_domestic_started_at"):
+            ace_updates["ace_domestic_started_at"] = ace_stage["domestic_started_at"]
+        if ace_stage["delivered"] and not fields.get("ace_delivered_at"):
+            ace_updates["ace_delivered_at"] = datetime.now().isoformat()
+
+    return recipient, recipient_fresh, live_intl_shipped, ace_updates
 
 
 @ui.page("/orders")
@@ -233,37 +287,46 @@ def orders_page() -> None:
                 fulfillment_rows = of.get_all()
                 fulfillment_by_id = {r["fields"].get("naver_product_order_id"): r for r in fulfillment_rows}
 
+                # 주문별 fields 스냅샷을 먼저 뽑아두고, 수령인정보/ACE 조회를
+                # asyncio.gather로 전부 동시에 실행한다 - 순서대로 하나씩
+                # await하면 전체 로딩 시간이 모든 주문의 네트워크 왕복시간
+                # 합산이 되어버려(주문이 많을수록 선형으로 느려짐) 페이지
+                # 로딩이 오래 걸리는 원인이었다. 수령인정보는 한 번 조회되면
+                # Order_Fulfillment에 캐시되어 재조회 자체가 생략된다.
+                order_ctx = []
+                for o in orders:
+                    row = fulfillment_by_id.get(o.get("productOrderId", ""))
+                    fields = dict(row["fields"]) if row else {}
+                    order_ctx.append((o, row, fields))
+
+                extras = await asyncio.gather(
+                    *(_fetch_order_extras(o, fields) for o, row, fields in order_ctx)
+                )
+
                 enriched = []
                 stage_counts = [0] * 7
-                for o in orders:
+                for (o, row, fields), (recipient, recipient_fresh, live_intl_shipped, ace_updates) in zip(order_ctx, extras):
                     order_id = o.get("productOrderId", "")
-                    row = fulfillment_by_id.get(order_id)
-                    fields = row["fields"] if row else {}
-                    try:
-                        recipient = await run.io_bound(naver_order_api.get_recipient_info, order_id)
-                    except Exception as e:  # noqa: BLE001
-                        print(f"주문 카드 - 수령인 정보 조회 실패 ({order_id}): {e}")
-                        recipient = {}
                     naver_status = o.get("orderStatus", "")
 
-                    live_intl_shipped = False
-                    intl_no = fields.get("intl_tracking_number")
-                    if row and intl_no and not fields.get("ace_domestic_started_at"):
+                    updates = dict(ace_updates) if ace_updates else {}
+                    if recipient_fresh:
+                        updates.update({k: v for k, v in recipient_fresh.items() if v})
+                    if updates:
                         try:
-                            events = await run.io_bound(aet.get_tracking_events, intl_no)
+                            if row:
+                                await run.io_bound(of.update_fields, row["id"], updates)
+                            else:
+                                defaults = {
+                                    **updates,
+                                    "naver_product_name": o.get("productName", ""),
+                                    "orderer_name": o.get("ordererName", ""),
+                                    "naver_order_date": o.get("orderDate", ""),
+                                    "quantity": o.get("quantity", 0),
+                                }
+                                await run.io_bound(of.find_or_create, order_id, defaults, fulfillment_rows)
                         except Exception as e:  # noqa: BLE001
-                            print(f"ACE Express 조회 실패 ({order_id}/{intl_no}): {e}")
-                            events = None
-                        live_intl_shipped = bool(events)
-                        ace_stage = aet.derive_ace_stage(events)
-                        updates = {"ace_last_checked_at": datetime.now().isoformat()}
-                        if ace_stage["customs_started_at"] and not fields.get("ace_customs_started_at"):
-                            updates["ace_customs_started_at"] = ace_stage["customs_started_at"]
-                        if ace_stage["domestic_started_at"] and not fields.get("ace_domestic_started_at"):
-                            updates["ace_domestic_started_at"] = ace_stage["domestic_started_at"]
-                        if ace_stage["delivered"] and not fields.get("ace_delivered_at"):
-                            updates["ace_delivered_at"] = datetime.now().isoformat()
-                        of.update_fields(row["id"], updates)
+                            print(f"주문 캐시 저장 실패 ({order_id}): {e}")
                         fields.update(updates)
 
                     stage_index = _compute_stage_index(fields, naver_status, live_intl_shipped)

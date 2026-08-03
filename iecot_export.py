@@ -33,11 +33,24 @@ IECOT_COLUMNS = [
 assert len(IECOT_COLUMNS) == 37, f"에코트랜스 양식은 37개 컬럼이어야 하는데 {len(IECOT_COLUMNS)}개임"
 
 
+def _english_product_name(fields: dict) -> str:
+  """통관 절차상 "상품명(영문)" 컬럼엔 영문만 허용된다. Order_Fulfillment의
+  naver_product_name은 네이버 등록명 그대로("영문명 / 한글명 키워드..." 형식,
+  product_keywords.py 참고)라 한글이 섞여 있으므로 쓸 수 없다 - 대신 NocoDB
+  SKU(항상 영문, purchase_orders.py가 발주 시점에 sku 필드로 저장해둠)를
+  우선 쓰고, 없으면 naver_product_name의 " / " 앞부분(영문 구간)만 잘라낸다."""
+  sku = (fields.get("sku") or "").strip()
+  if sku:
+    return sku
+  naver_name = fields.get("naver_product_name", "")
+  return naver_name.split(" / ")[0].strip()
+
+
 def _row_values(fields: dict) -> list:
   recipient_name = fields.get("recipient_name_kr") or fields.get("orderer_name", "")
   row = [
       fields.get("local_order_number", ""),
-      fields.get("naver_product_name", ""),
+      _english_product_name(fields),
       "",  # 제품URL - Order_Fulfillment에 미보관
       "",  # 이미지URL - Order_Fulfillment에 미보관
       fields.get("local_unit_price_usd", ""),

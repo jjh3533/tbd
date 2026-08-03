@@ -110,11 +110,20 @@ def find_by_order_id(product_order_id: str, rows: list[dict] | None = None) -> d
 
 def find_or_create(product_order_id: str, defaults: dict, rows: list[dict] | None = None) -> dict:
   """이 주문번호의 Order_Fulfillment 로우가 있으면 그대로, 없으면 defaults로
-  새로 만들어 돌려준다. order_table이 없으면(테이블 미생성) RuntimeError."""
+  새로 만들어 돌려준다. order_table이 없으면(테이블 미생성) RuntimeError.
+
+  기존 로우가 있어도 defaults 중 값이 있는데 로우엔 비어있는 필드는 채워
+  넣는다 - 다른 진입점(예: /orders의 수령인정보 캐싱)이 먼저 부분적인
+  로우를 만들어둔 뒤 이 함수가 나중에 나머지 필드로 완성하는 순서가
+  가능해야 하기 때문(이미 값이 있는 필드는 절대 덮어쓰지 않는다)."""
   if order_table is None:
     raise RuntimeError("NOCODB_ORDER_TABLE_ID가 설정되지 않았습니다 - create_order_fulfillment_table.py를 먼저 실행하세요.")
   existing = find_by_order_id(product_order_id, rows)
   if existing:
+    missing = {k: v for k, v in defaults.items() if v and not existing["fields"].get(k)}
+    if missing:
+      order_table.update(existing["id"], missing)
+      existing["fields"].update(missing)
     return existing
   fields = {"naver_product_order_id": product_order_id, **defaults}
   created = order_table.create(fields)

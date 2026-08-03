@@ -16,8 +16,8 @@ _SETTINGS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "commo
 DEFAULTS: dict = {
     "brands": {
         "UniFi": {
-            "header_logo_src": "assets/common/common_logo-supply.svg",
-            "header_logo_alt": "Unifi Supply",
+            "header_logo_src": "assets/common/common_logo-unifi-tbd.svg",
+            "header_logo_alt": "UniFi x TBD Seoul",
             "hero_logo_src": "assets/common/common_logo-symbol.svg",
             "hero_logo_alt": "UniFi",
             "hero_logo_height": "60px",
@@ -28,8 +28,8 @@ DEFAULTS: dict = {
             "store_line": "Unifi Supply by TBD Seoul",
         },
         "GL.inet": {
-            "header_logo_src": "assets/common/common_logo-glinet.svg",
-            "header_logo_alt": "GL.iNet",
+            "header_logo_src": "assets/common/common_logo-glinet-tbd.svg",
+            "header_logo_alt": "GL.iNet x TBD Seoul",
             "hero_logo_src": "assets/common/common_logo-glinet.svg",
             "hero_logo_alt": "GL.iNet",
             "hero_logo_height": "22px",

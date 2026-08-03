@@ -9,8 +9,8 @@ UCG Ultra 페이지에서 그대로 가져온 것과 100% 동일한 텍스트.
 # 파라미터화. head()/trust_to_footer()/hero()는 이 값을 안 넘기면 기존 UniFi
 # 문구와 100% 동일한 결과를 내도록 UNIFI_BRAND를 기본값으로 쓴다.
 UNIFI_BRAND = {
-    "header_logo_src": "assets/common/common_logo-supply.svg",
-    "header_logo_alt": "Unifi Supply",
+    "header_logo_src": "assets/common/common_logo-unifi-tbd.svg",
+    "header_logo_alt": "UniFi x TBD Seoul",
     "hero_logo_src": "assets/common/common_logo-symbol.svg",
     "hero_logo_alt": "UniFi",
     "hero_logo_height": "60px",
@@ -22,8 +22,8 @@ UNIFI_BRAND = {
 }
 
 GLINET_BRAND = {
-    "header_logo_src": "assets/common/common_logo-glinet.svg",
-    "header_logo_alt": "GL.iNet",
+    "header_logo_src": "assets/common/common_logo-glinet-tbd.svg",
+    "header_logo_alt": "GL.iNet x TBD Seoul",
     "hero_logo_src": "assets/common/common_logo-glinet.svg",
     "hero_logo_alt": "GL.iNet",
     "hero_logo_height": "22px",
@@ -83,9 +83,7 @@ def head(brand=UNIFI_BRAND):
 
   <div style="padding:22px 60px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #E4E4E9;" data-screen-label="Header">
     <div style="display:flex;align-items:center;gap:14px;">
-      <img src="{brand['header_logo_src']}" alt="{brand['header_logo_alt']}" style="height:20px;width:auto;display:block;">
-      <div style="width:1px;height:16px;background:#E4E4E9;"></div>
-      <img src="assets/common/common_logo-tbd.svg" alt="TBD Seoul" style="height:14px;width:auto;display:block;opacity:0.75;">
+      <img src="{brand['header_logo_src']}" alt="{brand['header_logo_alt']}" style="height:24px;width:auto;display:block;">
     </div>
     <div style="font-size:12px;color:#57C76B;font-weight:500;border:1px solid rgba(87,199,107,0.3);background:rgba(87,199,107,0.08);border-radius:20px;padding:4px 12px;">해외직구 · 정식 유통</div>
   </div>
@@ -200,7 +198,7 @@ _TRUST_TO_FOOTER_TEMPLATE = """
   </section>
 
   <div style="padding:60px;background:#F5F4F7;font-size:12px;color:#696F78;line-height:1.8;" data-screen-label="Footer">
-    <img src="assets/common/common_logo-footer.svg" alt="TBD Seoul" style="height: 31px; width: 111px; opacity: 0.55; margin-bottom: 18px">
+    <img src="assets/common/common_logo-footer.svg" alt="TBD Seoul" style="height: 40px; width: auto; opacity: 0.55; margin-bottom: 18px">
     <div style="display:flex;gap:8px;"><span style="flex-shrink:0;color:#212326;font-weight:500;">상호</span><span>TBD Seoul</span></div>
     <div style="display:flex;gap:8px;"><span style="flex-shrink:0;color:#212326;font-weight:500;">스토어</span><span>__STORE__</span></div>
     <div style="display:flex;gap:8px;"><span style="flex-shrink:0;color:#212326;font-weight:500;">고지</span><span>본 상품은 해외에서 발송되는 병행/직수입 상품으로, 통관 절차 및 반품 정책은 국내 상품과 다를 수 있습니다.</span></div>
