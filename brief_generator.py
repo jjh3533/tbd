@@ -1,10 +1,9 @@
 """상세페이지 브리프(태그라인/Why 3카드/Design/Tech Specs) 초안을 Claude로 생성.
 
 CheapSub(https://cheapsub.im, Anthropic Messages API 호환 중계 게이트웨이)를
-통해 claude-sonnet-5를 호출한다. 이 모듈은 detail_page_builder.py(로컬 전용
-상세페이지 제작 도구)에서만 쓰이므로, CHEAPSUB_API_KEY가 없어도 나머지
-대시보드는 영향받지 않는다(config.py에서 required=False, 호출부도 지연
-import).
+통해 claude-opus-5를 호출한다. 이 모듈은 detail_page_builder.py(상세페이지
+제작 도구)에서만 쓰이므로, CHEAPSUB_API_KEY가 없어도 나머지 대시보드는
+영향받지 않는다(config.py에서 required=False, 호출부도 지연 import).
 
 생성된 결과는 항상 사람이 검토/수정한 뒤 저장하는 초안일 뿐이다 - 이 프로젝트의
 다른 자동화(리테일러 후보 검색, 카테고리 자동선택 등)와 동일하게 최종 판단은
@@ -25,7 +24,7 @@ import anthropic
 import config
 
 _CHEAPSUB_BASE_URL = "https://api.cheapsub.im"  # /v1 붙이지 않음 - SDK가 /v1/messages를 자동으로 붙임
-_MODEL = "claude-sonnet-5"
+_MODEL = "claude-opus-5"
 
 
 def _load_example_briefs(limit: int = 2) -> list[dict]:
@@ -124,7 +123,7 @@ def _build_system_prompt() -> str:
 def generate_brief_draft(
     brand: str, title: str, model_number: str, reference_text: str, category: str = "",
 ) -> dict:
-  """Claude(claude-sonnet-5, CheapSub 게이트웨이)로 브리프 초안을 생성한다.
+  """Claude(claude-opus-5, CheapSub 게이트웨이)로 브리프 초안을 생성한다.
 
   반환값은 detail_page_builder.py의 폼 필드에 그대로 채워 넣을 수 있는 dict:
       {tagline, why_headline, why_sub, why_cards: [[heading, body], ...],

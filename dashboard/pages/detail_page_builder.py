@@ -105,6 +105,32 @@ def detail_page_builder_page() -> None:
     ui.separator().classes("my-4")
 
     # ------------------------------------------------------------------
+    # 🤖 Claude로 브리프 초안 생성 (선택)
+    # ------------------------------------------------------------------
+    components.section_header("🤖 Claude로 브리프 초안 생성 (선택)")
+    ui.label(
+        "공홈 설명/스펙을 참고 자료 칸에 붙여넣거나 URL로 가져온 뒤 생성하면 "
+        "태그라인/Why 3카드/Design/Tech Specs를 Claude가 초안으로 채워줍니다. "
+        "생성 후에도 전부 수정 가능하니 저장·업로드 전에 꼭 검토하세요."
+    ).classes("text-sm text-tbd-text-secondary mb-2")
+
+    with ui.row().classes("w-full gap-4 items-end mb-2"):
+      reference_url_input = ui.input(
+          "공홈 URL (선택 - 자동으로 참고자료 채우기)",
+          placeholder="e.g. https://store.ui.com/us/en/products/u6-pro",
+      ).classes("flex-1")
+      fetch_reference_button = ui.button("가져오기").props("outline")
+
+    reference_text_area = ui.textarea(
+        "참고 자료 (공홈 설명/스펙 - 직접 붙여넣기도 가능)"
+    ).classes("w-full").props("rows=6")
+
+    with ui.row().classes("w-full gap-3 mb-2"):
+      generate_brief_button = components.primary_button("🤖 브리프 초안 생성")
+
+    ui.separator().classes("my-4")
+
+    # ------------------------------------------------------------------
     # 1) 기본 정보
     # ------------------------------------------------------------------
     components.section_header("1) 기본 정보")
@@ -133,32 +159,6 @@ def detail_page_builder_page() -> None:
       hero_name = state["hero_source"].split("/")[-1] if state["hero_source"] else "미선택"
       design_name = state["design_source"].split("/")[-1] if state["design_source"] else "미선택"
       selection_status.text = f"히어로: {hero_name} · 디자인: {design_name}"
-
-    ui.separator().classes("my-4")
-
-    # ------------------------------------------------------------------
-    # 🤖 Claude로 브리프 초안 생성 (선택)
-    # ------------------------------------------------------------------
-    components.section_header("🤖 Claude로 브리프 초안 생성 (선택)")
-    ui.label(
-        "공홈 설명/스펙을 참고 자료 칸에 붙여넣거나 URL로 가져온 뒤 생성하면 "
-        "태그라인/Why 3카드/Design/Tech Specs를 Claude가 초안으로 채워줍니다. "
-        "생성 후에도 전부 수정 가능하니 저장·업로드 전에 꼭 검토하세요."
-    ).classes("text-sm text-tbd-text-secondary mb-2")
-
-    with ui.row().classes("w-full gap-4 items-end mb-2"):
-      reference_url_input = ui.input(
-          "공홈 URL (선택 - 자동으로 참고자료 채우기)",
-          placeholder="e.g. https://store.ui.com/us/en/products/u6-pro",
-      ).classes("flex-1")
-      fetch_reference_button = ui.button("가져오기").props("outline")
-
-    reference_text_area = ui.textarea(
-        "참고 자료 (공홈 설명/스펙 - 직접 붙여넣기도 가능)"
-    ).classes("w-full").props("rows=6")
-
-    with ui.row().classes("w-full gap-3 mb-2"):
-      generate_brief_button = components.primary_button("🤖 브리프 초안 생성")
 
     ui.separator().classes("my-4")
 
