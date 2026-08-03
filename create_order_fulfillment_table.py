@@ -56,6 +56,7 @@ def main():
             {"title": "sku", "uidt": "SingleLineText"},
             {"title": "naver_order_date", "uidt": "DateTime"},
             {"title": "naver_product_name", "uidt": "SingleLineText"},
+            {"title": "naver_order_status", "uidt": "SingleLineText"},
             {"title": "quantity", "uidt": "Number"},
             {"title": "orderer_name", "uidt": "SingleLineText"},
             {"title": "recipient_name_kr", "uidt": "SingleLineText"},
@@ -87,6 +88,7 @@ def main():
             {"title": "naver_dispatched_at", "uidt": "DateTime"},
             {"title": "naver_dispatch_result", "uidt": "LongText"},
             # ACE Express 송장 조회로 확인한 통관/국내배송/배달완료 단계
+            {"title": "ace_intl_shipped_at", "uidt": "DateTime"},
             {"title": "ace_customs_started_at", "uidt": "DateTime"},
             {"title": "ace_domestic_started_at", "uidt": "DateTime"},
             {"title": "ace_delivered_at", "uidt": "DateTime"},
