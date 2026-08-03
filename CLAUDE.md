@@ -15,7 +15,7 @@
 | 파일 | 역할 |
 |---|---|
 | `sync_engine.py` | 스크래핑/동기화/포맷팅 로직 - 프레임워크 독립 모듈. `start_background_scheduler()`로 매일 09:00 KST 전체 동기화 + 4시간마다 확인 필요 상품만 재조회하는 자동화도 포함 |
-| `dashboard/` | NiceGUI 대시보드 (`theme.py`, `layout.py`, `components.py`, `app.py`, `pages/{home,category,brand,register,inventory,needs_check,orders}.py`, `deploy/{Dockerfile,docker-compose.yml}`) |
+| `dashboard/` | NiceGUI 대시보드 (`theme.py`, `layout.py`, `components.py`, `app.py`, `pages/{home,category,brand,register,detail_page_builder,inventory,needs_check,orders,sync,smartstore}.py`, `deploy/{Dockerfile,docker-compose.yml}`) |
 | `config.py` | 공용 시크릿 로더 (`.env`), NocoDB/Scrape.do/Telegram 값 |
 | `naver_config.py` | 네이버 커머스API 설정 (CLIENT_ID/SECRET은 `.env`에서, NAS엔 없어도 되도록 `required=False`). `PRODUCT_IMAGES_DIR`/`PRODUCT_PAGES_DIR`는 `.env`의 `TBD_SEOUL_ROOT`로 오버라이드 가능 (맥은 미설정=Google Drive CloudStorage 경로, NAS는 `/app/dev/smartstore`로 설정) |
 | `nocodb_client.py` | NocoDB REST v2용 Airtable 호환 어댑터 |
@@ -24,6 +24,7 @@
 | `main.py` | 엑셀(`naver_상품등록_템플릿.xlsx`) 기반 네이버 상품 등록 파이프라인 |
 | `product_builder.py` / `image_uploader.py` | 등록 payload 생성 / 이미지 업로드. **자동 카테고리 선택 및 검색 키워드 추가 기능 내장** |
 | `product_keywords.py` | 카테고리별 자동 leafCategoryId 선택 및 검색 최적화 키워드 생성 모듈 |
+| `brief_generator.py` | Claude(claude-sonnet-5)로 상세페이지 브리프(태그라인/Why 3카드/Design/Tech Specs) 초안을 생성. CheapSub 중계 API(`https://api.cheapsub.im`, Anthropic Messages API 호환) 경유, `CHEAPSUB_API_KEY` 필요(`.env`, 없으면 이 기능만 비활성화). 대시보드 `/detail-page-builder`의 "🤖 브리프 초안 생성" 버튼이 호출. 로컬 전용(NAS Dockerfile엔 `anthropic` 패키지 없음, 지연 import로 방어) |
 | `update_categories.py` | 기등록 상품의 카테고리를 더 적합한 카테고리로 일괄 변경 |
 | `update_product_names_with_keywords.py` | 기등록 상품명에 검색 키워드 일괄 추가 |
 | `run_pipeline.py` | main.py → sync_naver_ids_to_nocodb.py → update_price_stock.py 순차 실행 |
@@ -39,12 +40,12 @@
 | `FIELD_MIGRATION.md` | NocoDB 필드명 한글→영문 마이그레이션 문서 |
 | `create_price_history_table.py` | NocoDB `Price_History` 테이블(가격/재고 변동 이력, EAV 스타일) 생성 1회성 스크립트 |
 | `category_lookup.py`/`notice_lookup.py`/`origin_lookup.py`/`address_lookup.py` | 네이버 API 조회용 1회성 스크립트 |
-| `product_pages/scripts/` | 상세페이지 생성기 - 재사용 가능한 공용 도구만 남음: `build_pages.py`(신규 생성 패턴), `crop_hero.py`(히어로 이미지 반사 크롭), `export_sections.py`(섹션별 PNG 검증용 export). 카테고리별 1회성 배치 스크립트는 `archive/product_pages_scripts/`로 이동함 |
+| `product_pages/scripts/` | 상세페이지 생성기 - 재사용 가능한 공용 도구: `build_pages.py`(신규 생성 패턴 - `HEAD`/`TRUST_TO_FOOTER`/`hero()`/`why_section()`이 `UNIFI_BRAND`/`GLINET_BRAND` 브랜드 딕셔너리를 파라미터로 받도록 확장됨, 인자 없이 부르면 기존 UniFi 출력과 byte-identical), `build_detail_page.py`(브랜드 무관 "콘텐츠 브리프" dict → `.dc.html` 조립 → PNG export 엔진, 대시보드 `/detail-page-builder`가 호출), `crop_hero.py`(히어로 이미지 반사 크롭 - Ubiquiti CDN 이미지 전용 로직이라 GL.iNet처럼 반사 없는 스튜디오 컷에 쓰면 오작동/과잉크롭함, 주의), `export_sections.py`(섹션별 PNG export, Playwright 필요). 카테고리별 1회성 배치 스크립트는 `archive/product_pages_scripts/`로 이동함 |
 | `archive/` | 이미 끝난 1회성 조사/디버그/검증/수정 스크립트 + 더 이상 안 쓰는 데이터/로그 보관 (삭제 아님, 필요하면 재사용 가능 - `archive/README.md` 참고) |
 | `naver_상품등록_템플릿.xlsx` | 등록용 엑셀 (130행: Switching 29 + WiFi 18 + Physical Security 15 + Door Access 31 + Integrations 8 + 기타 29) |
 | `registered_log.json` | 등록된 상품들의 전체 API payload 로컬 로그 |
 | `product_slug_map.json` | `sync_engine.py`가 UI Store 상품 URL을 만들 때 쓰는 name↔slug 매핑 (크롤링 프로젝트 때 생성). **NAS 배포 시 반드시 같이 올려야 함** - 없어도 에러 없이 조용히 링크가 안 만들어져서 놓치기 쉬움 |
-| `.env`/`.env.example` | 시크릿 (NocoDB/Scrape.do/Telegram/NAVER_CLIENT_ID·SECRET) |
+| `.env`/`.env.example` | 시크릿 (NocoDB/Scrape.do/Telegram/NAVER_CLIENT_ID·SECRET/CHEAPSUB_API_KEY) |
 | `.claude/launch.json` | `tbd-dashboard-nicegui`(NiceGUI :8080) |
 
 ### 접근 권한 필요한 외부 폴더 (git 저장소 밖, Google Drive 동기화)
@@ -55,7 +56,7 @@
 
 ## 3. 현재 상태
 
-알려진 미해결 버그나 진행 중인 작업 없음. 세부 경위는 `HISTORY.md` 참고 (항목 42~59).
+알려진 미해결 버그나 진행 중인 작업 없음. 세부 경위는 `HISTORY.md` 참고 (항목 42~60).
 
 - **코드 리뷰 기반 수정 완료**: `CODE_REVIEW.md`(ChatGPT 검토, 2026-08-02)를 실제 코드와 대조 검증 후 우선순위를 다시 매겨 전부 대응함:
   - P0 대시보드 로그인 인증 (아래 항목 참고), P1 NocoDB 갱신 실패 전파+Price History 순서, Sync 취소 후 세대(generation) 기반 레이스 방지, 주문 "최근 7일" 하루 단위 분할 조회 — 커밋 완료.
@@ -74,6 +75,12 @@
 - **구매대행 서비스 확장 로드맵 Phase A(상품등록 공홈 크롤링) 완료**: `/register`에서 크롤링→미리보기→리테일러 후보 검색→저장까지 my.tbd.kr에 실제 배포/검증 완료(UniFi/GL.inet). 이미지 다운로드는 `/app/dev/smartstore`(위 외부 폴더 참고)에 "{Brand} {Model Number}" 폴더명으로 저장됨(위 Product Images 폴더 규칙 참고). 기존 Product Images 폴더 전체도 이 규칙으로 정리 완료(154개 이름변경 + 19개 중복 삭제, NocoDB에 없는 33개는 보류). 전체 로드맵과 남은 단계(B/D)는 4번 참고
 - **GL.iNet 브랜드 지원 추가**: `dashboard/pages/brand.py` 신규 추가. `/brand/unifi`, `/brand/glinet` 라우트로 브랜드별 상품 리스트 제공. 검색·정렬(카테고리순/이름A-Z·Z-A/가격낮은순·높은순)·카테고리 필터 포함, 필터 변경 시 테이블 즉시 갱신. Brand 필드 기준 필터링(Brand 미설정 시 Category 폴백). 사이드바 "📋 상품 리스트" 서브메뉴가 카테고리 목록 대신 UniFi/GL.iNet 브랜드 링크로 교체됨. GL.iNet 크롤링 시 SKU에 "GLiNet " 접두사 자동 추가(`register.py`의 `_BRAND_SKU_PREFIXES`). **GL.iNet 신규 상품 등록 시 NocoDB Category는 "WiFi"로 설정** — `/brand/glinet` 페이지는 Category 무관하게 Brand 필드로 필터링하므로 정상 조회됨
 - **구매대행 서비스 확장 로드맵 Phase C(주문관리) 완료**: `/orders` 페이지에서 네이버 Pay-Order/Claims API로 주문 목록 및 클레임 조회 기능 구현 완료. `naver_order_api.py`(API 클라이언트) + `dashboard/pages/orders.py`(UI) 추가. **로컬 전용 기능**(NAS는 네이버 시크릿 없음) — `orders.py`가 lazy import로 `naver_order_api`를 함수 내부에서만 불러와 NAS 기동 시 에러 방지. Dockerfile에 `bcrypt` 의존성 추가 (auth.py의 전자서명용)
+- **상세페이지 제작 대시보드 도구 추가 (2026-08-03, my.tbd.kr 배포 완료)**: 지금까지 상세페이지(`.dc.html`)는 매번 대화로 `build_pages.py` 헬퍼를 손으로 조합하는 1회성 스크립트(`gen_*.py`)를 짜야 해서 상품 하나당 비용이 컸음 — 이걸 사이드바 "➕ 신규등록" 하위 메뉴 "🖼️ 상세페이지 제작"(`/detail-page-builder`)으로 옮겨서, 카피라이팅(태그라인/Why 3카드/Design/Tech Specs)만 사람이 폼에 채우면 `.dc.html` 조립·PNG export는 코드가 처리하게 만듦. 엔진은 `product_pages/scripts/build_detail_page.py`(브랜드 무관, "콘텐츠 브리프" dict 하나로 동작). 저장된 브리프는 `Product Pages_html/briefs/<slug>.json`에 남아서 나중에 같은 상품을 다시 고칠 때 "저장된 브리프 불러오기"로 처음부터 안 타이핑해도 됨. NocoDB SKU 검색으로 브랜드/상품명/이미지폴더명 자동채움도 지원.
+  - 이 작업 중 `build_pages.py`(`HEAD`/`TRUST_TO_FOOTER`/`hero()`/`why_section()`)를 브랜드 파라미터화함(`UNIFI_BRAND`/`GLINET_BRAND`) — 기존 100개 UniFi 페이지 재생성 결과가 리팩터 전후 byte-identical임을 diff로 확인했고, 새 GL.iNet 로고 에셋(`assets/common/common_logo-glinet(-white).svg`, 사용자 제공)도 이때 반입함.
+  - **GL.iNet 최초 상세페이지 제작 완료**: Slate 7(GL-BE3600), `GLiNET Supply - Slate 7.dc.html`. 스펙은 NocoDB에 없어서(크롤링 설명은 미리보기용, 저장 안 됨) 공식 문서/리뷰를 재조사해서 채움.
+  - **PNG Export는 로컬 Mac 전용**: NAS Docker 이미지엔 Playwright가 설치돼 있지 않음(`requirements.txt`엔 있지만 `Dockerfile`은 별도 `pip install` 목록을 씀 — 둘이 안 맞음, 알아두기). `.dc.html` 생성·브리프 저장까지는 my.tbd.kr에서도 정상 동작(Synology Drive 동기화 폴더가 `TBD_SEOUL_ROOT`로 이미 잡혀있어서)하지만, "PNG로 Export" 버튼은 NAS에서 누르면 `ModuleNotFoundError`로 실패함(에러 알림만 뜨고 대시보드는 안 죽음 — `_load_bdp()` lazy import 패턴 덕분). 실제 PNG export는 로컬 Mac에서 돌릴 것.
+  - `register.py`의 `_run_script()`가 구 계정 절대경로(`/Users/cheil/Desktop/dev/tbd`)를 cwd로 하드코딩하고 있던 버그도 이때 같이 고침(`os.path.abspath(__file__)` 기반으로 상대 계산) — "🛠️ 등록 파이프라인" 버튼들이 `jay` 계정 맥에서 실패하던 원인.
+  - **Claude로 브리프 초안 자동 생성 추가**: 지금까지 태그라인/Why 3카드/Design/Tech Specs를 전부 사람이 타이핑해야 했던 걸, `brief_generator.py`(Claude claude-sonnet-5, CheapSub 중계 API 경유)로 초안을 만들고 폼에 자동으로 채우도록 확장함. `/detail-page-builder`에 "🤖 브리프 초안 생성" 섹션 추가 - 공홈 URL을 넣으면 `official_scrapers.fetch_product()`로 설명/스펙을 가져와 참고자료 칸에 채우고(직접 붙여넣기도 가능), 생성 버튼을 누르면 실제 라이브 브리프(`Product Pages_html/briefs/*.json`)를 few-shot 예시로 프롬프트에 포함시켜 같은 톤으로 초안을 만든다. Claude tool_choice로 스키마를 강제해 파싱 실패 위험 없앰. 생성 결과는 항상 초안일 뿐 - 저장/업로드 전에 사람이 검토·수정하는 흐름은 그대로 유지(다른 자동화들과 동일 철학). U6 Pro로 실제 크롤링→생성까지 전체 흐름 검증 완료. `anthropic` 패키지는 `requirements.txt`엔 추가했지만 NAS `Dockerfile`엔 의도적으로 추가 안 함(로컬 전용 기능이라 - PNG export와 동일한 이유).
 
 **현재 수치**:
 - 네이버 스마트스토어 등록 상품: **100개**
@@ -198,6 +205,7 @@ python3 update_product_names_with_keywords.py                        # 전체 �
 - `Dockerfile`/`docker-compose.yml`은 git에는 `dashboard/deploy/`에 있지만, NAS에는 `/volume1/docker/nicegui/` 루트에 그대로(중첩 없이) 올라가 있음 — `docker-compose.yml`의 `build: .`가 그 위치 기준.
 - **코드만 바뀐 경우**(`sync_engine.py`, `dashboard/` 등) → `docker-compose restart`로 충분.
 - **Dockerfile을 바꿔서 새 pip 패키지가 필요한 경우**(예: `apscheduler` 추가) → `restart`로는 새 패키지가 설치되지 않음, 반드시 **`docker-compose up -d --build`**로 이미지 재빌드 필요.
+- **`Dockerfile`의 `pip install` 목록이 `requirements.txt`와 안 맞음**: `Dockerfile`은 `requirements.txt`를 쓰지 않고 자체 `pip install nicegui requests beautifulsoup4 yfinance python-dotenv apscheduler pytz bcrypt` 한 줄로 관리한다. `requirements.txt`엔 있는 `playwright`/`openpyxl`/`pandas`가 여기 빠져있어서, PNG export(`export_sections.py`, Playwright 필요)처럼 이 목록에 없는 패키지를 쓰는 기능은 NAS에서 `ModuleNotFoundError`로 실패한다(상세페이지 제작 도구의 "PNG로 Export" 버튼이 이 케이스). 나중에 NAS에서도 PNG export를 돌리려면 이 pip 목록에 `playwright` 추가 + `RUN playwright install --with-deps chromium`까지 필요(헤드리스 Chromium 시스템 의존성 때문에 이미지 용량이 꽤 늘어남 - 아직 안 함).
 - **`.py`가 아닌 데이터 파일도 빠뜨리지 말 것**: `sync_engine.py`가 디스크에서 직접 읽는 파일(`product_slug_map.json` 등)은 로컬에는 있어도 NAS에 배포한 적 없으면 조용히 빈 값으로 처리됨(에러 없음 - 예: UniFi Store 링크가 로컬에선 되는데 NAS에선 전부 안 뜨는 버그로 실제 발견됨). 코드 배포할 때 이런 데이터 파일도 같이 올라갔는지 확인할 것.
 - **새 모듈을 배포하기 전에 그 import 체인이 요구하는 시크릿을 먼저 확인할 것**: `dashboard/` 안에서 `import` 하는 모듈은 전부 module-level 코드가 즉시 실행되므로, 그 체인 어딘가 `_get_secret(..., required=True)`가 있고 NAS `.env`에 그 값이 없으면 그 페이지 하나가 아니라 **대시보드 전체가 기동 실패**한다(실제로 `register.py`→`image_uploader`→`naver_config`에서 겪음). NAS에서 안 쓰는 시크릿이면 값을 굳이 채워넣지 말고 `required=False`로 완화하는 쪽이 낫다.
 - **NAS `.env`에 줄 추가할 때 trailing newline 확인**: `cat >> .env`로 이어붙이는데 기존 파일 끝에 개행이 없으면 마지막 줄과 새 줄이 한 줄로 붙어버려 두 값 다 깨진다(실제로 `TELEGRAM_CHAT_ID`+`TBD_SEOUL_ROOT`가 붙어버린 사고 있었음). 추가한 뒤 `cat -A .env`로 줄바꿈(`$`)이 제대로 갈라져 있는지 항상 확인할 것.
@@ -205,7 +213,7 @@ python3 update_product_names_with_keywords.py                        # 전체 �
 ```bash
 # 파일 업로드 (sshpass 필수)
 sshpass -p 'JJ2120jj!!' scp -O -o StrictHostKeyChecking=no sync_engine.py config.py nocodb_client.py naver_config.py image_uploader.py product_slug_map.json jay@192.168.50.245:/volume1/docker/nicegui/
-sshpass -p 'JJ2120jj!!' scp -O -o StrictHostKeyChecking=no -r dashboard official_scrapers jay@192.168.50.245:/volume1/docker/nicegui/
+sshpass -p 'JJ2120jj!!' scp -O -o StrictHostKeyChecking=no -r dashboard official_scrapers product_pages jay@192.168.50.245:/volume1/docker/nicegui/
 sshpass -p 'JJ2120jj!!' scp -O -o StrictHostKeyChecking=no retailer_search.py jay@192.168.50.245:/volume1/docker/nicegui/
 # Dockerfile이 바뀌었다면 NAS 루트(중첩 아님)에 별도 업로드
 sshpass -p 'JJ2120jj!!' scp -O -o StrictHostKeyChecking=no dashboard/deploy/Dockerfile jay@192.168.50.245:/volume1/docker/nicegui/

@@ -40,3 +40,8 @@ SCRAPEDO_TOKEN = _get_secret("SCRAPEDO_TOKEN")
 
 TELEGRAM_TOKEN = _get_secret("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = _get_secret("TELEGRAM_CHAT_ID")
+
+# CheapSub(중계 API, https://cheapsub.im) - Anthropic 정가 대비 저렴한 종량제
+# 게이트웨이. 브리프 초안 생성(brief_generator.py)에서만 쓰는 로컬 전용 기능이라
+# required=False (NAS/다른 스크립트는 필요 없음).
+CHEAPSUB_API_KEY = _get_secret("CHEAPSUB_API_KEY", required=False)
