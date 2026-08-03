@@ -8,12 +8,18 @@
 경우가 많아서, 등록 시점 순서상 /shipping의 "국제배송 송장 등록" 다음
 단계로 옮겨져 있다.
 
+**이 페이지는 네이버 API를 직접 호출하지 않는다(2026-08-04)** - `/orders`와
+동일한 원칙: 주문 목록은 `Order_Fulfillment`(NocoDB)에서만 읽는다. `/orders`의
+"☁️ 네이버·배송 동기화" 버튼이 최근 주문을 이 테이블에 미리 채워두므로, 새
+주문이 안 보이면 그 버튼을 먼저 눌러야 한다(예전엔 이 페이지가 최근 7일을
+직접 네이버에서 조회해서 느렸음 - 사용자 제보로 발견/수정).
+
 Order_Fulfillment 데이터는 NocoDB에만 쓰는 가벼운 작업이라(라이브 네이버 API
 호출 없음) primary_button을 쓴다 - 되돌리기 쉬움(NocoDB UI에서 바로 삭제 가능).
 """
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import date
 from html import escape as html_escape
 
 from nicegui import run, ui
@@ -25,15 +31,16 @@ from dashboard import components, layout
 _PURCHASE_SITES = ["Amazon", "B&H", "Adorama", "공홈"]
 
 
-def _purchase_items_table_html(orders: list[dict], by_id: dict, nocodb_records: list[dict]) -> str | None:
+def _purchase_items_table_html(records: list[dict], nocodb_records: list[dict]) -> str | None:
   """발주 항목 전체(대기+완료)를 리테일러 가격 비교와 함께 보여주는 표.
   가격 셀은 클릭하면 새 탭으로 해당 상품 페이지가 열린다."""
-  if not orders:
+  if not records:
     return None
   rows = []
-  for o in orders:
-    order_id = o.get("productOrderId", "")
-    product_name = o.get("productName", "")
+  for record in records:
+    fields = record["fields"]
+    order_id = fields.get("naver_product_order_id", "")
+    product_name = fields.get("naver_product_name", "")
     match = of.match_sku_for_order(product_name, nocodb_records)
     f = match["fields"] if match else {}
     sku = f.get("SKU") or product_name
@@ -54,19 +61,17 @@ def _purchase_items_table_html(orders: list[dict], by_id: dict, nocodb_records: 
         return f'<a href="{html_escape(url)}" target="_blank" rel="noopener noreferrer">{text}</a>'
       return text
 
-    fulfillment_row = by_id.get(order_id)
-    fulfillment = fulfillment_row["fields"] if fulfillment_row else {}
-    purchase_status = fulfillment.get("purchase_status")
+    purchase_status = fields.get("purchase_status")
     if purchase_status == "발주완료":
       status_html = (
           f'<span class="uic-pill ok">발주완료</span> '
-          f'{html_escape(fulfillment.get("purchase_site", "") or "")} '
-          f'{html_escape(fulfillment.get("local_order_number", "") or "")}'
+          f'{html_escape(fields.get("purchase_site", "") or "")} '
+          f'{html_escape(fields.get("local_order_number", "") or "")}'
       )
     else:
       status_html = '<span class="uic-pill check">발주대기</span>'
 
-    orderer_name = fulfillment.get("orderer_name") or o.get("ordererName", "") or "-"
+    orderer_name = fields.get("orderer_name") or "-"
 
     rows.append(
         "<tr>"
@@ -104,8 +109,6 @@ def purchase_orders_page() -> None:
       ).classes("text-negative")
       return
 
-    state: dict = {"orders": [], "fulfillment_by_order_id": {}}
-
     stat_row = ui.row().classes("w-full gap-5 mb-10")
     content = ui.column().classes("w-full gap-6")
 
@@ -113,42 +116,20 @@ def purchase_orders_page() -> None:
       stat_row.clear()
       content.clear()
 
-      try:
-        import naver_order_api
-      except Exception as e:  # noqa: BLE001
-        with content:
-          ui.label(f"네이버 주문 API를 불러올 수 없습니다: {e}").classes("text-negative")
-        return
-
-      now = datetime.now()
-      windows = [of.day_window(now - timedelta(days=i)) for i in range(7)]
-      order_lists = []
-      for from_date, to_date in windows:
-        try:
-          data = await run.io_bound(
-              lambda f=from_date, t=to_date: naver_order_api.get_product_orders(f, t)
-          )
-          order_lists.append(data.get("content", []))
-        except Exception as e:  # noqa: BLE001
-          print(f"발주 페이지 - 주문 조회 실패 ({from_date.strftime('%m/%d')}): {e}")
-
-      orders = list(of.merge_orders_by_id(order_lists).values())
-      state["orders"] = orders
-
-      fulfillment_rows = of.get_all()
-      by_id = {r["fields"].get("naver_product_order_id"): r for r in fulfillment_rows}
-      state["fulfillment_by_order_id"] = by_id
+      # Order_Fulfillment만 읽는다 - 네이버 API 호출 없음(2026-08-04, /orders와
+      # 동일한 원칙). 새 주문은 /orders의 "☁️ 네이버·배송 동기화"가 먼저 채워둬야
+      # 여기 보인다.
+      all_rows = await run.io_bound(of.get_all)
+      records = [r for r in all_rows if r["fields"].get("naver_product_order_id")]
+      records.sort(key=lambda r: r["fields"].get("naver_order_date") or "", reverse=True)
 
       nocodb_records = safe_fetch_records(on_error=lambda msg: ui.notify(msg, type="negative"))
 
       awaiting_purchase = []  # 로컬 주문번호 없음
       purchased = 0  # 로컬 주문번호 있음 (이후 단계는 /shipping에서 진행)
-      for o in orders:
-        order_id = o.get("productOrderId")
-        row = by_id.get(order_id)
-        fields = row["fields"] if row else {}
-        if not fields.get("local_order_number"):
-          awaiting_purchase.append(o)
+      for r in records:
+        if not r["fields"].get("local_order_number"):
+          awaiting_purchase.append(r)
         else:
           purchased += 1
 
@@ -162,21 +143,25 @@ def purchase_orders_page() -> None:
         components.section_header(
             "발주 항목 리스트", "리테일러별 가격을 비교하고 클릭하면 새 탭에서 해당 상품 페이지로 이동합니다. 발주완료된 항목도 계속 표시됩니다."
         )
-        items_html = _purchase_items_table_html(orders, by_id, nocodb_records)
+        items_html = _purchase_items_table_html(records, nocodb_records)
         if items_html is None:
-          ui.label("표시할 발주 항목이 없습니다.").classes("text-sm text-tbd-text-secondary")
+          ui.label(
+              "표시할 발주 항목이 없습니다. 새 주문이 있는데 안 보이면 /orders에서 "
+              "먼저 동기화해주세요."
+          ).classes("text-sm text-tbd-text-secondary")
         else:
           ui.html(items_html, sanitize=False).classes("w-full mb-8")
 
         components.section_header("신규 발주 대기", "현지(미국) 사이트에서 주문 완료 후 주문정보를 입력하세요.")
         if not awaiting_purchase:
           ui.label("발주 대기 중인 주문이 없습니다.").classes("text-sm text-tbd-text-secondary")
-        for o in awaiting_purchase:
-          _render_purchase_row(o, nocodb_records)
+        for r in awaiting_purchase:
+          _render_purchase_row(r, nocodb_records)
 
-    def _render_purchase_row(order: dict, nocodb_records: list[dict]):
-      order_id = order.get("productOrderId", "")
-      product_name = order.get("productName", "")
+    def _render_purchase_row(record: dict, nocodb_records: list[dict]):
+      fields = record["fields"]
+      order_id = fields.get("naver_product_order_id", "")
+      product_name = fields.get("naver_product_name", "")
       match = of.match_sku_for_order(product_name, nocodb_records)
       sku = match["fields"].get("SKU", "") if match else ""
 
@@ -188,22 +173,12 @@ def purchase_orders_page() -> None:
         order_number_input = ui.input("로컬 주문번호").classes("w-40")
         price_input = ui.number("단가 (USD)", min=0, step=0.01).classes("w-32")
 
-        async def _save(order_id=order_id, product_name=product_name, sku=sku,
+        async def _save(record=record, order_id=order_id, sku=sku,
                          site_select=site_select, order_number_input=order_number_input,
                          price_input=price_input):
           if not order_number_input.value:
             ui.notify("로컬 주문번호를 입력하세요.", type="negative")
             return
-          defaults = {
-              "sku": sku,
-              "naver_order_date": order.get("orderDate", ""),
-              "naver_product_name": product_name,
-              "quantity": order.get("quantity", 0),
-              "orderer_name": order.get("ordererName", ""),
-              "purchase_status": "발주대기",
-          }
-          rows = list(state["fulfillment_by_order_id"].values())
-          row = of.find_or_create(order_id, defaults, rows)
 
           fields_to_save = {
               "purchase_site": site_select.value,
@@ -212,10 +187,14 @@ def purchase_orders_page() -> None:
               "local_unit_price_usd": price_input.value or 0,
               "purchase_status": "발주완료",
           }
+          if sku and not record["fields"].get("sku"):
+            fields_to_save["sku"] = sku
 
           # 배송대행지 신청서(에코트랜스 xlsx)에 필요한 우편번호/주소/연락처를
           # 네이버 주문 상세에서 가져와 같이 채운다(수령인 이름도 함께 -
-          # 개인통관고유부호만은 네이버 API에 없어 여기서 채워지지 않음).
+          # 개인통관고유부호만은 네이버 API에 없어 여기서 채워지지 않음). 이건
+          # 페이지 로딩이 아니라 "발주 등록" 버튼을 눌렀을 때만 실행되는
+          # 명시적 쓰기 액션이라 라이브 호출이어도 괜찮다.
           try:
             import naver_order_api
 
@@ -227,7 +206,7 @@ def purchase_orders_page() -> None:
           except Exception as e:  # noqa: BLE001
             print(f"발주 페이지 - 수령인 정보 조회 실패 ({order_id}): {e}")
 
-          of.update_fields(row["id"], fields_to_save)
+          await run.io_bound(of.update_fields, record["id"], fields_to_save)
           ui.notify("발주 정보 저장 완료", type="positive")
           await _refresh()
 

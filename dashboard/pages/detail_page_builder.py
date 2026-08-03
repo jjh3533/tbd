@@ -29,14 +29,15 @@ from dashboard import components, layout
 _N_WHY_CARDS = 3
 
 
-def _find_nocodb_record(records: list[dict], title: str) -> dict | None:
-  """상품명(Title) 입력값으로 NocoDB Products 레코드를 찾는다. "🔎 NocoDB에서
-  불러오기"로 상품을 골랐다면 title_input.value가 그 레코드의 "Model Number"
-  (없으면 SKU)로 채워지므로(`_do_nocodb_search`의 `_apply` 참고 - 필드명에
-  공백이 있음, `Model_Number`가 아님), 정확히 그 값과 일치하는 레코드를
-  찾으면 된다(발주/주문 매칭처럼 부분일치가 아니라 정확일치 - 이 값 자체가
-  그 필드에서 그대로 복사돼왔기 때문에 굳이 느슨하게 볼 필요가 없음)."""
-  title_norm = (title or "").strip().lower()
+def _find_nocodb_record(records: list[dict], identity: str) -> dict | None:
+  """identity(보통 state["model_number"] - "🔎 NocoDB에서 불러오기"로 상품을
+  골랐을 때 그 레코드의 "Model Number"(없으면 SKU)를 고정해둔 값, 필드명에
+  공백이 있음 주의: `Model_Number`가 아님)로 NocoDB Products 레코드를 찾는다.
+  title_input.value(사람이 마케팅 문구로 자유롭게 다듬는 값)는 매칭 기준으로
+  쓰면 안 됨 - 정확히 그 값과 일치하는 레코드를 찾으면 된다(발주/주문
+  매칭처럼 부분일치가 아니라 정확일치 - 이 값 자체가 그 필드에서 그대로
+  복사돼왔기 때문에 굳이 느슨하게 볼 필요가 없음)."""
+  title_norm = (identity or "").strip().lower()
   if not title_norm:
     return None
   for r in records:
@@ -80,6 +81,12 @@ def detail_page_builder_page() -> None:
         "html_path": None,
         "slug": None,
         "spec_rows": [],  # list[(label_input, value_input)]
+        # NocoDB 검색으로 상품을 골랐을 때의 "Model Number"(없으면 SKU) -
+        # title_input.value는 사람이 마케팅 문구로 자유롭게 다듬는 게 정상
+        # 워크플로우라, 파일명/NocoDB Product_Page 매칭은 title이 아니라
+        # 이 안정적인 식별자를 기준으로 한다(title만 쓰면 다듬을 때마다
+        # 파일명이 바뀌고 매칭도 깨짐 - 사용자가 실사용 중 발견, 2026-08-04).
+        "model_number": "",
     }
 
     # ------------------------------------------------------------------
@@ -295,6 +302,9 @@ def detail_page_builder_page() -> None:
             brand_select.value = brand if brand in ("UniFi", "GL.inet") else "UniFi"
             model_number = (fields.get("Model Number") or "").strip()
             title_input.value = model_number or fields.get("SKU", "")
+            # title_input은 이후 사람이 마케팅 문구로 다듬을 수 있지만, 이
+            # 식별자는 그대로 고정해서 파일명/Product_Page 매칭에 쓴다.
+            state["model_number"] = model_number or fields.get("SKU", "")
             folder_brand = {"UniFi": "UniFi", "GL.inet": "GLiNET"}.get(brand_select.value, brand_select.value)
             if model_number:
               image_folder_input.value = f"{folder_brand} {model_number}"
@@ -346,6 +356,7 @@ def detail_page_builder_page() -> None:
 
       brand_select.value = brief.get("brand", "UniFi")
       title_input.value = brief.get("title", "")
+      state["model_number"] = brief.get("model_number", "")
       tagline_input.value = brief.get("tagline", "")
       state["hero_source"] = brief.get("hero_source")
       state["design_source"] = brief.get("design_source")
@@ -575,6 +586,7 @@ def detail_page_builder_page() -> None:
       return {
           "brand": brand_select.value,
           "title": title,
+          "model_number": state["model_number"],
           "tagline": tagline_input.value or "",
           "hero_source": state["hero_source"],
           "why_headline": why_headline_input.value or "",
@@ -635,7 +647,10 @@ def detail_page_builder_page() -> None:
       # 끝난 상태라 best-effort로 처리하고 로그로만 알린다.
       try:
         records = await loop.run_in_executor(None, safe_fetch_records)
-        match = _find_nocodb_record(records, brief["title"])
+        # title은 사람이 마케팅 문구로 다듬을 수 있어 매칭 기준으로 못 쓴다
+        # (실사용 중 발견 - 타이틀을 다듬으면 매칭이 깨졌음, 2026-08-04) -
+        # NocoDB 검색으로 상품을 골랐을 때 고정해둔 model_number를 우선 쓴다.
+        match = _find_nocodb_record(records, brief.get("model_number") or brief["title"])
         if match is None:
           build_log.push("⚠️ NocoDB에서 일치하는 상품을 못 찾아 Product_Page는 수동으로 반영해야 합니다.")
         elif match["fields"].get("Product_Page") != "Detail":

@@ -12,6 +12,12 @@ tech_specs_section/trust_to_footer)를 받아서, "콘텐츠 브리프" 딕셔�
     {
       "brand": "UniFi" | "GL.inet",
       "title": "Slate 7",
+      "model_number": "GL-BE3600",              # 선택 - 있으면 파일명/브리프
+                                                 # 파일명/에셋 slug의 기준이
+                                                 # 됨(title은 사람이 자유롭게
+                                                 # 다듬는 마케팅 문구라 파일
+                                                 # 식별자로 안 씀). 없으면 title
+                                                 # 로 대체(기존 동작과 동일).
       "tagline": "...<br>...",
       "hero_source": "/절대/경로/원본이미지.jpg",
       "hero_alt": "...",                      # 생략 시 title로 대체
@@ -125,13 +131,21 @@ def build_html(brief: dict, slug: str) -> str:
 
 
 def write_page(brief: dict) -> tuple[str, str]:
-    """브리프로 .dc.html을 생성해서 저장. (html_path, slug)를 돌려준다."""
+    """브리프로 .dc.html을 생성해서 저장. (html_path, slug)를 돌려준다.
+
+    파일명/slug(에셋 폴더명)는 title이 아니라 model_number(NocoDB 검색으로
+    상품을 골랐을 때의 "Model Number"/SKU - 상품의 안정적인 식별자)를 우선
+    쓴다. title은 페이지에 실제로 노출되는 마케팅 문구라 사람이 자유롭게
+    다듬는 게 정상 워크플로우인데, 예전엔 title을 파일명에도 그대로 써서
+    "타이틀을 다듬으면 파일명이 매번 바뀌고 이미 있던 페이지 대신 새 파일이
+    생기는" 문제가 있었다(사용자 실사용 중 발견, 2026-08-04)."""
     brand = BRANDS[brief["brand"]]
     title = brief["title"]
-    slug = slugify(f"{brand['supply_label']} {title}")
+    identity = (brief.get("model_number") or title).strip()
+    slug = slugify(f"{brand['supply_label']} {identity}")
 
     html = build_html(brief, slug)
-    filename = f"{brand['supply_label']} - {title}.dc.html"
+    filename = f"{brand['supply_label']} - {identity}.dc.html"
     html_path = os.path.join(PAGES_ROOT, filename)
     with open(html_path, "w", encoding="utf-8") as f:
         f.write(html)
@@ -162,7 +176,8 @@ def export_pngs(html_path: str, slug: str) -> list[str]:
 def save_brief(brief: dict) -> str:
     os.makedirs(BRIEFS_ROOT, exist_ok=True)
     brand = BRANDS[brief["brand"]]
-    slug = slugify(f"{brand['supply_label']} {brief['title']}")
+    identity = (brief.get("model_number") or brief["title"]).strip()
+    slug = slugify(f"{brand['supply_label']} {identity}")
     path = os.path.join(BRIEFS_ROOT, f"{slug}.json")
     with open(path, "w", encoding="utf-8") as f:
         json.dump(brief, f, ensure_ascii=False, indent=2)
