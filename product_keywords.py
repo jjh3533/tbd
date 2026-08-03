@@ -17,11 +17,34 @@ CATEGORY_TO_LEAF_ID = {
         'default': '50001623',   # 네트워크장비 > AP
     },
     'Cloud Gateways': '50003150',  # 네트워크장비 > 유무선공유기
+    'Mobile Router': '50001622',  # 네트워크장비 > 라우터 (GL.inet 등)
+    'Router': '50001622',        # 네트워크장비 > 라우터 (일반)
 }
 
 
 # 카테고리별 검색 키워드
 CATEGORY_KEYWORDS = {
+    'Mobile Router': {
+        'common': ['라우터', '공유기', '모바일라우터', '무선인터넷'],
+        'use_cases': ['이동형 라우터', '차량용 와이파이', '캠핑 인터넷', '임시 네트워크'],
+        'tech_keywords': {
+            '5G': ['5G', 'LTE', '이동통신'],
+            'WiFi 6': ['와이파이6', 'Wi-Fi6'],
+            'WiFi 7': ['와이파이7', 'Wi-Fi7'],
+            'Dual Band': ['듀얼밴드', '2.4GHz', '5GHz'],
+            'Portable': ['휴대용', '이동형'],
+        }
+    },
+    'Router': {
+        'common': ['라우터', '공유기', '네트워크장비', '기업용'],
+        'use_cases': ['안정적인 공유기', '원격 관리', '네트워크 확장'],
+        'tech_keywords': {
+            '5G': ['5G', 'LTE', '이동통신'],
+            'WiFi 6': ['와이파이6', 'Wi-Fi6'],
+            'WiFi 7': ['와이파이7', 'Wi-Fi7'],
+            'VPN': ['VPN', '보안'],
+        }
+    },
     'WiFi': {
         'common': ['와이파이', '무선AP', '기업용', '안정적인', 'PoE'],
         'use_cases': ['와이파이 끊김 해결', '메시 네트워크', '대규모 네트워크', '호텔 와이파이', '사무실 와이파이'],
@@ -106,6 +129,7 @@ def get_leaf_category_id(product_name_en: str, category: str) -> str:
         네이버 leafCategoryId (문자열)
     """
     if category not in CATEGORY_TO_LEAF_ID:
+        print(f"[경고] '{category}'는 매핑되지 않은 카테고리입니다. 기본값(네트워크장비 > AP)을 사용합니다.")
         return '50001623'  # 기본값: 네트워크장비 > AP
 
     mapping = CATEGORY_TO_LEAF_ID[category]
@@ -136,7 +160,8 @@ def generate_search_keywords(product_name_en: str, category: str) -> List[str]:
         키워드 리스트 (최대 10개)
     """
     if category not in CATEGORY_KEYWORDS:
-        return []
+        # 알 수 없는 카테고리는 기본 키워드 반환
+        return ['네트워크장비', '기업용', '원격관리']
 
     cat_data = CATEGORY_KEYWORDS[category]
     keywords = []

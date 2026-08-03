@@ -37,6 +37,13 @@ from config import (
     TELEGRAM_CHAT_ID,
 )
 
+# Phase B: 신규 브랜드 자동 추적을 위한 import (지연 import 회피)
+try:
+    import official_scrapers
+    _OFFICIAL_SCRAPERS_AVAILABLE = True
+except ImportError:
+    _OFFICIAL_SCRAPERS_AVAILABLE = False
+
 table = NocoDBTable(NOCODB_URL, NOCODB_API_TOKEN, NOCODB_TABLE_ID)
 # 가격/재고 변동 이력(EAV 스타일) 테이블. NOCODB_HISTORY_TABLE_ID가 설정 안
 # 돼 있으면(마이그레이션 전 로컬 환경 등) None으로 두고, _log_change가 그냥
@@ -113,6 +120,19 @@ def get_current_exchange_rate():
     return round(base_rate + 10, 1)
   except Exception:
     return 1380.0
+
+
+def get_exchange_rate_history(days: int = 14) -> list:
+  """최근 N 거래일 KRW=X 환율 히스토리를 [{date, rate}, ...] 형태로 반환합니다."""
+  try:
+    ticker = yf.Ticker("KRW=X")
+    hist = ticker.history(period=f"{days}d")
+    return [
+        {"date": ts.strftime("%m/%d"), "rate": round(float(row["Close"]) + 10, 1)}
+        for ts, row in hist.iterrows()
+    ]
+  except Exception:
+    return []
 
 
 def send_telegram_msg(text: str, on_error=print):
@@ -574,6 +594,26 @@ def _stale_retailer_data(name, product_id, fields):
           "detail": ""}
 
 
+def fetch_official_price(brand, url):
+  """Phase B: 공홈에서 가격 크롤링 (신규 브랜드용).
+
+  Returns:
+    dict: {"price": float, "status": "ok"|"check_needed", "detail": str}
+    None: brand/url이 없거나 스크래퍼가 없는 경우
+  """
+  if not brand or not url or not _OFFICIAL_SCRAPERS_AVAILABLE:
+    return None
+
+  try:
+    data = official_scrapers.fetch_product(brand, url)
+    if data and data.price_usd and data.price_usd > 0:
+      return {"price": data.price_usd, "status": "ok", "detail": ""}
+    return {"price": 0.0, "status": "check_needed", "detail": "no_price"}
+  except Exception as e:
+    return {"price": 0.0, "status": "check_needed", "detail": f"scraper_failed: {type(e).__name__}"}
+
+
+
 def process_single_record(r, current_rate, retailers=RETAILER_NAMES, generation=None):
   """워커 스레드에서 실행되므로 UI 프레임워크 호출 없이 로그 문자열만 만들어
   반환합니다.
@@ -588,6 +628,7 @@ def process_single_record(r, current_rate, retailers=RETAILER_NAMES, generation=
   record_id = r["id"]
   fields = r["fields"]
   sku = fields.get("SKU", "무명 상품")
+  brand = fields.get("Brand")
 
   adorama_id = fields.get("ADORAMA_ID")
   asin = fields.get("ASIN")
@@ -599,33 +640,75 @@ def process_single_record(r, current_rate, retailers=RETAILER_NAMES, generation=
   naver_id = fields.get("Naver_Product_No", "-")
   max_threshold = msrp_usd if msrp_usd > 0 else 99999.0
 
-  # 이번에 실제로 재조회할 곳만 스레드로 동시에 요청. 실제 네트워크 동시
-  # 요청 개수는 _AMAZON_SEMAPHORE(1)와 _SCRAPEDO_SEMAPHORE(5)가 계정 한도
-  # (Hobby 플랜 10) 안에서 제한하므로, 안전합니다.
-  fresh_results = {}
-  with ThreadPoolExecutor(max_workers=max(len(retailers), 1)) as retailer_executor:
-    futures = {}
-    if "Adorama" in retailers:
-      futures["Adorama"] = retailer_executor.submit(fetch_adorama_info, adorama_id)
-    if "Amazon" in retailers:
-      futures["Amazon"] = retailer_executor.submit(fetch_amazon_info, asin)
-    if "B&H" in retailers:
-      futures["B&H"] = retailer_executor.submit(fetch_bh_info, bh_id)
-    for name, future in futures.items():
-      fresh_results[name] = future.result()
+  # Phase B: 신규 브랜드 분기 - UniFi는 기존 로직(리테일러 크롤링),
+  # 그 외 브랜드는 공홈 크롤링 우선
+  if brand == "UniFi":
+    # 기존 UniFi 로직: 리테일러 크롤링
+    # 이번에 실제로 재조회할 곳만 스레드로 동시에 요청. 실제 네트워크 동시
+    # 요청 개수는 _AMAZON_SEMAPHORE(1)와 _SCRAPEDO_SEMAPHORE(5)가 계정 한도
+    # (Hobby 플랜 10) 안에서 제한하므로, 안전합니다.
+    fresh_results = {}
+    with ThreadPoolExecutor(max_workers=max(len(retailers), 1)) as retailer_executor:
+      futures = {}
+      if "Adorama" in retailers:
+        futures["Adorama"] = retailer_executor.submit(fetch_adorama_info, adorama_id)
+      if "Amazon" in retailers:
+        futures["Amazon"] = retailer_executor.submit(fetch_amazon_info, asin)
+      if "B&H" in retailers:
+        futures["B&H"] = retailer_executor.submit(fetch_bh_info, bh_id)
+      for name, future in futures.items():
+        fresh_results[name] = future.result()
 
-  adorama_data = (
-      fresh_results["Adorama"] if "Adorama" in retailers
-      else _stale_retailer_data("Adorama", adorama_id, fields)
-  )
-  amazon_data = (
-      fresh_results["Amazon"] if "Amazon" in retailers
-      else _stale_retailer_data("Amazon", asin, fields)
-  )
-  bh_data = (
-      fresh_results["B&H"] if "B&H" in retailers
-      else _stale_retailer_data("B&H", bh_id, fields)
-  )
+    adorama_data = (
+        fresh_results["Adorama"] if "Adorama" in retailers
+        else _stale_retailer_data("Adorama", adorama_id, fields)
+    )
+    amazon_data = (
+        fresh_results["Amazon"] if "Amazon" in retailers
+        else _stale_retailer_data("Amazon", asin, fields)
+    )
+    bh_data = (
+        fresh_results["B&H"] if "B&H" in retailers
+        else _stale_retailer_data("B&H", bh_id, fields)
+    )
+  else:
+    # Phase B: 신규 브랜드 로직 - 공홈 크롤링 + 리테일러 ID 확인
+    official_url = fields.get("Official_URL")
+    official_data = fetch_official_price(brand, official_url) if official_url else None
+
+    # 공홈 크롤링으로 MSRP 업데이트 (성공 시에만)
+    if official_data and official_data.get("status") == "ok":
+      new_msrp = official_data["price"]
+      if new_msrp != msrp_usd and new_msrp > 0:
+        msrp_usd = new_msrp
+        max_threshold = new_msrp
+        # MSRP 업데이트는 아래 updates에서 처리
+
+    # 리테일러 ID가 있으면 크롤링, 없으면 None
+    fresh_results = {}
+    with ThreadPoolExecutor(max_workers=max(len(retailers), 1)) as retailer_executor:
+      futures = {}
+      if "Adorama" in retailers and adorama_id:
+        futures["Adorama"] = retailer_executor.submit(fetch_adorama_info, adorama_id)
+      if "Amazon" in retailers and asin:
+        futures["Amazon"] = retailer_executor.submit(fetch_amazon_info, asin)
+      if "B&H" in retailers and bh_id:
+        futures["B&H"] = retailer_executor.submit(fetch_bh_info, bh_id)
+      for name, future in futures.items():
+        fresh_results[name] = future.result()
+
+    adorama_data = (
+        fresh_results["Adorama"] if "Adorama" in retailers
+        else _stale_retailer_data("Adorama", adorama_id, fields)
+    )
+    amazon_data = (
+        fresh_results["Amazon"] if "Amazon" in retailers
+        else _stale_retailer_data("Amazon", asin, fields)
+    )
+    bh_data = (
+        fresh_results["B&H"] if "B&H" in retailers
+        else _stale_retailer_data("B&H", bh_id, fields)
+    )
 
   adorama_price = adorama_data["price"] if adorama_data else 0.0
   amazon_price = amazon_data["price"] if amazon_data else 0.0
@@ -659,7 +742,13 @@ def process_single_record(r, current_rate, retailers=RETAILER_NAMES, generation=
       )
       if data and data.get("status") == "check_needed"
   ]
-  any_check_needed = bool(check_needed_sources)
+  # Phase B: 공홈 크롤링 실패도 확인 필요 상태에 포함. 전엔 실패 문구가
+  # Check_Note에만 남고 Needs_Check 계산엔 리테일러 소스만 반영돼, 공홈 크롤링만
+  # 실패한 상품은 /needs_check 목록과 4시간 재조회 대상에서 빠지고 있었음.
+  official_check_needed = bool(
+      brand != "UniFi" and official_data and official_data.get("status") == "check_needed"
+  )
+  any_check_needed = bool(check_needed_sources) or official_check_needed
 
   if valid_retailers:
     curr_stock = True
@@ -703,6 +792,11 @@ def process_single_record(r, current_rate, retailers=RETAILER_NAMES, generation=
   if weight_fallback_applied:
     check_note_parts.append("Weight_KG 크롤링 실패 - 기본값 1.0kg 사용 중")
 
+  # Phase B: 공홈 크롤링 실패 시 Check_Note에 추가 (위에서 이미 가져온
+  # official_data를 재사용 - 예전엔 상품당 공홈을 3번 호출했음)
+  if official_check_needed:
+    check_note_parts.append(f"공홈 크롤링 실패: {official_data.get('detail', 'unknown')}")
+
   update_data = {
       "In_Stock": curr_stock,
       "Needs_Check": any_check_needed,
@@ -710,6 +804,13 @@ def process_single_record(r, current_rate, retailers=RETAILER_NAMES, generation=
       "Exchange_Rate": current_rate,
       **weight_update,
   }
+
+  # Phase B: 신규 브랜드 MSRP 업데이트 (위에서 이미 가져온 official_data 재사용)
+  if brand != "UniFi" and official_data and official_data.get("status") == "ok":
+    new_msrp = official_data["price"]
+    if new_msrp != fields.get("MSRP_USD", 0.0) and new_msrp > 0:
+      update_data["MSRP_USD"] = new_msrp
+      _log_change(sku, naver_id, "MSRP_USD", fields.get("MSRP_USD", 0.0), new_msrp)
   # 사이트가 막혀서 확정 못 한 가격은 이전 값을 0으로 덮어쓰지 않고 그대로
   # 둡니다 (마지막으로 확인된 값이 남아있는 게, 잘못된 $0보다 낫습니다).
   # 이번 라운드에 실제로 재조회하지 않은 리테일러의 가격 필드는 건드리지
@@ -1516,6 +1617,36 @@ def run_sync_guarded(log_container, retailers=RETAILER_NAMES, only_needs_check=F
     _sync_status["label"] = None
     _sync_cancel_event.clear()
     _sync_lock.release()
+
+
+def _run_naver_status_sync() -> None:
+  """스케줄러가 호출하는 네이버 상태 동기화 작업.
+  로컬 환경에서만 실행됩니다 (NAS는 네이버 시크릿 없음)."""
+  try:
+    # lazy import로 NAS 환경(네이버 시크릿 없음)에서도 에러 없이 로드
+    from sync_naver_status import sync_naver_sales_status
+
+    def log(msg: str):
+      """텔레그램 알림 전송."""
+      try:
+        send_telegram_msg(f"[네이버 상태 동기화]\n{msg}")
+      except Exception:
+        pass  # 텔레그램 실패는 무시
+
+    result = sync_naver_sales_status(on_log=log)
+    summary = f"✅ 완료: {result['updated']}개 업데이트, {result['skipped']}개 변경없음"
+    if result['errors'] > 0:
+      summary += f", {result['errors']}개 오류"
+    log(summary)
+
+  except ImportError:
+    # NAS 환경 등 네이버 시크릿 없으면 조용히 건너뜀
+    pass
+  except Exception as e:
+    try:
+      send_telegram_msg(f"[네이버 상태 동기화 오류]\n{e}")
+    except Exception:
+      pass
 
 
 def _run_scheduled_sync(only_needs_check: bool) -> None:
