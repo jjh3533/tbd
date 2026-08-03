@@ -21,10 +21,29 @@ import urllib.parse
 from nicegui import app, ui
 
 import naver_config
-from sync_engine import safe_fetch_records
+from sync_engine import safe_fetch_records, table as products_table
 from dashboard import components, layout
 
 _N_WHY_CARDS = 3
+
+
+def _find_nocodb_record(records: list[dict], title: str) -> dict | None:
+  """상품명(Title) 입력값으로 NocoDB Products 레코드를 찾는다. "🔎 NocoDB에서
+  불러오기"로 상품을 골랐다면 title_input.value가 그 레코드의 "Model Number"
+  (없으면 SKU)로 채워지므로(`_do_nocodb_search`의 `_apply` 참고 - 필드명에
+  공백이 있음, `Model_Number`가 아님), 정확히 그 값과 일치하는 레코드를
+  찾으면 된다(발주/주문 매칭처럼 부분일치가 아니라 정확일치 - 이 값 자체가
+  그 필드에서 그대로 복사돼왔기 때문에 굳이 느슨하게 볼 필요가 없음)."""
+  title_norm = (title or "").strip().lower()
+  if not title_norm:
+    return None
+  for r in records:
+    f = r.get("fields", {})
+    model = (f.get("Model Number") or "").strip().lower()
+    sku = (f.get("SKU") or "").strip().lower()
+    if title_norm in (model, sku) and title_norm:
+      return r
+  return None
 
 _SCRIPTS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "product_pages", "scripts")
 
@@ -607,6 +626,22 @@ def detail_page_builder_page() -> None:
       build_log.push(f"완료: {html_path}")
       export_button.enable()
       ui.notify(".dc.html 생성 완료 - PNG Export를 진행하세요.", type="positive")
+
+      # 상세페이지를 만들었으면 그 상품의 NocoDB Product_Page도 "Detail"로
+      # 반영한다(사용자 요청 2026-08-03) - 실패해도 .dc.html 생성 자체는 이미
+      # 끝난 상태라 best-effort로 처리하고 로그로만 알린다.
+      try:
+        records = await loop.run_in_executor(None, safe_fetch_records)
+        match = _find_nocodb_record(records, brief["title"])
+        if match is None:
+          build_log.push("⚠️ NocoDB에서 일치하는 상품을 못 찾아 Product_Page는 수동으로 반영해야 합니다.")
+        elif match["fields"].get("Product_Page") != "Detail":
+          await loop.run_in_executor(None, products_table.update, match["id"], {"Product_Page": "Detail"})
+          build_log.push(f"NocoDB Product_Page → Detail 반영됨 ({match['fields'].get('SKU', '')})")
+        else:
+          build_log.push("NocoDB Product_Page 이미 Detail 상태.")
+      except Exception as e:  # noqa: BLE001
+        build_log.push(f"⚠️ NocoDB Product_Page 반영 실패: {e}")
 
     generate_button.on_click(_do_generate)
 
