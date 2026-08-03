@@ -24,7 +24,7 @@
 | `main.py` | 엑셀(`naver_상품등록_템플릿.xlsx`) 기반 네이버 상품 등록 파이프라인 |
 | `product_builder.py` / `image_uploader.py` | 등록 payload 생성 / 이미지 업로드. **자동 카테고리 선택 및 검색 키워드 추가 기능 내장** |
 | `product_keywords.py` | 카테고리별 자동 leafCategoryId 선택 및 검색 최적화 키워드 생성 모듈 |
-| `brief_generator.py` | Claude(claude-sonnet-5)로 상세페이지 브리프(태그라인/Why 3카드/Design/Tech Specs) 초안을 생성. CheapSub 중계 API(`https://api.cheapsub.im`, Anthropic Messages API 호환) 경유, `CHEAPSUB_API_KEY` 필요(`.env`, 없으면 이 기능만 비활성화). 대시보드 `/detail-page-builder`의 "🤖 브리프 초안 생성" 버튼이 호출. 로컬 전용(NAS Dockerfile엔 `anthropic` 패키지 없음, 지연 import로 방어) |
+| `brief_generator.py` | Claude(claude-sonnet-5)로 상세페이지 브리프(태그라인/Why 3카드/Design/Tech Specs) 초안을 생성. CheapSub 중계 API(`https://api.cheapsub.im`, Anthropic Messages API 호환) 경유, `CHEAPSUB_API_KEY` 필요(`.env`, 없으면 이 기능만 비활성화). 대시보드 `/detail-page-builder`의 "🤖 브리프 초안 생성" 버튼이 호출. **my.tbd.kr에도 배포됨** — NAS `Dockerfile`에 `anthropic` 패키지 추가(재빌드 필요) + NAS `.env`에 `CHEAPSUB_API_KEY` 설정 완료 |
 | `update_categories.py` | 기등록 상품의 카테고리를 더 적합한 카테고리로 일괄 변경 |
 | `update_product_names_with_keywords.py` | 기등록 상품명에 검색 키워드 일괄 추가 |
 | `run_pipeline.py` | main.py → sync_naver_ids_to_nocodb.py → update_price_stock.py 순차 실행 |
@@ -56,7 +56,7 @@
 
 ## 3. 현재 상태
 
-알려진 미해결 버그나 진행 중인 작업 없음. 세부 경위는 `HISTORY.md` 참고 (항목 42~60).
+알려진 미해결 버그나 진행 중인 작업 없음. 세부 경위는 `HISTORY.md` 참고 (항목 42~61).
 
 - **코드 리뷰 기반 수정 완료**: `CODE_REVIEW.md`(ChatGPT 검토, 2026-08-02)를 실제 코드와 대조 검증 후 우선순위를 다시 매겨 전부 대응함:
   - P0 대시보드 로그인 인증 (아래 항목 참고), P1 NocoDB 갱신 실패 전파+Price History 순서, Sync 취소 후 세대(generation) 기반 레이스 방지, 주문 "최근 7일" 하루 단위 분할 조회 — 커밋 완료.
@@ -80,7 +80,7 @@
   - **GL.iNet 최초 상세페이지 제작 완료**: Slate 7(GL-BE3600), `GLiNET Supply - Slate 7.dc.html`. 스펙은 NocoDB에 없어서(크롤링 설명은 미리보기용, 저장 안 됨) 공식 문서/리뷰를 재조사해서 채움.
   - **PNG Export는 로컬 Mac 전용**: NAS Docker 이미지엔 Playwright가 설치돼 있지 않음(`requirements.txt`엔 있지만 `Dockerfile`은 별도 `pip install` 목록을 씀 — 둘이 안 맞음, 알아두기). `.dc.html` 생성·브리프 저장까지는 my.tbd.kr에서도 정상 동작(Synology Drive 동기화 폴더가 `TBD_SEOUL_ROOT`로 이미 잡혀있어서)하지만, "PNG로 Export" 버튼은 NAS에서 누르면 `ModuleNotFoundError`로 실패함(에러 알림만 뜨고 대시보드는 안 죽음 — `_load_bdp()` lazy import 패턴 덕분). 실제 PNG export는 로컬 Mac에서 돌릴 것.
   - `register.py`의 `_run_script()`가 구 계정 절대경로(`/Users/cheil/Desktop/dev/tbd`)를 cwd로 하드코딩하고 있던 버그도 이때 같이 고침(`os.path.abspath(__file__)` 기반으로 상대 계산) — "🛠️ 등록 파이프라인" 버튼들이 `jay` 계정 맥에서 실패하던 원인.
-  - **Claude로 브리프 초안 자동 생성 추가**: 지금까지 태그라인/Why 3카드/Design/Tech Specs를 전부 사람이 타이핑해야 했던 걸, `brief_generator.py`(Claude claude-sonnet-5, CheapSub 중계 API 경유)로 초안을 만들고 폼에 자동으로 채우도록 확장함. `/detail-page-builder`에 "🤖 브리프 초안 생성" 섹션 추가 - 공홈 URL을 넣으면 `official_scrapers.fetch_product()`로 설명/스펙을 가져와 참고자료 칸에 채우고(직접 붙여넣기도 가능), 생성 버튼을 누르면 실제 라이브 브리프(`Product Pages_html/briefs/*.json`)를 few-shot 예시로 프롬프트에 포함시켜 같은 톤으로 초안을 만든다. Claude tool_choice로 스키마를 강제해 파싱 실패 위험 없앰. 생성 결과는 항상 초안일 뿐 - 저장/업로드 전에 사람이 검토·수정하는 흐름은 그대로 유지(다른 자동화들과 동일 철학). U6 Pro로 실제 크롤링→생성까지 전체 흐름 검증 완료. `anthropic` 패키지는 `requirements.txt`엔 추가했지만 NAS `Dockerfile`엔 의도적으로 추가 안 함(로컬 전용 기능이라 - PNG export와 동일한 이유).
+  - **Claude로 브리프 초안 자동 생성 추가 (my.tbd.kr 배포 완료)**: 지금까지 태그라인/Why 3카드/Design/Tech Specs를 전부 사람이 타이핑해야 했던 걸, `brief_generator.py`(Claude claude-sonnet-5, CheapSub 중계 API 경유)로 초안을 만들고 폼에 자동으로 채우도록 확장함. `/detail-page-builder`에 "🤖 브리프 초안 생성" 섹션 추가 - 공홈 URL을 넣으면 `official_scrapers.fetch_product()`로 설명/스펙을 가져와 참고자료 칸에 채우고(직접 붙여넣기도 가능), 생성 버튼을 누르면 실제 라이브 브리프(`Product Pages_html/briefs/*.json`)를 few-shot 예시로 프롬프트에 포함시켜 같은 톤으로 초안을 만든다. Claude tool_choice로 스키마를 강제해 파싱 실패 위험 없앰. 생성 결과는 항상 초안일 뿐 - 저장/업로드 전에 사람이 검토·수정하는 흐름은 그대로 유지(다른 자동화들과 동일 철학). 처음엔 PNG export처럼 로컬 전용으로 두려 했으나, 사용자가 my.tbd.kr에서도 쓰길 원해 NAS Dockerfile에 `anthropic` 추가 + 이미지 재빌드(`docker-compose up -d --build`) + NAS `.env`에 `CHEAPSUB_API_KEY` 추가로 실제 배포함. 배포 중 `config.py`를 NAS에 올리는 걸 빠뜨려서 `CHEAPSUB_API_KEY` 속성이 없어 조용히 실패하는 문제가 있었음 - 재배포로 해결. U6 Pro/U6 Mesh로 로컬과 my.tbd.kr 양쪽에서 실제 크롤링→생성 전체 흐름 검증 완료.
 
 **현재 수치**:
 - 네이버 스마트스토어 등록 상품: **100개**
@@ -212,7 +212,7 @@ python3 update_product_names_with_keywords.py                        # 전체 �
 
 ```bash
 # 파일 업로드 (sshpass 필수)
-sshpass -p 'JJ2120jj!!' scp -O -o StrictHostKeyChecking=no sync_engine.py config.py nocodb_client.py naver_config.py image_uploader.py product_slug_map.json jay@192.168.50.245:/volume1/docker/nicegui/
+sshpass -p 'JJ2120jj!!' scp -O -o StrictHostKeyChecking=no sync_engine.py config.py nocodb_client.py naver_config.py image_uploader.py brief_generator.py product_slug_map.json jay@192.168.50.245:/volume1/docker/nicegui/
 sshpass -p 'JJ2120jj!!' scp -O -o StrictHostKeyChecking=no -r dashboard official_scrapers product_pages jay@192.168.50.245:/volume1/docker/nicegui/
 sshpass -p 'JJ2120jj!!' scp -O -o StrictHostKeyChecking=no retailer_search.py jay@192.168.50.245:/volume1/docker/nicegui/
 # Dockerfile이 바뀌었다면 NAS 루트(중첩 아님)에 별도 업로드
