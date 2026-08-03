@@ -264,23 +264,34 @@ def orders_page() -> None:
 
                 windows = of.date_range_windows(from_date, to_date)
 
-                order_lists: list[list[dict]] = []
-                failed_days: list[str] = []
-                for i, (from_dt, to_dt) in enumerate(windows):
-                    if i > 0:
-                        # 네이버 주문 API가 초당 호출 수 제한이 있어(30일 범위 연속
-                        # 조회 중 429 Too Many Requests가 실제로 관측됨) 호출 사이에
-                        # 짧게 텀을 둔다 - get_product_orders 자체의 429 재시도와
-                        # 함께 써야 넓은 기간에서도 안정적으로 전부 조회된다.
-                        await asyncio.sleep(0.8)
-                    try:
-                        data = await run.io_bound(
+                # 날짜창(하루 단위)을 하나씩 순서대로 호출 + 0.8초 텀을 두던 방식은
+                # 30일 기본 범위 기준 30번의 왕복 + 29 * 0.8초 = 20초 이상이 그냥
+                # 대기시간으로 날아가 로딩이 느린 가장 큰 원인이었다(수령인정보/ACE
+                # 조회를 캐싱·병렬화해도 이 단계가 여전히 병목이었음). 세마포어로
+                # 동시 호출 수를 3개로 제한해 병렬 조회하되, 완전 무제한 동시요청은
+                # 피한다 - 예전에 텀 없이 31개를 한꺼번에 쏴서 429가 대량 발생한 적이
+                # 있어(HISTORY 81) 그 재현을 막기 위한 최소한의 안전장치. 개별 호출의
+                # 지수 백오프 재시도(get_product_orders 자체 내장)가 남은 429를 흡수한다.
+                _window_sem = asyncio.Semaphore(3)
+
+                async def _fetch_window(from_dt, to_dt):
+                    async with _window_sem:
+                        return await run.io_bound(
                             lambda f=from_dt, t=to_dt: naver_order_api.get_product_orders(f, t)
                         )
-                        order_lists.append(data.get("content", []))
-                    except Exception as e:  # noqa: BLE001
-                        print(f"주문 조회 실패 ({from_dt.strftime('%m/%d')}): {e}")
+
+                window_results = await asyncio.gather(
+                    *(_fetch_window(f, t) for f, t in windows), return_exceptions=True
+                )
+
+                order_lists: list[list[dict]] = []
+                failed_days: list[str] = []
+                for (from_dt, to_dt), result in zip(windows, window_results):
+                    if isinstance(result, Exception):
+                        print(f"주문 조회 실패 ({from_dt.strftime('%m/%d')}): {result}")
                         failed_days.append(from_dt.strftime("%m/%d"))
+                    else:
+                        order_lists.append(result.get("content", []))
 
                 orders = list(of.merge_orders_by_id(order_lists).values())
 
