@@ -1,7 +1,12 @@
-"""스마트스토어 관리 페이지 (/smartstore) - 네이버 등록 상품 상세 관리."""
+"""스마트스토어 관리 페이지 (/smartstore) - 네이버 등록 상품 상세 관리 +
+등록 파이프라인(원래 /register 페이지 하단에 있었으나, 등록 전 크롤링/검색과
+등록 후 운영 작업을 분리하기 위해 이 페이지 상단으로 옮김)."""
 from __future__ import annotations
 
 import asyncio
+import os
+import sys
+import threading
 
 from nicegui import ui
 
@@ -12,9 +17,25 @@ from sync_engine import (
 )
 from dashboard import components, layout
 
+# 등록 파이프라인(main.py/run_pipeline.py/update_price_stock.py/
+# fix_delivery_settings.py) 버튼들의 동시 실행 방지용 프로세스 전역 락.
+# 실행 중 재클릭하거나 여러 브라우저 탭에서 동시에 눌러도 상품 중복 등록이나
+# 가격/배송 설정 갱신이 겹치지 않도록, sync_engine._sync_lock과 동일한
+# 패턴(non-blocking acquire + 전역 상태)을 여기서도 사용한다.
+_pipeline_lock = threading.Lock()
+_pipeline_status = {"running": False, "script": None}
+
+
+def is_pipeline_running() -> bool:
+  return _pipeline_status["running"]
+
+
+def get_pipeline_script():
+  return _pipeline_status["script"]
+
 
 async def _confirm(message: str) -> bool:
-  """예/아니오 확인 다이얼로그 (register.py의 등록 파이프라인과 동일한 패턴)."""
+  """예/아니오 확인 다이얼로그."""
   with ui.dialog() as dialog, ui.card():
     ui.label(message)
     with ui.row().classes("w-full justify-end gap-2 mt-2"):
@@ -27,6 +48,131 @@ async def _confirm(message: str) -> bool:
 def smartstore_page() -> None:
   with layout.frame(active_path="/smartstore"):
     components.topbar("스마트스토어 관리")
+
+    # ------------------------------------------------------------------
+    # 🛠️ 등록 파이프라인
+    # ------------------------------------------------------------------
+    ui.label("🛠️ 등록 파이프라인").classes("text-lg font-semibold mb-2")
+    ui.label(
+        "엑셀 템플릿 기반 등록 및 운영 도구입니다. 모든 작업은 실제 네이버 API를 호출하니 신중히 사용하세요."
+    ).classes("text-sm text-tbd-text-secondary mb-4")
+
+    with ui.row().classes("w-full gap-4 items-end mb-4"):
+      pipeline_dry_run = ui.checkbox("Dry-run (미리보기만)", value=True)
+      pipeline_limit = ui.number("Limit (빈칸 = 전체)", min=0, step=1, precision=0).classes("w-40")
+
+    with ui.row().classes("w-full items-center gap-2 mb-2").style("display:none") as pipeline_status_row:
+      ui.spinner(size="sm")
+      pipeline_status_label = ui.label("실행 중...").classes("text-xs flex-1")
+
+    with ui.row().classes("w-full gap-3 mb-4"):
+      btn_main = ui.button("상품 등록 (main.py)").props("outline")
+      btn_pipeline = ui.button("전체 파이프라인").props("outline")
+      btn_price = ui.button("가격/재고 갱신").props("outline")
+      btn_delivery = ui.button("배송 설정 수정").props("outline")
+
+    _pipeline_buttons = [btn_main, btn_pipeline, btn_price, btn_delivery]
+
+    pipeline_log = ui.log(max_lines=200).classes("w-full h-64")
+
+    async def _run_script(script_name: str, extra_args: list = None):
+      """스크립트 실행 헬퍼 - 백그라운드에서 subprocess 실행하고 로그 스트리밍.
+      프로세스 전역 락으로 재클릭/다중 탭 동시 실행을 막는다."""
+      if not _pipeline_lock.acquire(blocking=False):
+        ui.notify(
+            f"이미 다른 작업({_pipeline_status['script']})이 실행 중입니다 - 끝난 뒤 다시 시도해주세요.",
+            type="warning",
+        )
+        return
+
+      _pipeline_status["running"] = True
+      _pipeline_status["script"] = script_name
+      try:
+        extra_args = extra_args or []
+        cmd = [sys.executable, f"{script_name}.py"]
+
+        if pipeline_dry_run.value:
+          cmd.append("--dry-run")
+
+        if pipeline_limit.value and pipeline_limit.value > 0:
+          cmd += ["--limit", str(int(pipeline_limit.value))]
+
+        cmd += extra_args
+
+        pipeline_log.clear()
+        pipeline_log.push(f"실행 중: {' '.join(cmd)}\n")
+        pipeline_log.push("=" * 60 + "\n")
+
+        try:
+          process = await asyncio.create_subprocess_exec(
+              *cmd,
+              stdout=asyncio.subprocess.PIPE,
+              stderr=asyncio.subprocess.STDOUT,
+              cwd=os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+          )
+
+          while True:
+            line = await process.stdout.readline()
+            if not line:
+              break
+            pipeline_log.push(line.decode('utf-8', errors='replace'))
+
+          await process.wait()
+
+          if process.returncode == 0:
+            pipeline_log.push("\n✅ 완료\n")
+            ui.notify("스크립트 실행 완료", type="positive")
+          else:
+            pipeline_log.push(f"\n⚠️ 종료 코드: {process.returncode}\n")
+            ui.notify(f"스크립트가 코드 {process.returncode}로 종료됨", type="warning")
+        except Exception as e:
+          pipeline_log.push(f"\n❌ 실행 실패: {e}\n")
+          ui.notify(f"실행 실패: {e}", type="negative")
+      finally:
+        _pipeline_status["running"] = False
+        _pipeline_status["script"] = None
+        _pipeline_lock.release()
+
+    async def _on_main():
+      # dry-run은 미리보기일 뿐 실제 API를 호출하지 않으니 확인 없이 바로 실행
+      if not pipeline_dry_run.value and not await _confirm("실제 네이버 API를 호출합니다. 계속하시겠습니까?"):
+        return
+      await _run_script("main")
+
+    async def _on_pipeline():
+      if not pipeline_dry_run.value and not await _confirm("전체 파이프라인을 실행합니다. 계속하시겠습니까?"):
+        return
+      await _run_script("run_pipeline")
+
+    async def _on_price():
+      if not pipeline_dry_run.value and not await _confirm("가격/재고 갱신을 실행합니다. 계속하시겠습니까?"):
+        return
+      await _run_script("update_price_stock")
+
+    async def _on_delivery():
+      if not pipeline_dry_run.value and not await _confirm("배송 설정을 수정합니다. 계속하시겠습니까?"):
+        return
+      await _run_script("fix_delivery_settings")
+
+    btn_main.on_click(_on_main)
+    btn_pipeline.on_click(_on_pipeline)
+    btn_price.on_click(_on_price)
+    btn_delivery.on_click(_on_delivery)
+
+    def _poll_pipeline_status():
+      running = is_pipeline_running()
+      pipeline_status_row.style(f"display:{'flex' if running else 'none'}")
+      if running:
+        pipeline_status_label.set_text(f"{get_pipeline_script()}.py 실행 중...")
+        for btn in _pipeline_buttons:
+          btn.disable()
+      else:
+        for btn in _pipeline_buttons:
+          btn.enable()
+
+    ui.timer(1.0, _poll_pipeline_status)
+
+    ui.separator().classes("my-8")
 
     ui.label("네이버 스마트스토어에 등록된 상품 목록").classes("text-lg font-bold mb-1")
     ui.label("판매 상태별 필터링 및 상품 정보를 확인할 수 있어요.").classes(
